@@ -24,7 +24,8 @@
     "max_chunks": 7,
     "max_full_sources": 2,
     "max_related_per_source": 3,
-    "max_context_tokens": 20000
+    "max_context_tokens": 20000,
+    "default_temperature": 0.5
   },
   "database": {
     "sqlite_path": "db_metadata.db",

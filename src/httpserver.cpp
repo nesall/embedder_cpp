@@ -285,7 +285,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       if (role != "user") {
         throw std::invalid_argument("Last message role must be 'user', got: " + role);
       }
-      const float temperature = request.value("temperature", 0.5f);
+      const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
       std::string question = messagesJson.back()["content"].get<std::string>();
 
       auto attachmentsJson = request["attachments"];
