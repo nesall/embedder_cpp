@@ -108,7 +108,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       std::string query = request["query"].get<std::string>();
       size_t top_k = request.value("top_k", 5);
       std::vector<float> queryEmbedding;
-      imp->app_.embeddingClient().generateEmbeddings({ query }, queryEmbedding);
+      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ query }, queryEmbedding);
 
       auto results = imp->app_.db().search(queryEmbedding, top_k);
 
@@ -142,7 +142,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       std::string text = request["text"].get<std::string>();
 
       std::vector<float> embedding;
-      imp->app_.embeddingClient().generateEmbeddings({ text }, embedding);
+      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ text }, embedding);
 
       json response = {
           {"embedding", embedding},
@@ -171,7 +171,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       size_t inserted = 0;
       for (const auto &chunk : chunks) {
         std::vector<float> embedding;
-        imp->app_.embeddingClient().generateEmbeddings({ chunk.text }, embedding);
+        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ chunk.text }, embedding);
         imp->app_.db().addDocument(chunk, embedding);
         inserted++;
       }
@@ -255,7 +255,6 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       // format for messages field in request
       /*
       {
-        "temperature": 0.2,
         "messages": [
           {"role": "system", "content": "Keep it short."},
           {"role": "user", "content": "What is the capital of France?"}
@@ -266,7 +265,9 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         "attachments": [
           { "filename": "filename1.cpp", "content": "..text file content 1.."},
           { "filename": "filename2.cpp", "content": "..text file content 2.."},
-        ]
+        ],
+        "temperature": 0.2,
+        "targetapi": "xai"
       }  
       */
       json request = json::parse(req.body);
@@ -314,7 +315,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       const auto questionChunks = imp->app_.chunker().chunkText(question, "", false);
       for (const auto &qc : questionChunks) {
         std::vector<float> embedding;
-        imp->app_.embeddingClient().generateEmbeddings({ qc.text }, embedding);
+        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ qc.text }, embedding);
         auto res = imp->app_.db().search(embedding, imp->app_.settings().embeddingTopK());
         filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
         for (const auto &r : res) {
@@ -403,16 +404,27 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         orderedResults.resize(imp->app_.settings().generationMaxChunks());
       }
 
+      ApiConfig apiConfig = imp->app_.settings().generationCurrentApi();
+      if (request.contains("targetapi")) {
+        std::string targetApi = request["targetapi"];
+        auto apis = imp->app_.settings().generationApis();
+        auto it = std::find_if(apis.begin(), apis.end(), [&targetApi](const ApiConfig &a) { return a.id == targetApi; });
+        if (it != apis.end()) {
+          apiConfig = *it;
+        }
+      }
+
       res.set_header("Content-Type", "text/event-stream");
       res.set_header("Cache-Control", "no-cache");
       res.set_header("Connection", "keep-alive");
 
       res.set_chunked_content_provider(
         "text/event-stream",
-        [this, messagesJson, orderedResults, temperature](size_t offset, httplib::DataSink &sink) {
-          //std::cout << "set_chunked_content_provider: in callback ...\n";
+        [this, messagesJson, orderedResults, temperature, apiConfig](size_t offset, httplib::DataSink &sink) {
+          std::cout << "set_chunked_content_provider: in callback ...\n";
+          CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
-            std::string context = imp->app_.completionClient().generateCompletion(
+            std::string context = completionClient.generateCompletion(
               messagesJson, orderedResults, temperature,
               [&sink](const std::string &chunk) {
 #ifdef _DEBUG
@@ -457,19 +469,20 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       try {
         std::cout << "GET /api/settings\n";
         nlohmann::json apisJson;
+        const auto &cur = imp->app_.settings().generationCurrentApi();
         const auto &apis = imp->app_.settings().generationApis();
         for (const auto &api : apis) {
           nlohmann::json apiObj;
           apiObj["id"] = api.id;
           apiObj["name"] = api.name;
-          apiObj["apiUrl"] = api.apiUrl;
+          apiObj["url"] = api.apiUrl;
           apiObj["model"] = api.model;
-          apiObj["current"] = (api.id == imp->app_.settings().generationCurrentApi().id);
+          apiObj["current"] = (api.id == cur.id);
           apisJson.push_back(apiObj);
         }
         nlohmann::json responseJson;
-        responseJson["completion_apis"] = apisJson;
-        responseJson["current_api"] = imp->app_.settings().generationCurrentApi().id;
+        responseJson["completionApis"] = apisJson;
+        responseJson["currentApi"] = cur.id;
         res.status = 200;
         res.set_content(responseJson.dump(2), "application/json");
       } catch (const std::exception &e) {

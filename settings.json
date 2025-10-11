@@ -21,11 +21,11 @@
   "generation": {
     "apis": [
       {
-        "id": "local",
-        "name": "Local Server",
-        "api_url": "http://localhost/v1/chat/completions",
+        "id": "local-qwen",
+        "name": "Local Qwen2.5 1.5b",
+        "api_url": "http://127.0.0.1:8585/v1/chat/completions",
         "api_key": "",
-        "model": ""
+        "model": "qwen2.5-coder-1.5b"
       },
       {
         "id": "xai",
@@ -49,7 +49,7 @@
         "model": "gpt-4o-mini"
       }
     ],
-    "current_api": "xai",
+    "current_api": "local-qwen",
     "timeout_ms": 60000,
     "max_chunks": 7,
     "max_full_sources": 2,

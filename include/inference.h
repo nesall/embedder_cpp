@@ -1,33 +1,35 @@
 #pragma once
 
-#include "settings.h"
 #include <vector>
 #include <string>
+#include <memory>
 #include <functional>
 #include <nlohmann/json.hpp>
 
 
 class App;
 struct SearchResult;
+struct ApiConfig;
+
 
 class InferenceClient {
 public:
-  InferenceClient(const Settings::ApiConfig &apiCfg, size_t timeout);
-  virtual ~InferenceClient() = default;
+  InferenceClient(const ApiConfig &cfg, size_t timeout);
+  virtual ~InferenceClient();
 
 protected:
-  Settings::ApiConfig apiCfg_;
-  std::string host_;
-  std::string path_;
-  size_t timeoutMs_;
-  int port_ = 0;
+  struct Impl;
+  std::unique_ptr<Impl> imp;
 
-  void parseUrl();
+  const ApiConfig &cfg() const;
+  std::string path() const;
+  std::string schemaHostPort() const;
+  size_t timeoutMs() const;
 };
 
 class EmbeddingClient : public InferenceClient {
 public:
-  EmbeddingClient(const Settings &settings);
+  EmbeddingClient(const ApiConfig &cfg, size_t timeout);
   void generateEmbeddings(const std::vector<std::string> &texts, std::vector<float> &embedding) const;
   std::vector<std::vector<float>> generateBatchEmbeddings(const std::vector<std::string> &texts) const;
 
@@ -39,7 +41,7 @@ class CompletionClient : public InferenceClient {
   const App &app_;
   const size_t maxContextTokens_;
 public:
-  CompletionClient(const App &app);
+  CompletionClient(const ApiConfig &cfg, size_t timeout, const App &a);
   std::string generateCompletion(
     const nlohmann::json &messages, 
     const std::vector<SearchResult> &searchRes, 

@@ -249,8 +249,6 @@ namespace {
 struct App::Impl {
   std::unique_ptr<Settings> settings_;
   std::unique_ptr<VectorDatabase> db_;
-  std::unique_ptr<EmbeddingClient> embeddingClient_;
-  std::unique_ptr<CompletionClient> completionClient_;
   std::unique_ptr<SimpleTokenCounter> tokenizer_;
   std::unique_ptr<Chunker> chunker_;
   std::unique_ptr<SourceProcessor> processor_;
@@ -280,9 +278,6 @@ void App::initialize()
 
   imp->db_ = std::make_unique<HnswSqliteVectorDatabase>(dbPath, indexPath, vectorDim, maxElements, metric);
 
-  imp->embeddingClient_ = std::make_unique<EmbeddingClient>(ss);
-  imp->completionClient_ = std::make_unique<CompletionClient>(*this);
-
   imp->tokenizer_ = std::make_unique<SimpleTokenCounter>(ss.tokenizerConfigPath());
 
   size_t minTokens = ss.chunkingMinTokens();
@@ -303,6 +298,7 @@ void App::embed()
   size_t totalChunks = 0;
   size_t totalFiles = 0;
   size_t totalTokens = 0;
+  EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   for (size_t i = 0; i < sources.size(); ++i) {
     const auto &[text, source] = sources[i];
     try {
@@ -319,7 +315,7 @@ void App::embed()
         for (const auto &chunk : batch) {
           std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << batch.size() << "\r" << std::flush;
           std::vector<float> emb;
-          imp->embeddingClient_->generateEmbeddings({ chunk.text }, emb);
+          embeddingClient.generateEmbeddings({ chunk.text }, emb);
           embeddings.push_back(emb);
           totalTokens += chunk.metadata.tokenCount;
         }
@@ -352,8 +348,9 @@ void App::search(const std::string &query, size_t topK)
 {
   std::cout << "Searching for: " << query << std::endl;
 
+  EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   std::vector<float> queryEmbedding;
-  imp->embeddingClient_->generateEmbeddings({ query }, queryEmbedding);
+  embeddingClient.generateEmbeddings({ query }, queryEmbedding);
   auto results = imp->db_->search(queryEmbedding, topK);
 
   std::cout << "\nFound " << results.size() << " results:" << std::endl;
@@ -410,6 +407,9 @@ void App::chat()
   std::cout << "Using model: " << apiCfg.model << " at " << apiCfg.apiUrl << std::endl;
   std::vector<json> messages;
   messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+  EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
+  CompletionClient completionClient{ apiCfg, settings().generationTimeoutMs(), *this };
+
   while (true) {
     try {
       std::cout << "\nYou: ";
@@ -419,10 +419,10 @@ void App::chat()
       messages.push_back({ {"role", "user"}, {"content", userInput} });
       // Generate embedding for the user input
       std::vector<float> queryEmbedding;
-      imp->embeddingClient_->generateEmbeddings({ userInput }, queryEmbedding);
+      embeddingClient.generateEmbeddings({ userInput }, queryEmbedding);
       auto searchResults = imp->db_->search(queryEmbedding, 5);
       std::cout << "\nAssistant: " << std::flush;
-      std::string assistantResponse = imp->completionClient_->generateCompletion(
+      std::string assistantResponse = completionClient.generateCompletion(
         messages, searchResults, 0.0f,
         [](const std::string &chunk) {
           std::cout << chunk << std::flush;
@@ -457,7 +457,8 @@ size_t App::update()
     return 0;
   }
   std::cout << "\nApplying updates..." << std::endl;
-  size_t updated = imp->updater_->updateDatabase(*imp->embeddingClient_, *imp->chunker_, info);
+  EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
+  size_t updated = imp->updater_->updateDatabase(embeddingClient, *imp->chunker_, info);
   std::cout << "\nUpdate completed! " << updated << " files processed." << std::endl;
   return updated;
 }
@@ -508,15 +509,15 @@ VectorDatabase &App::db()
   return *imp->db_;
 }
 
-const EmbeddingClient &App::embeddingClient() const
-{
-  return *imp->embeddingClient_;
-}
-
-const CompletionClient &App::completionClient() const
-{
-  return *imp->completionClient_;
-}
+//const EmbeddingClient &App::embeddingClient() const
+//{
+//  return *imp->embeddingClient_;
+//}
+//
+//const CompletionClient &App::completionClient() const
+//{
+//  return *imp->completionClient_;
+//}
 
 void App::printUsage()
 {

@@ -8,14 +8,18 @@
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 
-InferenceClient::InferenceClient(const Settings::ApiConfig &cfg, size_t timeout)
-  : apiCfg_(cfg)
-  , timeoutMs_(timeout)
-{
-  parseUrl();
-}
 
-void InferenceClient::parseUrl()
+struct InferenceClient::Impl {
+  ApiConfig apiCfg_;
+  std::string schemaHostPort_;
+  std::string path_;
+  size_t timeoutMs_;
+  //int port_ = 0;
+
+  void parseUrl();
+};
+
+void InferenceClient::Impl::parseUrl()
 {
   const auto &url = apiCfg_.apiUrl;
   size_t protocolEnd = url.find("://");
@@ -23,25 +27,48 @@ void InferenceClient::parseUrl()
     throw std::runtime_error("Invalid server URL format");
   }
   size_t hostStart = protocolEnd + 3;
-  size_t port_start = url.find(":", hostStart);
-  size_t path_start = url.find("/", hostStart);
-  if (port_start != std::string::npos && port_start < path_start) {
-    host_ = url.substr(hostStart, port_start - hostStart);
-    port_ = std::stoi(url.substr(port_start + 1, path_start - port_start - 1));
-  } else {
-    host_ = url.substr(hostStart, path_start - hostStart);
-    port_ = url.starts_with("https:") ? 443 : 80;
-  }
-
-  path_ = url.substr(path_start);
+  size_t portStart = url.find(":", hostStart);
+  size_t pathStart = url.find("/", hostStart);
+  schemaHostPort_ = url.substr(0, pathStart);
+  path_ = url.substr(pathStart);
 }
 
+InferenceClient::InferenceClient(const ApiConfig &cfg, size_t timeout) : imp(new Impl)
+{
+  imp->apiCfg_ = cfg;
+  imp->timeoutMs_ = timeout;
+  imp->parseUrl();
+}
+
+InferenceClient::~InferenceClient()
+{
+}
+
+const ApiConfig &InferenceClient::cfg() const
+{
+  return imp->apiCfg_;
+}
+
+std::string InferenceClient::path() const
+{
+  return imp->path_;
+}
+
+std::string InferenceClient::schemaHostPort() const
+{
+  return imp->schemaHostPort_;
+}
+
+size_t InferenceClient::timeoutMs() const
+{
+  return imp->timeoutMs_;
+}
 
 //---------------------------------------------------------------------------
 
 
-EmbeddingClient::EmbeddingClient(const Settings &ss)
-  : InferenceClient(ss.embeddingCurrentApi(), ss.embeddingTimeoutMs())
+EmbeddingClient::EmbeddingClient(const ApiConfig &cfg, size_t timeout)
+  : InferenceClient(cfg, timeout)
 {
 }
 
@@ -49,9 +76,9 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
 {
   embedding.reserve(1024);
   try {
-    httplib::Client client(host_, port_);
-    client.set_connection_timeout(0, timeoutMs_ * 1000);
-    client.set_read_timeout(timeoutMs_ / 1000, (timeoutMs_ % 1000) * 1000);
+    httplib::Client client(schemaHostPort());
+    client.set_connection_timeout(0, timeoutMs()* 1000);
+    client.set_read_timeout(timeoutMs() / 1000, (timeoutMs() % 1000) * 1000);
 
     nlohmann::json requestBody;
     requestBody["content"] = texts;
@@ -59,9 +86,9 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
 
     httplib::Headers headers = {
       {"Content-Type", "application/json"},
-      {"Authorization", "Bearer " + apiCfg_.apiKey}
+      {"Authorization", "Bearer " + cfg().apiKey}
     };
-    auto res = client.Post(path_.c_str(), headers, bodyStr, "application/json");
+    auto res = client.Post(path().c_str(), headers, bodyStr, "application/json");
     if (!res) {
       throw std::runtime_error("Failed to connect to embedding server");
     }
@@ -135,8 +162,8 @@ namespace {
   )" };
 } // anonymous namespace
 
-CompletionClient::CompletionClient(const App &a)
-  : InferenceClient(a.settings().generationCurrentApi(), a.settings().generationTimeoutMs())
+CompletionClient::CompletionClient(const ApiConfig &cfg, size_t timeout, const App &a)
+  : InferenceClient(cfg, timeout)
   , app_(a)
   , maxContextTokens_(a.settings().generationMaxContextTokens())
 {
@@ -148,16 +175,14 @@ std::string CompletionClient::generateCompletion(
   float temperature,
   std::function<void(const std::string &)> onStream) const
 {
-#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-  httplib::SSLClient client(host_, port_);  
-#else 
-  if (apiCfg_.apiUrl.starts_with("https://")) {
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+  if (schemaHostPort().starts_with("https://")) {
     throw std::runtime_error("HTTPS not supported in this build");
   }
-  httplib::Client client(host_, port_);
 #endif
-  client.set_connection_timeout(0, timeoutMs_ * 1000);
-  client.set_read_timeout(timeoutMs_ / 1000, (timeoutMs_ % 1000) * 1000);
+  httplib::Client client(schemaHostPort());
+  client.set_connection_timeout(0, timeoutMs() * 1000);
+  client.set_read_timeout(timeoutMs() / 1000, (timeoutMs() % 1000) * 1000);
 
   /*
   * Json Request body format.
@@ -172,8 +197,6 @@ std::string CompletionClient::generateCompletion(
   */
 
   size_t nofTokens = app_.tokenizer().countTokensWithVocab(_queryTemplate);
-
-  std::string question = messagesJson.back()["content"].get<std::string>();
 
   std::string context;
   for (const auto &r : searchRes) {
@@ -200,6 +223,7 @@ std::string CompletionClient::generateCompletion(
   
   pos = prompt.find("__QUESTION__");
   assert(pos != std::string::npos);
+  std::string question = messagesJson.back()["content"].get<std::string>();
   prompt.replace(pos, std::string("__QUESTION__").length(), question);  
 
   // Assign propmt to the last messagesJson's content field
@@ -209,21 +233,21 @@ std::string CompletionClient::generateCompletion(
   //std::cout << "Full context: " << modifiedMessages.dump() << "\n";
 
   nlohmann::json requestBody;
-  requestBody["model"] = apiCfg_.model;
+  requestBody["model"] = cfg().model;
   requestBody["messages"] = modifiedMessages;
   requestBody["temperature"] = temperature;
   requestBody["stream"] = true;
 
   httplib::Headers headers = {
     {"Accept", "text/event-stream"},
-    {"Authorization", "Bearer " + apiCfg_.apiKey}
+    {"Authorization", "Bearer " + cfg().apiKey}
   };
 
   std::string fullResponse;
   std::string buffer; // holds leftover partial data
 
   auto res = client.Post(
-    path_.c_str(),
+    path().c_str(),
     headers,
     requestBody.dump(),
     "application/json",
@@ -248,7 +272,7 @@ std::string CompletionClient::generateCompletion(
                 std::string content;
                 if (!choice["delta"]["content"].is_null())
                   content = choice["delta"]["content"];
-                else if (!choice["delta"]["reasoning_content"].is_null())
+                else if (choice["delta"].contains("reasoning_content") && !choice["delta"]["reasoning_content"].is_null())
                   content = choice["delta"]["reasoning_content"];
                 fullResponse += content;
                 if (onStream) {

@@ -15,12 +15,12 @@ namespace {
     return var;
   }
 
-  std::vector<Settings::ApiConfig> getApiConfigList(const nlohmann::json &section) {
-    std::vector<Settings::ApiConfig> v;
+  std::vector<ApiConfig> getApiConfigList(const nlohmann::json &section) {
+    std::vector<ApiConfig> v;
     if (!section.contains("apis") || !section["apis"].is_array()) return v;
     for (const auto &item : section["apis"]) {
       if (!item.is_object()) continue;
-      Settings::ApiConfig cfg;
+      ApiConfig cfg;
       cfg.id = item.value("id", "");
       cfg.name = item.value("name", "");
       cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
@@ -31,8 +31,8 @@ namespace {
     return v;
   }
 
-  Settings::ApiConfig getCurrentApiConfig(const nlohmann::json &section) {
-    Settings::ApiConfig cfg;
+  ApiConfig getCurrentApiConfig(const nlohmann::json &section) {
+    ApiConfig cfg;
     if (!section.is_object()) return cfg;
     std::string current = section.value("current_api", "");
     if (!section.contains("apis") || !section["apis"].is_array()) return cfg;
@@ -45,7 +45,7 @@ namespace {
         cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
         cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
         cfg.model = item.value("model", "");
-        break;
+        return cfg;
       }
     }
     if (!section["apis"].empty()) {
@@ -77,25 +77,25 @@ Settings::Settings(const std::string &path)
   file >> config_;
 }
 
-Settings::ApiConfig Settings::embeddingCurrentApi() const
+ApiConfig Settings::embeddingCurrentApi() const
 {
   if (!config_.contains("embedding")) return {};
   return getCurrentApiConfig(config_["embedding"]);
 }
 
-std::vector<Settings::ApiConfig> Settings::embeddingApis() const
+std::vector<ApiConfig> Settings::embeddingApis() const
 {
   if (!config_.contains("embedding")) return {};
   return getApiConfigList(config_["embedding"]);
 }
 
-Settings::ApiConfig Settings::generationCurrentApi() const
+ApiConfig Settings::generationCurrentApi() const
 {
   if (!config_.contains("generation")) return {};
   return getCurrentApiConfig(config_["generation"]);
 }
 
-std::vector<Settings::ApiConfig> Settings::generationApis() const
+std::vector<ApiConfig> Settings::generationApis() const
 {
   if (!config_.contains("generation")) return {};
   return getApiConfigList(config_["generation"]);

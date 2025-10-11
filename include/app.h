@@ -35,8 +35,6 @@ public:
   const Chunker &chunker() const;
   const VectorDatabase &db() const;
   VectorDatabase &db();
-  const EmbeddingClient &embeddingClient() const;
-  const CompletionClient &completionClient() const;
 
 public:
   static void printUsage();

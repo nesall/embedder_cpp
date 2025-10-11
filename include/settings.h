@@ -6,6 +6,13 @@
 #include <map>
 #include "nlohmann/json.hpp"
 
+struct ApiConfig {
+  std::string id;
+  std::string name;
+  std::string apiUrl;
+  std::string apiKey;
+  std::string model;
+};
 
 class Settings {
 private:
@@ -23,14 +30,6 @@ public:
     std::size_t urlTimeoutMs = 10000; // default 10s
   };
 
-  struct ApiConfig {
-    std::string id;
-    std::string name;
-    std::string apiUrl;
-    std::string apiKey;
-    std::string model;
-  };
-
 public:
   Settings(const std::string &path = "settings.json");
 
@@ -43,14 +42,14 @@ public:
   float chunkingOverlap() const { return config_["chunking"].value("overlap_percentage", 0.1f); }
   bool chunkingSemantic() const { return config_["chunking"].value("semantic", false); }
 
-  Settings::ApiConfig embeddingCurrentApi() const;
-  std::vector<Settings::ApiConfig> embeddingApis() const;
+  ApiConfig embeddingCurrentApi() const;
+  std::vector<ApiConfig> embeddingApis() const;
   size_t embeddingTimeoutMs() const { return config_["embedding"].value("timeout_ms", size_t(10'000)); }
   size_t embeddingBatchSize() const { return config_["embedding"].value("batch_size", size_t(16)); }
   size_t embeddingTopK() const { return config_["embedding"].value("top_k", size_t(5)); }
 
-  Settings::ApiConfig generationCurrentApi() const;
-  std::vector<Settings::ApiConfig> generationApis() const;
+  ApiConfig generationCurrentApi() const;
+  std::vector<ApiConfig> generationApis() const;
   size_t generationTimeoutMs() const { return config_["generation"].value("timeout_ms", size_t(20'000)); }
   size_t generationMaxFullSources() const { return config_["generation"].value("max_full_sources", size_t(2)); }
   size_t generationMaxRelatedPerSource() const { return config_["generation"].value("max_related_per_source", size_t(3)); }
