@@ -1,5 +1,6 @@
 #pragma once
 
+#include "settings.h"
 #include <vector>
 #include <string>
 #include <functional>
@@ -7,18 +8,15 @@
 
 
 class App;
-class Settings;
 struct SearchResult;
 
 class InferenceClient {
 public:
-  InferenceClient(const std::string &url, const std::string &apiKey, const std::string &model, size_t timeout);
+  InferenceClient(const Settings::ApiConfig &apiCfg, size_t timeout);
   virtual ~InferenceClient() = default;
 
 protected:
-  std::string serverUrl_;
-  std::string apiKey_;
-  std::string model_;
+  Settings::ApiConfig apiCfg_;
   std::string host_;
   std::string path_;
   size_t timeoutMs_;

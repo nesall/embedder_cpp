@@ -3,24 +3,54 @@
     "config_path": "../../bge_tokenizer.json"
   },
   "embedding": {
-    "api_url": "http://127.0.0.1:8583/embedding",
-    "api_key": "${DEEPSEEK_API_KEY}",
+    "apis": [
+      {
+        "id":  "llamacpp",
+        "name":  "Local Server",
+        "api_url": "http://127.0.0.1:8583/embedding",
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "model": "text-embedding-3-small"
+      }
+    ],
+    "current_api": "llamacpp",
     "batch_size": 32,
     "timeout_ms": 30000,
     "retry_attempts": 3,
-    "top_k":  5,
-    "model": "text-embedding-3-small"
+    "top_k": 5
   },
   "generation": {
-    "api_url": "https://api.x.ai/v1/chat/completions",
-    "api_url_": "https://api.deepseek.com/chat/completions",
-    "api_url_1": "https://api.openai.com/v1/chat/completions",
-    "api_url_2": "http://127.0.0.1:8585/v1/chat/completions",
-    "api_key": "${XAI_API_KEY}",
+    "apis": [
+      {
+        "id": "local",
+        "name": "Local Server",
+        "api_url": "http://localhost/v1/chat/completions",
+        "api_key": "",
+        "model": ""
+      },
+      {
+        "id": "xai",
+        "name": "X AI",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "api_key": "${XAI_API_KEY}",
+        "model": "grok-4-fast-non-reasoning"
+      },
+      {
+        "id": "deepseek",
+        "name": "DeepSeek",
+        "api_url": "https://api.deepseek.com/chat/completions",
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "model": "deepseek-chat"
+      },
+      {
+        "id": "openai",
+        "name": "OpenAI",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "api_key": "${OPENAI_API_KEY}",
+        "model": "gpt-4o-mini"
+      }
+    ],
+    "current_api": "xai",
     "timeout_ms": 60000,
-    "model_": "deepseek-chat",
-    "model_1": "gpt-4o-mini",
-    "model": "grok-4-fast-non-reasoning",
     "max_chunks": 7,
     "max_full_sources": 2,
     "max_related_per_source": 3,
@@ -38,7 +68,7 @@
   "chunking": {
     "semantic": true,
     "nof_min_tokens": 50,
-    "nof_max_nokens": 450,
+    "nof_max_tokens": 450,
     "overlap_percentage": 0.1,
     "code_boundaries": ["function", "class", "method"]
   },

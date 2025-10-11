@@ -406,6 +406,8 @@ void App::clear()
 void App::chat()
 {
   std::cout << "Entering chat mode. Type 'exit' to quit." << std::endl;
+  auto apiCfg = imp->settings_->generationCurrentApi();
+  std::cout << "Using model: " << apiCfg.model << " at " << apiCfg.apiUrl << std::endl;
   std::vector<json> messages;
   messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
   while (true) {

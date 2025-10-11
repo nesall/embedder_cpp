@@ -303,7 +303,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
           att.filename.empty() ? "attachment" : att.filename,
           "char",
           Chunker::detectContentType(att.content, ""),
-          -1ull, // chunkId
+          std::string::npos, // chunkId
           0,
           att.content.size(),
           1.0f
@@ -366,7 +366,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
               src,
               "char",
               Chunker::detectContentType(data.content, ""),
-              -1ull, // chunkId
+              std::string::npos, // chunkId
               0,
               data.content.length(),
               1.0f
@@ -381,7 +381,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
               rel,
               "char",
               Chunker::detectContentType(data.content, ""),
-              -1ull,
+              std::string::npos,
               0,
               data.content.length(),
               1.0f,
@@ -391,7 +391,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
       filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
         [&allFullSources](const SearchResult &r) {
-          return allFullSources.find(r.sourceId) != allFullSources.end() && r.chunkId != -1ull;
+          return allFullSources.find(r.sourceId) != allFullSources.end() && r.chunkId != std::string::npos;
         }), filteredChunkResults.end());
 
       // Assemble final ordered results
@@ -453,6 +453,34 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       }
     });
 
+    server.Get("/api/settings", [this](const httplib::Request &, httplib::Response &res) {
+      try {
+        std::cout << "GET /api/settings\n";
+        nlohmann::json apisJson;
+        const auto &apis = imp->app_.settings().generationApis();
+        for (const auto &api : apis) {
+          nlohmann::json apiObj;
+          apiObj["id"] = api.id;
+          apiObj["name"] = api.name;
+          apiObj["apiUrl"] = api.apiUrl;
+          apiObj["model"] = api.model;
+          apiObj["current"] = (api.id == imp->app_.settings().generationCurrentApi().id);
+          apisJson.push_back(apiObj);
+        }
+        nlohmann::json responseJson;
+        responseJson["completion_apis"] = apisJson;
+        responseJson["current_api"] = imp->app_.settings().generationCurrentApi().id;
+        res.status = 200;
+        res.set_content(responseJson.dump(2), "application/json");
+      } catch (const std::exception &e) {
+        nlohmann::json errorJson;
+        errorJson["error"] = "Failed to load settings";
+        errorJson["message"] = e.what();
+        res.status = 500;
+        res.set_content(errorJson.dump(2), "application/json");
+      }
+      });
+
     server.Get("/api", [](const httplib::Request &, httplib::Response &res) {
       std::cout << "GET /api\n";
       json info = {
@@ -462,6 +490,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
               {"GET /api/health", "Health check"},
               {"GET /api/documents", "Get documents"},
               {"GET /api/stats", "Database statistics"},
+              {"GET /api/settings", "Available APIs"},
               {"POST /api/search", "Semantic search"},
               {"POST /api/chat", "Chat with context (streaming)"},
               {"POST /api/embed", "Generate embeddings"},
@@ -484,6 +513,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
     std::cout << "\nEndpoints:\n";
     std::cout << "  GET  /api/health\n";
     std::cout << "  GET  /api/stats\n";
+    std::cout << "  GET  /api/settings\n";
     std::cout << "  GET  /api/documents\n";
     std::cout << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}\n";
     std::cout << "  POST /api/embed     - {\"text\": \"...\"}\n";
@@ -506,38 +536,15 @@ void HttpServer::stop()
 void HttpServer::startWatch(int intervalSeconds)
 {
   imp->watchRunning_ = true;
-
   imp->watchThread_ = std::make_unique<std::thread>([this, intervalSeconds]() {
     std::cout << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)\n";
-
     while (imp->watchRunning_) {
       // Sleep in small chunks so we can stop quickly
       for (int i = 0; i < intervalSeconds && imp->watchRunning_; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
       }
-
       if (!imp->watchRunning_) break;
-
       try {
-        //auto sources = collectSources();
-        //std::vector<std::string> current_files;
-        //for (const auto &source : sources) {
-        //  current_files.push_back(source.path);
-        //}
-
-        //if (updater_->needsUpdate(current_files)) {
-        //  std::cout << "\n[Watch] Changes detected at "
-        //    << getCurrentTimestamp() << std::endl;
-
-        //  auto info = updater_->detectChanges(current_files);
-        //  size_t updated = updater_->updateDatabase(
-        //    *embedding_client_, *chunker_, info
-        //  );
-
-        //  std::cout << "[Watch] Update completed: "
-        //    << updated << " files processed" << std::endl;
-        //}
-
         imp->app_.update();
       } catch (const std::exception &e) {
         std::cerr << "[Watch] Error during update: " << e.what() << std::endl;

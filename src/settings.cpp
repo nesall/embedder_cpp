@@ -3,6 +3,64 @@
 #include <stdexcept>
 #include <cstdlib>
 
+namespace {
+  // Simple ${VAR} substitution
+  std::string expandEnvVar(const std::string var) {
+    if (var.starts_with("${") && var.ends_with("}")) {
+      std::string envVar = var.substr(2, var.length() - 3);
+      if (const char *envValue = getenv(envVar.c_str())) {
+        return std::string(envValue);
+      }
+    }
+    return var;
+  }
+
+  std::vector<Settings::ApiConfig> getApiConfigList(const nlohmann::json &section) {
+    std::vector<Settings::ApiConfig> v;
+    if (!section.contains("apis") || !section["apis"].is_array()) return v;
+    for (const auto &item : section["apis"]) {
+      if (!item.is_object()) continue;
+      Settings::ApiConfig cfg;
+      cfg.id = item.value("id", "");
+      cfg.name = item.value("name", "");
+      cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
+      cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
+      cfg.model = item.value("model", "");
+      v.push_back(cfg);
+    }
+    return v;
+  }
+
+  Settings::ApiConfig getCurrentApiConfig(const nlohmann::json &section) {
+    Settings::ApiConfig cfg;
+    if (!section.is_object()) return cfg;
+    std::string current = section.value("current_api", "");
+    if (!section.contains("apis") || !section["apis"].is_array()) return cfg;
+    for (const auto &item : section["apis"]) {
+      if (!item.is_object()) continue;
+      std::string id = item.value("id", "");
+      if (current.empty() || id == current) {
+        cfg.id = id;
+        cfg.name = item.value("name", "");
+        cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
+        cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
+        cfg.model = item.value("model", "");
+        break;
+      }
+    }
+    if (!section["apis"].empty()) {
+      auto &api = section["apis"][0];
+      return {
+        api.value("id", ""),
+        api.value("name", ""),
+        api.value("api_url", ""),
+        expandEnvVar(api.value("api_key", "")),
+        api.value("model", "")
+      };
+    }
+    return cfg;
+  }
+} // anonymous namespace
 
 Settings::Settings(const std::string &path)
 {
@@ -17,8 +75,30 @@ Settings::Settings(const std::string &path)
     }
   }
   file >> config_;
-  // Environment variable substitution
-  expandEnvVars();
+}
+
+Settings::ApiConfig Settings::embeddingCurrentApi() const
+{
+  if (!config_.contains("embedding")) return {};
+  return getCurrentApiConfig(config_["embedding"]);
+}
+
+std::vector<Settings::ApiConfig> Settings::embeddingApis() const
+{
+  if (!config_.contains("embedding")) return {};
+  return getApiConfigList(config_["embedding"]);
+}
+
+Settings::ApiConfig Settings::generationCurrentApi() const
+{
+  if (!config_.contains("generation")) return {};
+  return getCurrentApiConfig(config_["generation"]);
+}
+
+std::vector<Settings::ApiConfig> Settings::generationApis() const
+{
+  if (!config_.contains("generation")) return {};
+  return getApiConfigList(config_["generation"]);
 }
 
 std::vector<Settings::SourceItem> Settings::sources() const
@@ -65,22 +145,4 @@ std::vector<Settings::SourceItem> Settings::sources() const
     res.push_back(si);
   }
   return res;
-}
-
-void Settings::expandEnvVars()
-{
-  // Simple ${VAR} substitution
-  auto func = [this](const char *field) {
-    std::string apiKey = config_[field]["api_key"];
-    if (apiKey.starts_with("${") && apiKey.ends_with("}")) {
-      std::string envVar = apiKey.substr(2, apiKey.length() - 3);
-      const char *envValue = nullptr;
-      envValue = getenv(envVar.c_str());
-      if (envValue) {
-        config_[field]["api_key"] = std::string(envValue);
-      }
-    }
-    };
-  func("embedding");
-  func("generation");
 }

@@ -8,10 +8,8 @@
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 
-InferenceClient::InferenceClient(const std::string &url, const std::string &apiKey, const std::string &model, size_t timeout)
-  : serverUrl_(url)
-  , apiKey_(apiKey)
-  , model_(model)
+InferenceClient::InferenceClient(const Settings::ApiConfig &cfg, size_t timeout)
+  : apiCfg_(cfg)
   , timeoutMs_(timeout)
 {
   parseUrl();
@@ -19,22 +17,23 @@ InferenceClient::InferenceClient(const std::string &url, const std::string &apiK
 
 void InferenceClient::parseUrl()
 {
-  size_t protocolEnd = serverUrl_.find("://");
+  const auto &url = apiCfg_.apiUrl;
+  size_t protocolEnd = url.find("://");
   if (protocolEnd == std::string::npos) {
     throw std::runtime_error("Invalid server URL format");
   }
   size_t hostStart = protocolEnd + 3;
-  size_t port_start = serverUrl_.find(":", hostStart);
-  size_t path_start = serverUrl_.find("/", hostStart);
+  size_t port_start = url.find(":", hostStart);
+  size_t path_start = url.find("/", hostStart);
   if (port_start != std::string::npos && port_start < path_start) {
-    host_ = serverUrl_.substr(hostStart, port_start - hostStart);
-    port_ = std::stoi(serverUrl_.substr(port_start + 1, path_start - port_start - 1));
+    host_ = url.substr(hostStart, port_start - hostStart);
+    port_ = std::stoi(url.substr(port_start + 1, path_start - port_start - 1));
   } else {
-    host_ = serverUrl_.substr(hostStart, path_start - hostStart);
-    port_ = serverUrl_.starts_with("https:") ? 443 : 80;
+    host_ = url.substr(hostStart, path_start - hostStart);
+    port_ = url.starts_with("https:") ? 443 : 80;
   }
 
-  path_ = serverUrl_.substr(path_start);
+  path_ = url.substr(path_start);
 }
 
 
@@ -42,7 +41,7 @@ void InferenceClient::parseUrl()
 
 
 EmbeddingClient::EmbeddingClient(const Settings &ss)
-  : InferenceClient(ss.embeddingApiUrl(), ss.embeddingApiKey(), ss.embeddingModel(), ss.embeddingTimeoutMs())
+  : InferenceClient(ss.embeddingCurrentApi(), ss.embeddingTimeoutMs())
 {
 }
 
@@ -60,7 +59,7 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
 
     httplib::Headers headers = {
       {"Content-Type", "application/json"},
-      {"Authorization", "Bearer " + apiKey_}
+      {"Authorization", "Bearer " + apiCfg_.apiKey}
     };
     auto res = client.Post(path_.c_str(), headers, bodyStr, "application/json");
     if (!res) {
@@ -137,7 +136,7 @@ namespace {
 } // anonymous namespace
 
 CompletionClient::CompletionClient(const App &a)
-  : InferenceClient(a.settings().generationApiUrl(), a.settings().generationApiKey(), a.settings().generationModel(), a.settings().generationTimeoutMs())
+  : InferenceClient(a.settings().generationCurrentApi(), a.settings().generationTimeoutMs())
   , app_(a)
   , maxContextTokens_(a.settings().generationMaxContextTokens())
 {
@@ -150,9 +149,9 @@ std::string CompletionClient::generateCompletion(
   std::function<void(const std::string &)> onStream) const
 {
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-  httplib::SSLClient client(host_, port_);
+  httplib::SSLClient client(host_, port_);  
 #else 
-  if (serverUrl_.starts_with("https://")) {
+  if (apiCfg_.apiUrl.starts_with("https://")) {
     throw std::runtime_error("HTTPS not supported in this build");
   }
   httplib::Client client(host_, port_);
@@ -192,7 +191,7 @@ std::string CompletionClient::generateCompletion(
     context += r.content + "\n\n";
   }
 
-  std::cout << "Generating completions with context length of " << nofTokens << " tokens \n";
+  //std::cout << "Generating completions with context length of " << nofTokens << " tokens \n";
 
   std::string prompt = _queryTemplate;
   size_t pos = prompt.find("__CONTEXT__");
@@ -210,14 +209,14 @@ std::string CompletionClient::generateCompletion(
   //std::cout << "Full context: " << modifiedMessages.dump() << "\n";
 
   nlohmann::json requestBody;
-  requestBody["model"] = model_;
+  requestBody["model"] = apiCfg_.model;
   requestBody["messages"] = modifiedMessages;
   requestBody["temperature"] = temperature;
   requestBody["stream"] = true;
 
   httplib::Headers headers = {
     {"Accept", "text/event-stream"},
-    {"Authorization", "Bearer " + apiKey_}
+    {"Authorization", "Bearer " + apiCfg_.apiKey}
   };
 
   std::string fullResponse;
