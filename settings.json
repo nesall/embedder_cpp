@@ -50,7 +50,7 @@
       }
     ],
     "current_api": "local-qwen",
-    "timeout_ms": 60000,
+    "timeout_ms": 120000,
     "max_chunks": 7,
     "max_full_sources": 2,
     "max_related_per_source": 3,

@@ -33,6 +33,25 @@ namespace {
   //    }
   //  };
 
+  template <class T>
+  bool vecContains(const std::vector<T> &vec, const T &t) {
+    return std::find(vec.begin(), vec.end(), t) != vec.end();
+  }
+
+  template <class T>
+  void vecAddIfUnique(std::vector<T> &vec, const T &t) {
+    if (!vecContains(vec, t)) {
+      vec.push_back(t);
+    }
+  }
+
+  template <class T>
+  void vecAddIfUnique(std::vector<T> &vec, const std::vector<T> &t) {
+    for (const auto &item : t) {
+      vecAddIfUnique(vec, item);
+    }
+  }
+
   struct Attachment {
     std::string filename;
     std::string content;
@@ -292,23 +311,34 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       auto attachmentsJson = request["attachments"];
       auto attachments = parseAttachments(attachmentsJson);
 
-      std::vector<SearchResult> orderedResults;
+      // Preferred order
       std::vector<SearchResult> attachmentResults;
       std::vector<SearchResult> fullSourceResults;
       std::vector<SearchResult> relatedSrcResults;
       std::vector<SearchResult> filteredChunkResults;
+      std::vector<SearchResult> orderedResults; // Final ordered results
 
       for (const auto &att : attachments) {
         attachmentResults.push_back({
           att.content,
           att.filename.empty() ? "attachment" : att.filename,
           "char",
-          Chunker::detectContentType(att.content, ""),
+          Chunker::contentTypeToStr(Chunker::detectContentType(att.content, "")),
           std::string::npos, // chunkId
           0,
           att.content.size(),
           1.0f
           });
+      }
+
+      std::vector<std::string> sources;
+      if (request.contains("sourceids")) {
+        auto sourceidsJson = request["sourceids"];
+        for (const auto &sid : sourceidsJson) {
+          if (sid.is_string()) {
+            vecAddIfUnique(sources, sid.get<std::string>());
+          }
+        }
       }
 
       std::unordered_map<std::string, float> sourcesRank;
@@ -328,19 +358,9 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         });
 
       const auto maxFullSources = imp->app_.settings().generationMaxFullSources();
-      std::set<std::string> sources;
       for (const auto r : filteredChunkResults) {
-        sources.insert(r.sourceId);
+        vecAddIfUnique(sources, r.sourceId);
         if (sources.size() == maxFullSources) break;
-      }
-
-      if (request.contains("sourceids")) {
-        auto sourceidsJson = request["sourceids"];
-        for (const auto &sid : sourceidsJson) {
-          if (sid.is_string()) {
-            sources.insert(sid.get<std::string>());
-          }
-        }
       }
 
       const auto trackedFiles = imp->app_.db().getTrackedFiles();
@@ -349,13 +369,13 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         trackedSources.push_back(tf.path);
       }
 
-      std::set<std::string> allFullSources{ sources };
-      std::set<std::string> relSources;
+      std::vector<std::string> allFullSources{ sources };
+      std::vector<std::string> relSources;
       for (const auto &src : sources) {
         auto relations = imp->app_.sourceProcessor().filterRelatedSources(trackedSources, src);
-        if (!allFullSources.contains(src)) {
-          relSources.insert(relations.begin(), relations.end());
-          allFullSources.insert(relations.begin(), relations.end());
+        if (!vecContains(allFullSources, src)) {
+          vecAddIfUnique(relSources, relations);
+          vecAddIfUnique(allFullSources, relations);
         }
       }
 
@@ -366,7 +386,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
               data.content,
               src,
               "char",
-              Chunker::detectContentType(data.content, ""),
+              Chunker::contentTypeToStr(Chunker::detectContentType(data.content, "")),
               std::string::npos, // chunkId
               0,
               data.content.length(),
@@ -381,7 +401,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
               data.content,
               rel,
               "char",
-              Chunker::detectContentType(data.content, ""),
+              Chunker::contentTypeToStr(Chunker::detectContentType(data.content, "")),
               std::string::npos,
               0,
               data.content.length(),
@@ -392,7 +412,8 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
       filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
         [&allFullSources](const SearchResult &r) {
-          return allFullSources.find(r.sourceId) != allFullSources.end() && r.chunkId != std::string::npos;
+          //return allFullSources.find(r.sourceId) != allFullSources.end() && r.chunkId != std::string::npos;
+          return vecContains(allFullSources, r.sourceId) && r.chunkId != std::string::npos;
         }), filteredChunkResults.end());
 
       // Assemble final ordered results
