@@ -1,7 +1,6 @@
 #include "include/app.h"
-#include <ulogger.hpp>
 
-//#define TEST_CHUNKING
+#define TEST_CHUNKING
 
 #ifdef TEST_CHUNKING
 #include <iostream>
@@ -9,13 +8,12 @@
 #include "sourceproc.h"
 #endif
 
+
 int main(int argc, char *argv[]) {
 
 #ifdef TEST_CHUNKING
 
   if (argc > 1 && std::string(argv[1]) == "test_chunking") {
-    LOG_START;
-    LOG_MSG << "test_chunking";
     App app("settings.json");
 
     const auto &chunker = app.chunker();
@@ -45,14 +43,14 @@ int main(int argc, char *argv[]) {
     auto codeChunks = chunker.chunkText(testCode);
     auto textChunks = chunker.chunkText(testText);
   
-    LOG_MSG << "Code Chunks:";
+    std::cout << "Code Chunks:";
     for (const auto &chunk : codeChunks) {
-      LOG_MSG << "\n\n----- chunk=" << chunk.chunkId << ", tokens = "<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
+      std::cout << "\n----- chunk=" << chunk.chunkId << " tokens = "<< chunk.metadata.tokenCount << " type=" << chunk. << "\n" << chunk.text << "\n";
     }
   
-    LOG_MSG << "\n\nText Chunks:";
+    std::cout << "\n\nText Chunks:";
     for (const auto &chunk : textChunks) {
-      LOG_MSG << "\n\n----- size="<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
+      std::cout << "\n----- tokens="<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
     }
   
     return 0;

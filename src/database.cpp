@@ -1,12 +1,12 @@
 #include "database.h"
 #include <hnswlib/hnswlib.h>
 #include <sqlite3.h>
-#include <iostream>
 #include <algorithm>
 #include <stdexcept>
 #include <filesystem>
 #include <format>
 #include "app.h"
+#include "ulogger.hpp"
 
 
 namespace {
@@ -226,14 +226,14 @@ void HnswSqliteVectorDatabase::initializeVectorIndex()
   if (std::filesystem::exists(imp->indexPath_)) {
     try {
       imp->index_ = std::make_unique<hnswlib::HierarchicalNSW<float>>(imp->space_.get(), imp->indexPath_, false, imp->maxElements_, true);
-      std::cout << "Loaded index with " 
+      LOG_MSG << "Loaded index with " 
         << (imp->metric_ == DistanceMetric::Cosine ? "Cosine" : "L2") << " distance, "
         << imp->index_->getCurrentElementCount() << " total vectors, "
-        << imp->index_->getDeletedCount() << " deleted" << std::endl;
+        << imp->index_->getDeletedCount() << " deleted";
       return;
     } catch (const std::exception &e) {
-      std::cerr << "Failed to load existing index: " << e.what() << std::endl;
-      std::cerr << "Creating new index..." << std::endl;
+      LOG_MSG << "Failed to load existing index: " << e.what();
+      LOG_MSG << "Creating new index...";
     }
   }
   imp->index_ = std::make_unique<hnswlib::HierarchicalNSW<float>>(imp->space_.get(), imp->maxElements_, 16, 200, 42, true);
@@ -408,7 +408,7 @@ void HnswSqliteVectorDatabase::persist()
   std::lock_guard<std::mutex> lock(mutex_);
   if (imp->index_->getCurrentElementCount() > 0) {
     imp->index_->saveIndex(imp->indexPath_);
-    std::cout << "Saved vector index with " << imp->index_->getCurrentElementCount() << " vectors" << std::endl;
+    LOG_MSG << "Saved vector index with " << imp->index_->getCurrentElementCount() << " vectors";
   }
 }
 
@@ -428,11 +428,11 @@ void HnswSqliteVectorDatabase::compactIndex()
   size_t deleted_count = imp->index_->getDeletedCount();
 
   if (deleted_count == 0) {
-    std::cout << "No deleted items to compact." << std::endl;
+    LOG_MSG << "No deleted items to compact.";
     return;
   }
 
-  std::cout << "Compacting index (" << deleted_count << " deleted items)..." << std::endl;
+  LOG_MSG << "Compacting index (" << deleted_count << " deleted items)...";
 
   // Get all active chunks
   std::vector<std::pair<size_t, std::vector<float>>> activeItems;
@@ -465,5 +465,5 @@ void HnswSqliteVectorDatabase::compactIndex()
   imp->space_ = std::move(new_space);
   imp->index_ = std::move(new_index);
 
-  std::cout << "Compaction complete. Active items: " << imp->index_->getCurrentElementCount() << std::endl;
+  LOG_MSG << "Compaction complete. Active items: " << imp->index_->getCurrentElementCount();
 }

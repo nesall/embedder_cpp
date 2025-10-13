@@ -33,12 +33,22 @@ FetchContent_Declare(
   GIT_TAG v3.11.2
 )
 
+FetchContent_Declare(
+  utils_log
+  GIT_REPOSITORY https://github.com/nesall/utils-log.git
+  GIT_TAG main
+)
+
 # Make dependencies available
-FetchContent_MakeAvailable(httplib hnswlib sqlite3 nlohmann_json)
+FetchContent_MakeAvailable(httplib hnswlib sqlite3 nlohmann_json utils_log)
 
 # Create SQLite3 library
 add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)
 target_include_directories(sqlite3_lib PUBLIC ${sqlite3_SOURCE_DIR})
+
+# logging
+add_library(utils_log INTERFACE)
+target_include_directories(utils_log INTERFACE ${utils_log_SOURCE_DIR})
 
 # Create executable
 add_executable(${PROJECT_NAME} 
@@ -68,6 +78,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     httplib::httplib
     sqlite3_lib
     nlohmann_json::nlohmann_json
+    utils_log
 )
 
 # Include directories

@@ -2,9 +2,9 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
-#include <iostream>
 #include <string_view>
 #include <unordered_set>
+#include <ulogger.hpp>
 
 namespace {
   struct Unit {
@@ -100,7 +100,7 @@ namespace {
         return true;
       }
       size_t nonPrintable = 0;
-      size_t checked = std::min(text.size(), BINARY_CHECK_BYTES);
+      size_t checked = (std::min)(text.size(), BINARY_CHECK_BYTES);
       for (size_t i = 0; i < checked; ++i) {
         unsigned char c = static_cast<unsigned char>(text[i]);
         if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
@@ -314,7 +314,7 @@ std::vector<Chunk> Chunker::chunkText(const std::string &text, const std::string
     chunks = postProcessChunks(splitIntoLineChunks(text, uri), ContentType::Code);
     break;
   default:
-    std::cout << "Unsupported content type for URI: " << uri << ". Skipped.\n";
+    LOG_MSG << "Unsupported content type for URI: " << uri << ". Skipped.";
     break;
   }
   return chunks;

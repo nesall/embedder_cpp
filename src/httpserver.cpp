@@ -8,6 +8,7 @@
 #include "tokenizer.h"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
+#include <ulogger.hpp>
 #include <cassert>
 #include <thread>
 #include <exception>
@@ -114,14 +115,14 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
   auto &server = imp->server_;
 
   server.Get("/api/health", [](const httplib::Request &, httplib::Response &res) {
-    std::cout << "GET /api/health\n";
+    LOG_MSG << "GET /api/health";
     json response = { {"status", "ok"} };
     res.set_content(response.dump(), "application/json");
     });
 
   server.Post("/api/search", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "POST /api/search\n";
+      LOG_MSG << "POST /api/search";
       json request = json::parse(req.body);
 
       std::string query = request["query"].get<std::string>();
@@ -156,7 +157,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
   // (one-off embedding without storage)
   server.Post("/api/embed", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "POST /api/embed\n";
+      LOG_MSG << "POST /api/embed";
       json request = json::parse(req.body);
       std::string text = request["text"].get<std::string>();
 
@@ -179,7 +180,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
   server.Post("/api/documents", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "POST /api/documents\n";
+      LOG_MSG << "POST /api/documents";
       json request = json::parse(req.body);
 
       std::string content = request["content"].get<std::string>();
@@ -213,7 +214,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
   server.Get("/api/documents", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "GET /api/documents\n";
+      LOG_MSG << "GET /api/documents";
       auto files = imp->app_.db().getTrackedFiles();
       json response = json::array();
       for (const auto &file : files) {
@@ -233,7 +234,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
   server.Get("/api/stats", [this](const httplib::Request &, httplib::Response &res) {
     try {
-      std::cout << "GET /api/stats\n";
+      LOG_MSG << "GET /api/stats";
       auto stats = imp->app_.db().getStats();
       json sources_obj = json::object();
       for (const auto &[source, count] : stats.sources) {
@@ -245,9 +246,9 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
           {"sources", sources_obj}
       };
       res.set_content(response.dump(), "application/json");
-      std::cout << std::this_thread::get_id() << " Starting /stats ...\n";
+      LOG_MSG << std::this_thread::get_id() << " Starting /stats ...";
       std::this_thread::sleep_for(std::chrono::seconds(20));
-      std::cout << std::this_thread::get_id() << " Finished /stats !\n";
+      LOG_MSG << std::this_thread::get_id() << " Finished /stats !";
     } catch (const std::exception &e) {
       json error = { {"error", e.what()} };
       res.status = 500;
@@ -257,7 +258,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
   server.Post("/api/update", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "POST /api/update\n";
+      LOG_MSG << "POST /api/update";
       auto nof = imp->app_.update();
       json response = { {"status", "updated"}, {"nof_files", std::to_string(nof)} };
       res.set_content(response.dump(), "application/json");
@@ -270,7 +271,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
   server.Post("/api/chat", [this](const httplib::Request &req, httplib::Response &res) {
     try {
-      std::cout << "POST /api/chat\n";
+      LOG_MSG << "POST /api/chat";
       // format for messages field in request
       /*
       {
@@ -442,14 +443,14 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       res.set_chunked_content_provider(
         "text/event-stream",
         [this, messagesJson, orderedResults, temperature, apiConfig](size_t offset, httplib::DataSink &sink) {
-          std::cout << "set_chunked_content_provider: in callback ...\n";
+          //LOG_MSG << "set_chunked_content_provider: in callback ...";
           CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
             std::string context = completionClient.generateCompletion(
               messagesJson, orderedResults, temperature,
               [&sink](const std::string &chunk) {
 #ifdef _DEBUG
-                //std::cout << chunk;
+                //LOG_MSG << chunk;
 #endif
                 // SSE format requires "data: <payload>\n\n"
                 nlohmann::json payload = { {"content", chunk} };
@@ -474,7 +475,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
             sink.write(error.data(), error.size());
             sink.done();
           }
-          //std::cout << "set_chunked_content_provider: callback DONE.\n";
+          //LOG_MSG << "set_chunked_content_provider: callback DONE.";
           return true;
         }
       );
@@ -488,7 +489,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
     server.Get("/api/settings", [this](const httplib::Request &, httplib::Response &res) {
       try {
-        std::cout << "GET /api/settings\n";
+        LOG_MSG << "GET /api/settings";
         nlohmann::json apisJson;
         const auto &cur = imp->app_.settings().generationCurrentApi();
         const auto &apis = imp->app_.settings().generationApis();
@@ -516,7 +517,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       });
 
     server.Get("/api", [](const httplib::Request &, httplib::Response &res) {
-      std::cout << "GET /api\n";
+      LOG_MSG << "GET /api";
       json info = {
           {"name", "Embeddings RAG API"},
           {"version", "1.0.0"},
@@ -535,25 +536,25 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       res.set_content(info.dump(2), "application/json");
       });
 
-    std::cout << "Starting HTTP API server on port " << port << "...\n";
+    LOG_MSG << "Starting HTTP API server on port " << port << "...";
 
     if (enableWatch) {
       startWatch(watchInterval);
-      std::cout << "  Auto-update: enabled (every " << watchInterval << "s)\n";
+      LOG_MSG << "  Auto-update: enabled (every " << watchInterval << "s)";
     } else {
-      std::cout << "  Auto-update: disabled\n";
+      LOG_MSG << "  Auto-update: disabled";
     }
 
-    std::cout << "\nEndpoints:\n";
-    std::cout << "  GET  /api/health\n";
-    std::cout << "  GET  /api/stats\n";
-    std::cout << "  GET  /api/settings\n";
-    std::cout << "  GET  /api/documents\n";
-    std::cout << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}\n";
-    std::cout << "  POST /api/embed     - {\"text\": \"...\"}\n";
-    std::cout << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}\n";
-    std::cout << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}\n";
-    std::cout << "\nPress Ctrl+C to stop\n";
+    LOG_MSG << "\nEndpoints:";
+    LOG_MSG << "  GET  /api/health";
+    LOG_MSG << "  GET  /api/stats";
+    LOG_MSG << "  GET  /api/settings";
+    LOG_MSG << "  GET  /api/documents";
+    LOG_MSG << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}";
+    LOG_MSG << "  POST /api/embed     - {\"text\": \"...\"}";
+    LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";
+    LOG_MSG << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}";
+    LOG_MSG << "\nPress Ctrl+C to stop";
 
     return server.listen("0.0.0.0", port);
 }
@@ -561,9 +562,9 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 void HttpServer::stop()
 {
   if (imp->server_.is_running()) {
-    std::cout << "Server stopping...\n";
+    LOG_MSG << "Server stopping...";
     imp->server_.stop();
-    std::cout << "Server stopped!\n";
+    LOG_MSG << "Server stopped!";
   }
 }
 
@@ -571,7 +572,7 @@ void HttpServer::startWatch(int intervalSeconds)
 {
   imp->watchRunning_ = true;
   imp->watchThread_ = std::make_unique<std::thread>([this, intervalSeconds]() {
-    std::cout << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)\n";
+    LOG_MSG << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)";
     while (imp->watchRunning_) {
       // Sleep in small chunks so we can stop quickly
       for (int i = 0; i < intervalSeconds && imp->watchRunning_; ++i) {
@@ -581,17 +582,17 @@ void HttpServer::startWatch(int intervalSeconds)
       try {
         imp->app_.update();
       } catch (const std::exception &e) {
-        std::cerr << "[Watch] Error during update: " << e.what() << std::endl;
+        std::cerr << "[Watch] Error during update: " << e.what();
       }
     }
-    std::cout << "[Watch] Background monitoring stopped" << std::endl;
+    LOG_MSG << "[Watch] Background monitoring stopped";
     });
 }
 
 void HttpServer::stopWatch()
 {
   if (imp->watchRunning_) {
-    std::cout << "Stopping watch mode..." << std::endl;
+    LOG_MSG << "Stopping watch mode...";
     imp->watchRunning_ = false;
     if (imp->watchThread_ && imp->watchThread_->joinable()) {
       imp->watchThread_->join();

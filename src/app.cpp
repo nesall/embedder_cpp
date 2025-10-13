@@ -21,6 +21,7 @@
 #include <ranges>
 #include <cctype>
 #include <nlohmann/json.hpp>
+#include <ulogger.hpp>
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -32,7 +33,13 @@ std::string utils::currentTimestamp()
   auto now = std::chrono::system_clock::now();
   auto time = std::chrono::system_clock::to_time_t(now);
   std::stringstream ss;
-  ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
+  std::tm tm{};
+#ifdef _WIN32
+  localtime_s(&tm, &time);
+#else
+  localtime_r(&time, &tm);
+#endif
+  ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
   return ss.str();
 }
 
@@ -124,7 +131,7 @@ namespace {
         try {
           db_->beginTransaction();
           for (const auto &filepath : info.deletedFiles) {
-            std::cout << "Deleting chunks for: " << filepath << std::endl;
+            LOG_MSG << "Deleting chunks for: " << filepath;
             db_->deleteDocumentsBySource(filepath);
             db_->removeFileMetadata(filepath);
             totalUpdated++;
@@ -132,14 +139,14 @@ namespace {
           db_->commit();
         } catch (const std::exception &e) {
           db_->rollback();
-          std::cerr << "  Error during deletions: " << e.what() << std::endl;
+          LOG_MSG << "  Error during deletions: " << e.what();
           return totalUpdated;
         }
       }
 
       // Handle modifications (delete old, insert new)
       for (const auto &filepath : info.modifiedFiles) {
-        std::cout << "Updating: " << filepath << std::endl;
+        LOG_MSG << "Updating: " << filepath;
 
         try {
           db_->beginTransaction();
@@ -157,19 +164,19 @@ namespace {
           //updateFileMetadata(filepath);
           totalUpdated++;
 
-          std::cout << "  Updated with " << chunks.size() << " chunks" << std::endl;
+          LOG_MSG << "  Updated with " << chunks.size() << " chunks";
 
           db_->commit();
 
         } catch (const std::exception &e) {
           db_->rollback();
-          std::cerr << "  Error: " << e.what() << std::endl;
+          LOG_MSG << "  Error: " << e.what();
         }
       }
 
       // Handle new files
       for (const auto &filepath : info.newFiles) {
-        std::cout << "Adding new file: " << filepath << std::endl;
+        LOG_MSG << "Adding new file: " << filepath;
 
         try {
           db_->beginTransaction();
@@ -185,10 +192,10 @@ namespace {
 
           totalUpdated++;
 
-          std::cout << "  Added with " << chunks.size() << " chunks" << std::endl;
+          LOG_MSG << "  Added with " << chunks.size() << " chunks";
           db_->commit();
         } catch (const std::exception &e) {
-          std::cerr << "  Error: " << e.what() << std::endl;
+          LOG_MSG << "  Error: " << e.what();
           db_->rollback();
         }
       }

@@ -1,11 +1,11 @@
 #include "sourceproc.h"
+#include "settings.h"
 #include <iostream>
 #include <fstream>
 #include <exception>
-#include "settings.h"
-#include "app.h"
 #include <filesystem>
 #include <httplib.h>
+#include <ulogger.hpp>
 
 
 std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
