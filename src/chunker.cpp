@@ -17,7 +17,6 @@ namespace {
 
   class ContentTypeHelper {
   private:
-    // Thresholds as named constants
     static constexpr double CODE_RATIO_STRONG = 0.25;
     static constexpr double CODE_RATIO_WEAK = 0.1;
     static constexpr double BRACE_RATIO_STRONG = 0.15;
@@ -77,7 +76,6 @@ namespace {
       return patterns;
     }
 
-    // Extension sets - inline static for single definition across TUs (C++17+)
     inline static const std::unordered_set<std::string> codeExtensions = {
         ".cpp", ".h", ".hpp", ".c", ".cc", ".cxx",
         ".py", ".js", ".ts", ".jsx", ".tsx",
@@ -98,22 +96,18 @@ namespace {
     }
 
     static bool isBinary(std::string_view text) {
-      // Check for null bytes or high proportion of non-printable chars
       if (text.find('\0') != std::string_view::npos) {
         return true;
       }
-
       size_t nonPrintable = 0;
       size_t checked = std::min(text.size(), BINARY_CHECK_BYTES);
-
       for (size_t i = 0; i < checked; ++i) {
         unsigned char c = static_cast<unsigned char>(text[i]);
         if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
           nonPrintable++;
         }
       }
-
-      return checked > 0 && (static_cast<double>(nonPrintable) / checked) > BINARY_THRESHOLD;
+      return 0 < checked && BINARY_THRESHOLD < (static_cast<double>(nonPrintable) / checked);
     }
 
     static bool hasMarkdownCodeBlocks(std::string_view text) {
@@ -121,15 +115,12 @@ namespace {
       int fenceCount = 0;
       size_t pos = 0;
       size_t linesChecked = 0;
-
-      // Early exit - check first 50 lines only
-      while (pos < text.size() && fenceCount < 2 && linesChecked < 50) {
+      const size_t M = 75;
+      while (pos < text.size() && fenceCount < 2 && linesChecked < M) {
         size_t lineEnd = text.find('\n', pos);
         if (lineEnd == std::string_view::npos) lineEnd = text.size();
-
         std::string_view line = text.substr(pos, lineEnd - pos);
         std::string lineStr(line); // Regex needs std::string
-
         try {
           if (std::regex_search(lineStr, patterns.markdownFence)) {
             fenceCount++;
@@ -138,11 +129,9 @@ namespace {
           // UTF-8 issues - bail out
           return false;
         }
-
         pos = lineEnd + 1;
         linesChecked++;
       }
-
       return fenceCount >= 2;
     }
 
@@ -158,26 +147,18 @@ namespace {
   public:
     static Chunker::ContentType detectContentType(const std::string &text, const std::string &uri) {
       std::string_view textView(text);
-
-      // Binary check first
       if (isBinary(textView)) {
         return Chunker::ContentType::Binary;
       }
-
-      // Extension-based detection with case-insensitive matching
       std::string ext = std::filesystem::path(uri).extension().string();
       ext = toLower(ext);
-
       if (codeExtensions.count(ext)) {
         return Chunker::ContentType::Code;
       }
       if (textExtensions.count(ext)) {
         return Chunker::ContentType::Text;
       }
-
-      // Content-based detection using string_view for performance
       const auto &patterns = getPatterns();
-
       size_t totalLines = 0;
       size_t nonEmptyLines = 0;
       size_t codeIndicators = 0;
@@ -185,7 +166,6 @@ namespace {
       size_t linesWithSemicolons = 0;
       size_t linesWithBraces = 0;
       size_t pos = 0;
-
       while (pos < textView.size() && totalLines < MAX_LINES_TO_SCAN) {
         size_t lineEnd = textView.find('\n', pos);
         if (lineEnd == std::string_view::npos) lineEnd = textView.size();
@@ -193,7 +173,6 @@ namespace {
         std::string_view lineView = textView.substr(pos, lineEnd - pos);
         totalLines++;
 
-        // Trim whitespace check
         size_t firstNonWs = lineView.find_first_not_of(" \t\r\n");
         if (firstNonWs == std::string_view::npos) {
           pos = lineEnd + 1;
@@ -284,17 +263,6 @@ namespace {
     }
   };
 
-
-  //std::vector<std::string> splitUnits(const std::string &text) {
-  //  std::regex re(R"((\s+|[\p{Punct}]))");
-  //  std::sregex_token_iterator it(text.begin(), text.end(), re, { -1, 0 });
-  //  std::sregex_token_iterator end;
-  //  std::vector<std::string> result;
-  //  for (; it != end; ++it) {
-  //    if (!it->str().empty()) result.push_back(it->str());
-  //  }
-  //  return result;
-  //}
   std::vector<std::string> splitUnits(const std::string &text) {
     std::vector<std::string> result;
     std::string buf;
@@ -333,19 +301,6 @@ namespace {
 Chunker::Chunker(SimpleTokenCounter &tok, size_t min_tok, size_t max_tok, float overlap)
   : tokenizer_(tok), minTokens_(min_tok), maxTokens_(max_tok), overlapTokens_(static_cast<size_t>(max_tok * overlap))
 {
-#if 0
-  functionPatterns_ = {
-      std::regex(R"(^\s*(public|private|protected|static|inline|virtual)?\s*\w+[\s\*&]*\w+\s*\([^)]*\)\s*\{)"),
-      std::regex(R"(^\s*def\s+\w+\s*\([^)]*\):)"),
-      std::regex(R"(^\s*function\s+\w+\s*\([^)]*\)\s*\{)"),
-      std::regex(R"(^\s*class\s+\w+)")
-  };
-  sectionPatterns_ = {
-      std::regex(R"(^#{1,6}\s+.+$)"),
-      std::regex(R"(^\/\*\*[\s\S]*?\*\/$)"),
-      std::regex(R"(^\/\/.*$)")
-  };
-#endif
 }
 
 std::vector<Chunk> Chunker::chunkText(const std::string &text, const std::string &uri, bool semantic) const
@@ -353,10 +308,10 @@ std::vector<Chunk> Chunker::chunkText(const std::string &text, const std::string
   std::vector<Chunk> chunks;
   switch (detectContentType(text, uri)) {
   case ContentType::Text:
-    chunks = postProcessChunks(splitIntoLineChunks(text, uri), ContentType::Text);
+    chunks = postProcessChunks(splitIntoTextChunks(text, uri), ContentType::Text);
     break;
   case ContentType::Code:
-    chunks = postProcessChunks(splitIntoChunksAdv(text, uri), ContentType::Code);
+    chunks = postProcessChunks(splitIntoLineChunks(text, uri), ContentType::Code);
     break;
   default:
     std::cout << "Unsupported content type for URI: " << uri << ". Skipped.\n";
@@ -417,7 +372,7 @@ size_t Chunker::tokenCount(const std::string &text) const
   return count;
 }
 
-std::vector<Chunk> Chunker::splitIntoChunksAdv(std::string text, const std::string &uri) const
+std::vector<Chunk> Chunker::splitIntoTextChunks(std::string text, const std::string &uri) const
 {
   auto overlap = overlapTokens_;
   if (maxTokens_ * 0.6 < overlap) overlap = static_cast<size_t>(maxTokens_ * 0.6);
@@ -460,7 +415,7 @@ std::vector<Chunk> Chunker::splitIntoChunksAdv(std::string text, const std::stri
     if (overlap > 0) {
       size_t overlapTokens = 0;
       size_t overlapUnits = 0;
-      while (0 < end && end < overlapUnits && overlapTokens < overlap) {
+      while (start + overlapUnits < end && overlapTokens < overlap) {
         overlapTokens += units[end - 1 - overlapUnits].tokens;
         overlapUnits++;
       }
@@ -494,7 +449,7 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
     size_t tokenCnt = 0;
     size_t end = start;
     std::string chunkText;
-    chunkText.reserve(maxTokens_ * 2);
+    chunkText.reserve(maxTokens_ * 4);
     // Accumulate lines until token budget exceeded
     while (end < lines.size()) {
       auto lineTokens = tokenCount(lines[end]);
@@ -518,7 +473,7 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
     if (0 < overlapTokens_) {
       size_t overlapTokens = 0;
       size_t overlapLines = 0;
-      while (0 < end && end < overlapLines && overlapTokens < overlapTokens_) {
+      while (start + overlapLines < end && overlapTokens < overlapTokens_) {
         overlapTokens += tokenCount(lines[end - 1 - overlapLines]);
         overlapLines++;
       }
@@ -527,97 +482,6 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
       start = end;
     }
   }
-  return chunks;
-}
-
-std::vector<Chunk> Chunker::splitIntoLineChunks_exp(const std::string &text, const std::string &uri) const
-{
-  // Split into manageable lines (handles oversized lines via splitUnits)
-  std::vector<std::string> lines;
-  lines.reserve(100);  // Reasonable default
-
-  {
-    std::istringstream iss(text);
-    std::string line;
-    while (std::getline(iss, line)) {
-      auto subLines = splitIntoLines(line);
-      lines.insert(lines.end(),
-        std::make_move_iterator(subLines.begin()),
-        std::make_move_iterator(subLines.end()));
-    }
-  }
-
-  if (lines.empty()) return {};
-
-  // Chunk lines with overlap
-  std::vector<Chunk> chunks;
-  size_t chunkId = 0;
-  size_t start = 0;
-
-  while (start < lines.size()) {
-    std::string chunkText;
-    chunkText.reserve(maxTokens_ * 4);
-
-    size_t end = start;
-
-    // Accumulate lines until budget exceeded
-    while (end < lines.size()) {
-      std::string candidate = chunkText + lines[end];
-      size_t candidateTokens = tokenCount(candidate);
-
-      if (candidateTokens > maxTokens_ && end > start) {
-        break;  // Would exceed budget
-      }
-
-      chunkText = std::move(candidate);
-      end++;
-
-      if (candidateTokens >= maxTokens_) {
-        break;  // Reached budget
-      }
-    }
-
-    // Safety: ensure progress (shouldn't happen after splitIntoLines)
-    if (end == start) {
-      chunkText = lines[start];
-      end = start + 1;
-    }
-
-    size_t tokenCnt = tokenCount(chunkText);
-
-    chunks.push_back({
-        uri,
-        uri + "_" + std::to_string(chunkId++),
-        chunkText,
-        chunkText,  // raw for debugging
-        {tokenCnt, start, end, "line"}
-      });
-
-    // Calculate overlap
-    if (overlapTokens_ > 0 && end < lines.size()) {
-      std::string overlapText;
-      size_t overlapLineCount = 0;
-
-      // Walk backward, accumulating lines until overlap budget met
-      while (overlapLineCount < (end - start)) {
-        size_t idx = end - 1 - overlapLineCount;
-        std::string candidate = lines[idx] + overlapText;
-        size_t candidateTokens = tokenCount(candidate);
-
-        if (candidateTokens > overlapTokens_) {
-          break;
-        }
-
-        overlapText = std::move(candidate);
-        overlapLineCount++;
-      }
-
-      start = end - overlapLineCount;
-    } else {
-      start = end;
-    }
-  }
-
   return chunks;
 }
 
@@ -632,29 +496,6 @@ std::string Chunker::normalizeWhitespaces(const std::string &str)
   s = std::regex_replace(s, std::regex{ "\n\\s*\n" }, "\n");
   return s;
 }
-
-#if 0
-std::string Chunker::cleanTextForEmbedding(const std::string &text, const std::string &EMBED_PREPEND_PHRASE)
-{
-  std::string prepend = EMBED_PREPEND_PHRASE.empty() ? "" : (std::regex_replace(EMBED_PREPEND_PHRASE, std::regex{ "^\\s+|\\s+$" }, "") + " ");
-  std::string s = prepend + normalizeWhitespaces(text);
-
-  // Convert \\n -> newline
-  s = std::regex_replace(s, std::regex{ "\\\\n" }, "\n");
-  // Handle other double backslashes (not before n)
-  s = std::regex_replace(s, std::regex{ "\\\\(?!n)" }, "\\\\");
-  // Remove non-ASCII
-  s.erase(std::remove_if(s.begin(), s.end(),
-    [](unsigned char c) { return c > 127; }),
-    s.end());
-  // Trim & cut to 2000 chars
-  auto start = s.find_first_not_of(" \t\r\n");
-  auto end = s.find_last_not_of(" \t\r\n");
-  s = (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
-  if (s.size() > 2000) s.resize(2000);
-  return s;
-}
-#endif
 
 std::vector<std::string> Chunker::splitIntoLines(const std::string &text) const
 {

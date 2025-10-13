@@ -55,16 +55,14 @@ public:
 private:
   std::vector<Chunk> postProcessChunks(const std::vector<Chunk> &chunks, ContentType chunkType) const;
   size_t tokenCount(const std::string &text) const;
-  std::vector<Chunk> splitIntoChunksAdv(std::string text, const std::string &docId) const;
+  std::vector<Chunk> splitIntoTextChunks(std::string text, const std::string &docId) const;
   std::vector<Chunk> splitIntoLineChunks(const std::string &text, const std::string &docId) const;
-  std::vector<Chunk> splitIntoLineChunks_exp(const std::string &text, const std::string &docId) const;
   std::vector<std::string> splitIntoLines(const std::string &text) const;
 
 public:
   static std::string contentTypeToStr(Chunker::ContentType t);
   static Chunker::ContentType detectContentType(const std::string &text, const std::string &uri);
   static std::string normalizeWhitespaces(const std::string &str);
-  //static std::string cleanTextForEmbedding(const std::string &text, const std::string &EMBED_PREPEND_PHRASE = "");
 };
 
 

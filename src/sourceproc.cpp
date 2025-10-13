@@ -2,13 +2,15 @@
 #include <iostream>
 #include <fstream>
 #include <exception>
-#include <filesystem>
 #include "settings.h"
+#include "app.h"
+#include <filesystem>
 #include <httplib.h>
 
 
 std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
 {
+  LOG_START;
   std::vector<SourceProcessor::Data> allContent;
   auto sources = settings_.sources();
   for (const auto &source : sources) {
@@ -29,6 +31,7 @@ std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
 
 SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri) const
 {
+  LOG_START;
   std::vector<SourceProcessor::Data> res;
   auto sources = settings_.sources();
   for (const auto &source : sources) {
@@ -80,7 +83,7 @@ void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::
       }
     }
   } catch (const std::exception &) {
-    std::cout << "Unable to process resource " << path << ". Skipped.\n";
+    LOG_MSG << "Unable to process resource " << path << ". Skipped.";
   }
 }
 
@@ -98,11 +101,11 @@ void SourceProcessor::processFile(const std::string &filepath, std::vector<Sourc
     try {
       auto fsize = std::filesystem::file_size(filepath);
       if (maxSize * 1024 * 1024 < fsize) {
-        std::cout << "File " << filepath << " exceeds max allowed size of " << maxSize << " MB. Skipped.\n";
+        LOG_MSG << "File " << filepath << " exceeds max allowed size of " << maxSize << " MB. Skipped.";
         return;
       }
     } catch (const std::exception &) {
-      std::cout << "Unable to process resource " << filepath << ". Skipped.\n";
+      LOG_MSG << "Unable to process resource " << filepath << ". Skipped.";
       return;
     }
   }
@@ -112,7 +115,7 @@ void SourceProcessor::processFile(const std::string &filepath, std::vector<Sourc
     buffer << file.rdbuf();
     content.push_back({ buffer.str(), std::filesystem::path(filepath).lexically_normal().generic_string() });
   } else {
-    std::cout << "Unable to process resource " << filepath << ". Skipped.\n";
+    LOG_MSG << "Unable to process resource " << filepath << ". Skipped.";
   }
 }
 
@@ -138,7 +141,7 @@ void SourceProcessor::processUrl(const Settings::SourceItem &source, std::vector
       content.push_back({ res->body, url });
     }
   } catch (const std::exception &) {
-    std::cout << "Unable to process resource " << url << ". Skipped.\n";
+    LOG_MSG << "Unable to process resource " << url << ". Skipped.";
   }
 }
 

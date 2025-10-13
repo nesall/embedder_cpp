@@ -8,12 +8,13 @@
 #include "sourceproc.h"
 #endif
 
-
 int main(int argc, char *argv[]) {
 
 #ifdef TEST_CHUNKING
 
   if (argc > 1 && std::string(argv[1]) == "test_chunking") {
+    LOG_START;
+    LOG_MSG << "test_chunking";
     App app("settings.json");
 
     const auto &chunker = app.chunker();
@@ -43,14 +44,14 @@ int main(int argc, char *argv[]) {
     auto codeChunks = chunker.chunkText(testCode);
     auto textChunks = chunker.chunkText(testText);
   
-    std::cout << "Code Chunks:";
+    LOG_MSG << "Code Chunks:";
     for (const auto &chunk : codeChunks) {
-      std::cout << "\n----- size="<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
+      LOG_MSG << "\n\n----- chunk=" << chunk.chunkId << ", tokens = "<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
     }
   
-    std::cout << "\n\nText Chunks:";
+    LOG_MSG << "\n\nText Chunks:";
     for (const auto &chunk : textChunks) {
-      std::cout << "\n----- size="<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
+      LOG_MSG << "\n\n----- size="<< chunk.metadata.tokenCount << "\n" << chunk.text << "\n";
     }
   
     return 0;
