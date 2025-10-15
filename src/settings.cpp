@@ -15,17 +15,31 @@ namespace {
     return var;
   }
 
+  void fetchApiConfigFromItem(const nlohmann::json &item, ApiConfig &cfg, const nlohmann::json &section) {
+    cfg.id = item.value("id", "");
+    cfg.name = item.value("name", "");
+    cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
+    cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
+    cfg.model = item.value("model", "");
+    cfg.maxTokensName = item.value("max_tokens_name", section.value("default_max_tokens_name", "max_tokens"));
+    cfg.temperatureSupport = item.value("temperature_support", true);
+    if (item.contains("pricing_tpm")) {
+      auto pricing = item["pricing_tpm"];
+      if (pricing.is_object()) {
+        cfg.pricing.input = pricing.value("input", 0.f);
+        cfg.pricing.output = pricing.value("output", 0.f);
+        cfg.pricing.cachedInput = pricing.value("cached_input", 0.f);
+      }
+    }
+  }
+
   std::vector<ApiConfig> getApiConfigList(const nlohmann::json &section) {
     std::vector<ApiConfig> v;
     if (!section.contains("apis") || !section["apis"].is_array()) return v;
     for (const auto &item : section["apis"]) {
       if (!item.is_object()) continue;
       ApiConfig cfg;
-      cfg.id = item.value("id", "");
-      cfg.name = item.value("name", "");
-      cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
-      cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
-      cfg.model = item.value("model", "");
+      fetchApiConfigFromItem(item, cfg, section);
       v.push_back(cfg);
     }
     return v;
@@ -40,11 +54,7 @@ namespace {
       if (!item.is_object()) continue;
       std::string id = item.value("id", "");
       if (current.empty() || id == current) {
-        cfg.id = id;
-        cfg.name = item.value("name", "");
-        cfg.apiUrl = item.value("api_url", item.value("apiUrl", ""));
-        cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
-        cfg.model = item.value("model", "");
+        fetchApiConfigFromItem(item, cfg, section);
         return cfg;
       }
     }

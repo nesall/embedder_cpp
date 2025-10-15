@@ -152,7 +152,7 @@ float EmbeddingClient::calculateL2Norm(const std::vector<float> &vec)
 
 namespace {
   const std::string &_queryTemplate{ R"(
-  You're a helpful software developer assistent, please use the provided context to base your answers on
+  You're a helpful software developer assistant, please use the provided context to base your answers on
   for user questions. Answer to the best of your knowledge. Keep your responses short and on point.
   Context:
   __CONTEXT__
@@ -173,6 +173,7 @@ std::string CompletionClient::generateCompletion(
   const nlohmann::json &messagesJson, 
   const std::vector<SearchResult> &searchRes, 
   float temperature,
+  size_t maxTokens,
   std::function<void(const std::string &)> onStream) const
 {
 #ifndef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -235,7 +236,9 @@ std::string CompletionClient::generateCompletion(
   nlohmann::json requestBody;
   requestBody["model"] = cfg().model;
   requestBody["messages"] = modifiedMessages;
-  requestBody["temperature"] = temperature;
+  if (cfg().temperatureSupport)
+    requestBody["temperature"] = temperature;
+  requestBody[cfg().maxTokensName] = maxTokens;
   requestBody["stream"] = true;
 
   httplib::Headers headers = {
@@ -284,6 +287,9 @@ std::string CompletionClient::generateCompletion(
             std::cerr << "Error parsing chunk: " << e.what() << " in: " << jsonStr << std::endl;
           }
         }
+      }
+      if (buffer.find("Unauthorized") != std::string::npos) {
+        if (onStream) onStream(buffer);
       }
       return true; // Continue receiving
     }

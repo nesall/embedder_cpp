@@ -1,5 +1,7 @@
 # Build directories
 build/
+build-rel/
+build-dbg/
 cmake-build-*/
 bin/
 lib/

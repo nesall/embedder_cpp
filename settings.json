@@ -5,8 +5,8 @@
   "embedding": {
     "apis": [
       {
-        "id":  "llamacpp",
-        "name":  "Local Server",
+        "id": "llamacpp",
+        "name": "Local Server",
         "api_url": "http://127.0.0.1:8583/embedding",
         "api_key": "${DEEPSEEK_API_KEY}",
         "model": "text-embedding-3-small"
@@ -25,28 +25,117 @@
         "name": "Local Qwen2.5 1.5b",
         "api_url": "http://127.0.0.1:8585/v1/chat/completions",
         "api_key": "",
-        "model": "qwen2.5-coder-1.5b"
+        "model": "qwen2.5-coder-1.5b",
+        "pricing_tpm": {
+          "input": 0.00,
+          "output": 0.00
+        }
       },
       {
-        "id": "xai",
-        "name": "X AI",
-        "api_url": "https://api.x.ai/v1/chat/completions",
+        "id": "remote-hosted",
+        "name": "Hosted",
+        "api_url": "https://molsoft.com/support-test/api/ask-proxy",
         "api_key": "${XAI_API_KEY}",
-        "model": "grok-4-fast-non-reasoning"
+        "model": "mistral-small-3.2-24B",
+        "pricing_tpm": {
+          "input": 0.00,
+          "cached_input": 0.00,
+          "output": 0.00
+        }
+      },
+      {
+        "id": "mistral-nemo",
+        "name": "Mistral",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "api_key": "${MISTRAL_API_KEY}",
+        "model": "open-mistral-nemo",
+        "pricing_tpm": {
+          "input": 0.15,
+          "output": 0.15
+        }
+      },
+      {
+        "id": "mistral-devstral",
+        "name": "Mistral",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "api_key": "${MISTRAL_API_KEY}",
+        "model": "devstral-small-latest",
+        "pricing_tpm": {
+          "input": 0.10,
+          "output": 0.30
+        }
       },
       {
         "id": "deepseek",
         "name": "DeepSeek",
         "api_url": "https://api.deepseek.com/chat/completions",
         "api_key": "${DEEPSEEK_API_KEY}",
-        "model": "deepseek-chat"
+        "model": "deepseek-chat",
+        "pricing_tpm": {
+          "input": 0.28,
+          "cached_input": 0.028,
+          "output": 0.42
+        }
       },
       {
-        "id": "openai",
+        "id": "xai",
+        "name": "X AI",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "api_key": "${XAI_API_KEY}",
+        "model": "grok-4-fast-non-reasoning",
+        "pricing_tpm": {
+          "input": 0.20,
+          "cached_input": 0.05,
+          "output": 0.50
+        }
+      },
+      {
+        "id": "openai-4o-mini",
         "name": "OpenAI",
         "api_url": "https://api.openai.com/v1/chat/completions",
         "api_key": "${OPENAI_API_KEY}",
-        "model": "gpt-4o-mini"
+        "model": "gpt-4o-mini",
+        "pricing_tpm": {
+          "input": 0.15,
+          "cached_input": 0.075,
+          "output": 0.60
+        }
+      },
+      {
+        "id": "mistral-codestral",
+        "name": "Mistral",
+        "api_url": "https://codestral.mistral.ai/v1/chat/completions",
+        "api_key": "${CODESTRAL_API_KEY}",
+        "model": "codestral-latest",
+        "pricing_tpm": {
+          "input": 0.30,
+          "output": 0.90
+        }
+      },
+      {
+        "id": "grok-4-coder",
+        "name": "X AI",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "api_key": "${XAI_API_KEY}",
+        "model": "grok-code-fast-1",
+        "pricing_tpm": {
+          "input": 0.20,
+          "cached_input": 0.02,
+          "output": 1.50
+        }
+      },
+      {
+        "id": "openai-4.1-mini",
+        "name": "OpenAI",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "api_key": "${OPENAI_API_KEY}",
+        "model": "gpt-4.1-mini",
+        "max_tokens_name": "max_completion_tokens",
+        "pricing_tpm": {
+          "input": 0.40,
+          "cached_input": 0.10,
+          "output": 1.60
+        }
       }
     ],
     "current_api": "local-qwen",
@@ -55,7 +144,9 @@
     "max_full_sources": 2,
     "max_related_per_source": 3,
     "max_context_tokens": 20000,
-    "default_temperature": 0.5
+    "default_temperature": 0.5,
+    "default_max_tokens": 2048,
+    "default_max_tokens_name": "max_tokens"
   },
   "database": {
     "sqlite_path": "db_metadata.db",
@@ -70,21 +161,35 @@
     "nof_min_tokens": 50,
     "nof_max_tokens": 450,
     "overlap_percentage": 0.1,
-    "code_boundaries": ["function", "class", "method"]
+    "code_boundaries": [ "function", "class", "method" ]
   },
   "sources": [
     {
       "type": "directory",
       "path": "../../embedder_cpp",
       "recursive": true,
-      "extensions": [".cpp", ".h", ".hpp"],
-      "exclude": ["*/build/*", "*/test/*"]
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/test/*" ]
     },
     {
-      "type": "directory", 
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/webview",
+      "recursive": true,
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/test/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/spa-svelte2",
+      "recursive": true,
+      "extensions": [ ".svelte", ".ts", ".js", ".html" ],
+      "exclude": [ "*/node_modules/*", "*/dist/*" ]
+    },
+    {
+      "type": "directory",
       "path": "./docs",
       "recursive": false,
-      "extensions": [".md", ".txt"],
+      "extensions": [ ".md", ".txt" ],
       "exclude": []
     },
     {
@@ -105,7 +210,7 @@
     }
   ],
   "files": {
-    "default_extensions": [".cpp", ".h", ".py", ".js", ".md"],
+    "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
     "global_exclude": [ "*/node_modules/*", "*.min.js", "*.log", "*/.git/*", ".gitignore" ],
     "encoding": "utf-8",
     "max_file_size_mb": 10

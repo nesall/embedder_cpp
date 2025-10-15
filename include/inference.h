@@ -46,6 +46,7 @@ public:
     const nlohmann::json &messages, 
     const std::vector<SearchResult> &searchRes, 
     float temperature,
+    size_t maxTokens,
     std::function<void(const std::string &)> onStream) const;
 
 private:

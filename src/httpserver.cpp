@@ -287,6 +287,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
           { "filename": "filename2.cpp", "content": "..text file content 2.."},
         ],
         "temperature": 0.2,
+        "max_tokens": 800,
         "targetapi": "xai"
       }  
       */
@@ -307,6 +308,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         throw std::invalid_argument("Last message role must be 'user', got: " + role);
       }
       const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
+      const float maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
       std::string question = messagesJson.back()["content"].get<std::string>();
 
       auto attachmentsJson = request["attachments"];
@@ -442,15 +444,15 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
       res.set_chunked_content_provider(
         "text/event-stream",
-        [this, messagesJson, orderedResults, temperature, apiConfig](size_t offset, httplib::DataSink &sink) {
+        [this, messagesJson, orderedResults, temperature, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
           //LOG_MSG << "set_chunked_content_provider: in callback ...";
           CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
             std::string context = completionClient.generateCompletion(
-              messagesJson, orderedResults, temperature,
+              messagesJson, orderedResults, temperature, maxTokens,
               [&sink](const std::string &chunk) {
-#ifdef _DEBUG
-                //LOG_MSG << chunk;
+#ifdef _DEBUG2
+                LOG_MSG << chunk;
 #endif
                 // SSE format requires "data: <payload>\n\n"
                 nlohmann::json payload = { {"content", chunk} };
@@ -461,11 +463,33 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
                 }
               });
 
-            //testStreaming([&sink](const std::string &chunk) {
-            //  if (!sink.write(chunk.data(), chunk.size())) {
-            //    return; // client disconnected
-            //  }
-            //  });
+#ifdef _DEBUG2
+            testStreaming([&sink](const std::string &chunk) {
+              if (!sink.write(chunk.data(), chunk.size())) {
+                return; // client disconnected
+              }
+              });
+#endif
+
+            // Add sources information
+            nlohmann::json sourcesJson;
+            //std::set<std::string> sources;
+            for (const auto &result : orderedResults) {
+              //sources.insert(result.sourceId);
+              sourcesJson.push_back(result.sourceId);
+            }
+
+            //for (const auto &source : sources) {
+            //}
+
+            // Send sources information as a separate SSE message
+            nlohmann::json sourcesPayload = {
+              {"sources", sourcesJson},
+              {"type", "context_sources"}
+            };
+            std::string sourcesSse = "data: " + sourcesPayload.dump() + "\n\n";
+            sink.write(sourcesSse.data(), sourcesSse.size());
+
 
             std::string done = "data: [DONE]\n\n";
             sink.write(done.data(), done.size());
@@ -500,6 +524,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
           apiObj["url"] = api.apiUrl;
           apiObj["model"] = api.model;
           apiObj["current"] = (api.id == cur.id);
+          apiObj["combinedPrice"] = api.combinedPrice();
           apisJson.push_back(apiObj);
         }
         nlohmann::json responseJson;

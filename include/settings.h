@@ -12,6 +12,23 @@ struct ApiConfig {
   std::string apiUrl;
   std::string apiKey;
   std::string model;
+  std::string maxTokensName; // e.g. max_tokens or max_completion_tokens
+  bool temperatureSupport = true;
+  struct {
+    float input = 0;
+    float output = 0;
+    float cachedInput = 0;
+  } pricing;
+
+  // Compute an effective "combined" price per million tokens.
+  // hitRatio = fraction of input tokens served from cache (0.0–1.0)
+  double combinedPrice(double hitRatio = 0.5) const {
+    double effectiveInput =
+      (0 < pricing.cachedInput)
+      ? (hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input)
+      : pricing.input;
+    return effectiveInput + pricing.output;
+  }
 };
 
 class Settings {
@@ -56,6 +73,7 @@ public:
   size_t generationMaxContextTokens() const { return config_["generation"].value("max_context_tokens", size_t(20'000)); }
   size_t generationMaxChunks() const { return config_["generation"].value("max_chunks", size_t(5)); }
   size_t generationDefaultTemperature() const { return config_["generation"].value("default_temperature", size_t(0.5)); }
+  size_t generationDefaultMaxTokens() const { return config_["generation"].value("default_max_tokens", size_t(2048)); }
 
   std::string databaseSqlitePath() const { return config_["database"].value("sqlite_path", "db.sqlite"); }
   std::string databaseIndexPath() const { return config_["database"].value("index_path", "index"); }
