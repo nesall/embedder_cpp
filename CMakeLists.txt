@@ -132,3 +132,14 @@ endif()
 if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} PRIVATE dl)
 endif()
+
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(OPENSSL_BIN_DIR "${OPENSSL_PATH}/bin")
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E echo "Copying OpenSSL DLLs..."
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${OPENSSL_BIN_DIR}/libcrypto-3-x64.dll"
+          "${OPENSSL_BIN_DIR}/libssl-3-x64.dll"
+          $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${PROJECT_NAME}>>
+  )
+endif()
