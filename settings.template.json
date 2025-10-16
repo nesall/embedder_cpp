@@ -1,0 +1,101 @@
+{
+  "placeholder_descriptions": {
+    "_PL_EMB_API_URL_": "Embedding API base URL",
+    "_PL_EMB_API_KEY_": "Embedding API access key",
+    "_PL_EMB_MODEL_NAME_": "Embedding model name",
+    "_PL_CMPL_API_URL_": "Completion API base URL",
+    "_PL_CMPL_API_KEY_": "Completion API access key",
+    "_PL_CMPL_MODEL_NAME_": "Completion model name"
+  },
+  "tokenizer": {
+    "config_path": "./bge_tokenizer.json"
+  },
+  "embedding": {
+    "apis": [
+      {
+        "id": "default",
+        "name": "Default",
+        "api_url": "_PL_EMB_API_URL_",
+        "api_key": "_PL_EMB_API_KEY_",
+        "model": "_PL_EMB_MODEL_NAME_"
+      }
+    ],
+    "current_api": "default",
+    "batch_size": 32,
+    "timeout_ms": 30000,
+    "retry_attempts": 3,
+    "top_k": 5
+  },
+  "generation": {
+    "apis": [
+      {
+        "id": "default",
+        "name": "default",
+        "api_url": "_PL_CMPL_API_URL_",
+        "api_key": "_PL_CMPL_API_KEY_",
+        "model": "_PL_CMPL_MODEL_NAME_",
+        "pricing_tpm": {
+          "input": 0.00,
+          "cached_input": 0.00,
+          "output": 0.00
+        }
+      }
+    ],
+    "current_api": "default",
+    "timeout_ms": 120000,
+    "max_chunks": 7,
+    "max_full_sources": 2,
+    "max_related_per_source": 3,
+    "max_context_tokens": 20000,
+    "default_temperature": 0.5,
+    "default_max_tokens": 2048,
+    "default_max_tokens_name": "max_tokens"
+  },
+  "database": {
+    "sqlite_path": "db_metadata.db",
+    "index_path": "db_embeddings.index",
+    "vector_dim": 768,
+    "max_elements": 100000,
+    "distance_metric": "cosine",
+    "distance_metric_": "l2"
+  },
+  "chunking": {
+    "semantic": true,
+    "nof_min_tokens": 50,
+    "nof_max_tokens": 450,
+    "overlap_percentage": 0.1
+  },
+  "sources": [
+    {
+      "type": "directory",
+      "path": "myproject",
+      "recursive": true,
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/test/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "./docs",
+      "recursive": false,
+      "extensions": [ ".md", ".txt" ],
+      "exclude": []
+    },
+    {
+      "type": "file",
+      "path": "./README.md"
+    },
+    {
+      "type": "url",
+      "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
+    }
+  ],
+  "files": {
+    "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
+    "global_exclude": [ "*/node_modules/*", "*.min.js", "*.log", "*/.git/*", ".gitignore" ],
+    "encoding": "utf-8",
+    "max_file_size_mb": 10
+  }
+}

@@ -554,6 +554,86 @@ void App::printUsage()
   std::cout << std::endl;
 }
 
+namespace {
+  void findPlaceholders(const json &j, std::set<std::string> &placeholders) {
+    if (j.is_object()) {
+      for (const auto &[k, v] : j.items())
+        findPlaceholders(v, placeholders);
+    } else if (j.is_array()) {
+      for (const auto &el : j)
+        findPlaceholders(el, placeholders);
+    } else if (j.is_string()) {
+      std::string val = j.get<std::string>();
+      if (val.rfind("_PL_", 0) == 0)
+        placeholders.insert(val);
+    }
+  }
+
+  void replacePlaceholders(json &j, const std::map<std::string, std::string> &values) {
+    if (j.is_object()) {
+      for (auto &[k, v] : j.items())
+        replacePlaceholders(v, values);
+    } else if (j.is_array()) {
+      for (auto &el : j)
+        replacePlaceholders(el, values);
+    } else if (j.is_string()) {
+      std::string val = j.get<std::string>();
+      if (auto it = values.find(val); it != values.end())
+        j = it->second;
+    }
+  }
+} // anonymous namespace
+
+std::string App::createConfigFile()
+{
+  LOG_MSG << "Creating default settings.json file";
+  LOG_MSG << "Reading template settings.json file...";
+
+  std::ifstream f("settings.template.json");
+  if (!f.is_open()) {
+    f.open("../settings.template.json");
+    if (!f.is_open()) {
+      f.open("../../settings.template.json");
+      if (!f.is_open()) {
+        throw std::runtime_error("Cannot open settings.template.json file");
+      }
+    }
+  }
+  nlohmann::json j;
+  f >> j;
+  std::string str = j.dump();
+
+  json descriptions;
+  if (j.contains("placeholder_descriptions")) {
+    descriptions = j["placeholder_descriptions"];
+    j.erase("placeholder_descriptions");
+  }
+
+  std::set<std::string> placeholders;
+  findPlaceholders(j, placeholders);
+
+  std::map<std::string, std::string> values;
+  LOG_MSG << "Detected configuration placeholders:\n";
+
+  for (const auto &ph : placeholders) {
+    std::string prompt = descriptions.count(ph) ? descriptions[ph].get<std::string>() : ph;
+    LOG_MSG << "Enter" << prompt <<" (" << ph << "): ";
+    std::string val;
+    std::getline(std::cin, val);
+    values[ph] = val;
+  }
+
+  replacePlaceholders(j, values);
+
+  std::filesystem::path path("settings.json");
+  std::ofstream out(path);
+  out << std::setw(2) << j;
+  LOG_MSG << path.string() << "generated successfully.";
+  LOG_MSG << "You may manually modify this file later on if there is a need to modify settings.";
+
+  return path.string();
+}
+
 int App::run(int argc, char *argv[])
 {
   try {
@@ -567,6 +647,16 @@ int App::run(int argc, char *argv[])
       std::string arg = argv[i];
       if (arg == "--config" && i + 1 < argc) {
         configPath = argv[++i];
+      }
+    }
+
+    if (!std::filesystem::exists(configPath)) {
+      configPath = "../" + configPath;
+      if (!std::filesystem::exists(configPath)) {        
+        configPath = "../" + configPath;
+        if (!std::filesystem::exists(configPath)) {
+          configPath = createConfigFile();
+        }
       }
     }
 
@@ -623,12 +713,12 @@ int App::run(int argc, char *argv[])
       }
       app.serve(port, enableWatch, watchInterval);
     } else {
-      std::cerr << "Unknown command: " << command << std::endl;
+      LOG_MSG << "Unknown command: " << command;
       printUsage();
       return 1;
     }
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << "\n\n";
+    LOG_MSG << "Error: " << e.what() << "\n";
     printUsage();
     return 1;
   }

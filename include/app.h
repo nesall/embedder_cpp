@@ -42,6 +42,7 @@ public:
 
 private:
   void initialize();
+  static std::string createConfigFile();
 };
 
 namespace utils {

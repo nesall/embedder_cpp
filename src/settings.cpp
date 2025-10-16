@@ -76,13 +76,7 @@ Settings::Settings(const std::string &path)
 {
   std::ifstream file(path);
   if (!file.is_open()) {
-    file.open("../" + path);
-    if (!file.is_open()) {
-      file.open("../../" + path);
-      if (!file.is_open()) {
-        throw std::runtime_error("Cannot open settings file: " + path);
-      }
-    }
+    throw std::runtime_error("Cannot open settings file: " + path);
   }
   file >> config_;
 }
