@@ -42,7 +42,7 @@
         "id": "remote-hosted",
         "name": "Hosted",
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/chat",
-        "api_key": "${XAI_API_KEY}",
+        "api_key": "${MOLSOFT_API_KEY}",
         "model": "mistral-small-3.2-24B",
         "pricing_tpm": {
           "input": 0.00,
@@ -176,7 +176,7 @@
       "path": "../../embedder_cpp",
       "recursive": true,
       "extensions": [ ".cpp", ".h", ".hpp" ],
-      "exclude": [ "*/build/*", "*/test/*" ]
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
     },
     {
       "type": "directory",

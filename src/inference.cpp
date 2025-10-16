@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
+#include <ulogger.hpp>
 
 
 struct InferenceClient::Impl {
@@ -118,10 +119,10 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
     //float l2Norm = calculateL2Norm(embedding);
     //std::cout << "[l2norm] " << l2Norm << std::endl;
   } catch (const nlohmann::json::exception &e) {
-    std::cerr << "JSON parsing error: " << e.what() << std::endl;
+    LOG_MSG << "JSON parsing error: " << e.what();
     throw std::runtime_error("Failed to parse server response");
   } catch (const std::exception &e) {
-    std::cerr << "Error generating embeddings: " << e.what() << std::endl;
+    LOG_MSG << "Error generating embeddings: " << e.what();
     throw;
   }
 }
@@ -284,7 +285,7 @@ std::string CompletionClient::generateCompletion(
               }
             }
           } catch (const std::exception &e) {
-            std::cerr << "Error parsing chunk: " << e.what() << " in: " << jsonStr << std::endl;
+            LOG_MSG << "Error parsing chunk: " << e.what() << " in: " << jsonStr;
           }
         }
       }
