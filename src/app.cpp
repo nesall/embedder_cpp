@@ -298,6 +298,39 @@ void App::embed()
 {
   LOG_MSG << "Starting embedding process...";
   auto sources = imp->processor_->collectSources();
+  LOG_MSG << "Total" << sources.size() << "sources collected";
+
+  // Print number of sources by extension
+  std::unordered_map<std::string, size_t> extCount;
+  std::unordered_map<std::string, size_t> dirCount;
+  size_t emptyTextCount = 0;
+  for (const auto &[text, source] : sources) {
+    std::filesystem::path p(source);
+    extCount[p.extension().string()]++;
+    dirCount[p.parent_path().string()]++;
+    if (text.empty()) emptyTextCount++;
+  }
+
+  LOG_MSG << "Sources by extension:";
+  for (const auto &[ext, count] : extCount) {
+    LOG_MSG << "  " << (ext.empty() ? "[no extension]" : ext) << ": " << count;
+  }
+
+  LOG_MSG << "Sources by directory:";
+  for (const auto &[dir, count] : dirCount) {
+    LOG_MSG << "  " << (dir.empty() ? "[root]" : dir) << ": " << count;
+  }
+
+  LOG_MSG << "Sources with empty text: " << emptyTextCount;
+
+  std::cout << "Proceed? (type yes or y to proceed): ";
+  std::string confirm;
+  std::cin >> confirm;
+  if (!(confirm == "yes" || confirm == "y")) {
+    LOG_MSG << "Exitted.";
+    return;
+  }
+
   size_t totalChunks = 0;
   size_t totalFiles = 0;
   size_t totalTokens = 0;
@@ -322,13 +355,6 @@ void App::embed()
           totalTokens += chunk.metadata.tokenCount;
         }
         std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
-        //for (const auto &chunk : batch) {
-        //  std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << batch.size() << "\r" << std::flush;
-        //  std::vector<float> emb;
-        //  embeddingClient.generateEmbeddings({ chunk.text }, emb);
-        //  embeddings.push_back(emb);
-        //  totalTokens += chunk.metadata.tokenCount;
-        //}
         embeddingClient.generateEmbeddings(texts, embeddings);
 
         imp->db_->addDocuments(batch, embeddings);
@@ -343,10 +369,10 @@ void App::embed()
     }
   }
   imp->db_->persist();
-  std::cout << "\nCompleted!" << std::endl;
-  std::cout << "  Files processed: " << totalFiles << std::endl;
-  std::cout << "  Total chunks: " << totalChunks << std::endl;
-  std::cout << "  Total tokens: " << totalTokens << std::endl;
+  LOG_MSG << "\nCompleted!";
+  LOG_MSG << "  Files processed: " << totalFiles;
+  LOG_MSG << "  Total chunks: " << totalChunks;
+  LOG_MSG << "  Total tokens: " << totalTokens;
 }
 
 void App::compact()
