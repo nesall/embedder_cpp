@@ -178,8 +178,8 @@
     "default_max_tokens_name": "max_tokens"
   },
   "database": {
-    "sqlite_path": "c:/users/arman/workspace/db_metadata.db",
-    "index_path": "c:/users/arman/workspace/db_embeddings.index",
+    "sqlite_path": "db_metadata.db",
+    "index_path": "db_embeddings.index",
     "vector_dim": 768,
     "max_elements": 100000,
     "distance_metric": "cosine",

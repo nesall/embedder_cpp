@@ -11,6 +11,7 @@ mkdir dist
 xcopy build_rel\Release\* dist\ /E /Y
 rm dist\output.log -f
 rm dist\diagnostics.log -f
+rm dist\sqlite3_lib.lib -f
 xcopy settings.template.json dist\
 xcopy bge_tokenizer.json dist\
 

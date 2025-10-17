@@ -60,6 +60,7 @@ public:
 
   virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
   virtual void removeFileMetadata(const std::string &path) = 0;
+  virtual bool fileExistsInMetadata(const std::string &path) = 0;
 
   virtual DatabaseStats getStats() const = 0;
   virtual void persist() = 0;
@@ -96,6 +97,7 @@ public:
   size_t deleteDocumentsBySource(const std::string &sourceId) override;
   void removeFileMetadata(const std::string &sourceId) override;
   std::vector<FileMetadata> getTrackedFiles() const override;
+  bool fileExistsInMetadata(const std::string &path) override;
 
   void beginTransaction() override { executeSql("BEGIN TRANSACTION"); }
   void commit() override { executeSql("COMMIT"); }

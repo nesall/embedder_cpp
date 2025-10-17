@@ -141,7 +141,7 @@ void EmbeddingClient::generateEmbeddings(const std::string &text, std::vector<fl
 {
   std::vector<std::vector<float>> embs;
   generateEmbeddings({ text }, embs);
-  if (embs.empty()) embeddings = std::move(embs.front());
+  if (!embs.empty()) embeddings = std::move(embs.front());
 }
 
 float EmbeddingClient::calculateL2Norm(const std::vector<float> &vec)

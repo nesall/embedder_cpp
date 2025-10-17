@@ -62,7 +62,7 @@ public:
   ApiConfig embeddingCurrentApi() const;
   std::vector<ApiConfig> embeddingApis() const;
   size_t embeddingTimeoutMs() const { return config_["embedding"].value("timeout_ms", size_t(10'000)); }
-  size_t embeddingBatchSize() const { return config_["embedding"].value("batch_size", size_t(16)); }
+  size_t embeddingBatchSize() const { return config_["embedding"].value("batch_size", size_t(4)); }
   size_t embeddingTopK() const { return config_["embedding"].value("top_k", size_t(5)); }
 
   ApiConfig generationCurrentApi() const;

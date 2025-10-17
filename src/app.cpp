@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <chrono>
 #include <ranges>
+#include <format>
 #include <cctype>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
@@ -70,12 +71,35 @@ std::string utils::trimmed(std::string_view sv)
 
 namespace {
 
+  size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db) {
+    size_t totalTokens = 0;
+    size_t iBatch = 1;
+    const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
+    for (size_t i = 0; i < chunks.size(); i += batchSize) {
+      size_t end = (std::min)(i + batchSize, chunks.size());
+      std::vector<Chunk> batch(chunks.begin() + i, chunks.begin() + end);
+      std::vector<std::vector<float>> embeddings;
+      std::vector<std::string> texts;
+      for (const auto &chunk : batch) {
+        texts.push_back(chunk.text);
+        totalTokens += chunk.metadata.tokenCount;
+      }
+      std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
+      ec.generateEmbeddings(texts, embeddings);
+
+      db.addDocuments(batch, embeddings);
+      std::cout << "  Processed all chunks.                     \r" << std::flush;
+    }
+    return totalTokens;
+  }
+
+
   class IncrementalUpdater {
   private:
     VectorDatabase *db_;
-
+    size_t batchSize_;
   public:
-    IncrementalUpdater(VectorDatabase *db) : db_(db) {
+    IncrementalUpdater(VectorDatabase *db, size_t batchSize) : db_(db), batchSize_(batchSize) {
     }
 
     ~IncrementalUpdater() {
@@ -157,11 +181,12 @@ namespace {
           SourceProcessor::readFile(filepath, content);
           auto chunks = chunker.chunkText(content, filepath);
 
-          for (const auto &chunk : chunks) {
-            std::vector<float> embedding;
-            client.generateEmbeddings(chunk.text, embedding);
-            db_->addDocument(chunk, embedding);
-          }
+          //for (const auto &chunk : chunks) {
+          //  std::vector<float> embedding;
+          //  client.generateEmbeddings(chunk.text, embedding);
+          //  db_->addDocument(chunk, embedding);
+          //}
+          addEmbedChunks(chunks, batchSize_, client, *db_);
 
           //updateFileMetadata(filepath);
           totalUpdated++;
@@ -169,6 +194,7 @@ namespace {
           LOG_MSG << "  Updated with" << chunks.size() << " chunks";
 
           db_->commit();
+          db_->persist();
 
         } catch (const std::exception &e) {
           db_->rollback();
@@ -187,16 +213,18 @@ namespace {
           SourceProcessor::readFile(filepath, content);
           auto chunks = chunker.chunkText(content, filepath);
 
-          for (const auto &chunk : chunks) {
-            std::vector<float> embedding;
-            client.generateEmbeddings(chunk.text, embedding);
-            db_->addDocument(chunk, embedding);
-          }
+          //for (const auto &chunk : chunks) {
+          //  std::vector<float> embedding;
+          //  client.generateEmbeddings(chunk.text, embedding);
+          //  db_->addDocument(chunk, embedding);
+          //}
+          addEmbedChunks(chunks, batchSize_, client, *db_);
 
           totalUpdated++;
 
           LOG_MSG << "  Added with" << chunks.size() << " chunks";
           db_->commit();
+          db_->persist();
         } catch (const std::exception &e) {
           LOG_MSG << "  Error:" << e.what();
           db_->rollback();
@@ -289,7 +317,7 @@ void App::initialize()
 
   imp->chunker_ = std::make_unique<Chunker>(*imp->tokenizer_, minTokens, maxTokens, overlap);
   imp->processor_ = std::make_unique<SourceProcessor>(*imp->settings_);
-  imp->updater_ = std::make_unique<IncrementalUpdater>(imp->db_.get());
+  imp->updater_ = std::make_unique<IncrementalUpdater>(imp->db_.get(), imp->settings_->embeddingBatchSize());
 
   imp->httpServer_ = std::make_unique<HttpServer>(*this);
 }
@@ -338,34 +366,47 @@ void App::embed()
   for (size_t i = 0; i < sources.size(); ++i) {
     const auto &[text, source] = sources[i];
     try {
-      LOG_MSG << "PROCESSING" << source;
+      // TODO: check if source is not already in db
+      if (imp->db_->fileExistsInMetadata(source)) {
+        LOG_MSG << "Duplicate skipped." << source;
+        continue;
+      }
+
+      imp->db_->beginTransaction();
+
+
+      LOG_MSG << "PROCESSING" << source << std::format("({}/{})", i + 1, sources.size());
       std::string sourceId = std::filesystem::path(source).string();
       auto chunks = imp->chunker_->chunkText(text, sourceId);
       LOG_MSG << "  Generated" << chunks.size() << "chunks";
       const size_t batchSize = imp->settings_->embeddingBatchSize();
-      size_t iBatch = 1;
-      const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
-      for (size_t i = 0; i < chunks.size(); i += batchSize) {
-        size_t end = (std::min)(i + batchSize, chunks.size());
-        std::vector<Chunk> batch(chunks.begin() + i, chunks.begin() + end);
-        std::vector<std::vector<float>> embeddings;
-        std::vector<std::string> texts;
-        for (const auto &chunk : batch) {
-          texts.push_back(chunk.text);
-          totalTokens += chunk.metadata.tokenCount;
-        }
-        std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
-        embeddingClient.generateEmbeddings(texts, embeddings);
+      //size_t iBatch = 1;
+      //const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
+      //for (size_t i = 0; i < chunks.size(); i += batchSize) {
+      //  size_t end = (std::min)(i + batchSize, chunks.size());
+      //  std::vector<Chunk> batch(chunks.begin() + i, chunks.begin() + end);
+      //  std::vector<std::vector<float>> embeddings;
+      //  std::vector<std::string> texts;
+      //  for (const auto &chunk : batch) {
+      //    texts.push_back(chunk.text);
+      //    totalTokens += chunk.metadata.tokenCount;
+      //  }
+      //  std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
+      //  embeddingClient.generateEmbeddings(texts, embeddings);
 
-        imp->db_->addDocuments(batch, embeddings);
-        imp->db_->persist();
-        std::cout << "  Processed all chunks.                     \r" << std::flush;
-      }
+      //  imp->db_->addDocuments(batch, embeddings);
+      //  imp->db_->persist();
+      //  std::cout << "  Processed all chunks.                     \r" << std::flush;
+      //}
+      totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_);
       std::cout << std::endl;
       totalChunks += chunks.size();
       totalFiles++;
+      imp->db_->commit();
+      imp->db_->persist();
     } catch (const std::exception &e) {
-      std::cerr << "Error processing " << source << ": " << e.what() << std::endl;
+      imp->db_->rollback();
+      LOG_MSG << "Error processing" << source << ": " << e.what();
     }
   }
   imp->db_->persist();

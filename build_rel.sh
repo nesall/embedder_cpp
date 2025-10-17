@@ -12,6 +12,8 @@ echo "Copying release artifacts to dist folder..."
 rm -rf dist
 mkdir -p dist
 cp -r build_rel/* dist/
+rm dist\output.log -f
+rm dist\diagnostics.log -f
 cp settings.template.json dist/
 cp bge_tokenizer.json dist/
 

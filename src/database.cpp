@@ -84,17 +84,17 @@ std::vector<size_t> HnswSqliteVectorDatabase::addDocuments(const std::vector<Chu
     throw std::runtime_error("Chunks and embeddings count mismatch");
   }
   std::vector<size_t> chunkIds;
-  beginTransaction();
-  try {
+  //beginTransaction();
+  //try {
     for (size_t i = 0; i < chunks.size(); ++i) {
       size_t id = addDocument(chunks[i], embeddings[i]);
       chunkIds.push_back(id);
     }
-    commit();
-  } catch (...) {
-    rollback();
-    throw;
-  }
+    //commit();
+  //} catch (...) {
+  //  rollback();
+  //  throw;
+  //}
   return chunkIds;
 }
 
@@ -380,6 +380,18 @@ std::vector<FileMetadata> HnswSqliteVectorDatabase::getTrackedFiles() const
   return files;
 }
 
+bool HnswSqliteVectorDatabase::fileExistsInMetadata(const std::string &path)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  sqlite3_stmt *stmt;
+  const char *sql = "SELECT 1 FROM files_metadata WHERE path = ?";
+  _checkErr = sqlite3_prepare_v2(imp->db_, sql, -1, &stmt, nullptr);
+  _checkErr = sqlite3_bind_text(stmt, 1, path.c_str(), -1, SQLITE_STATIC);
+  bool exists = (sqlite3_step(stmt) == SQLITE_ROW);
+  _checkErr = sqlite3_finalize(stmt);
+  return exists;
+}
+
 DatabaseStats HnswSqliteVectorDatabase::getStats() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -408,7 +420,9 @@ void HnswSqliteVectorDatabase::persist()
   std::lock_guard<std::mutex> lock(mutex_);
   if (imp->index_->getCurrentElementCount() > 0) {
     imp->index_->saveIndex(imp->indexPath_);
-    LOG_MSG << "Saved vector index with " << imp->index_->getCurrentElementCount() << " vectors";
+    //LOG_MSG << "Saved vector index with " << imp->index_->getCurrentElementCount() << " vectors";
+  } else {
+    LOG_MSG << "Saving with no vectors in the index db. Skipped.";
   }
 }
 
