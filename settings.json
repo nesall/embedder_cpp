@@ -51,6 +51,17 @@
         }
       },
       {
+        "id": "gemma3",
+        "name": "Gemini",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "api_key": "${GEMINI_API_KEY}",
+        "model": "gemma-3-27b-it",
+        "pricing_tpm": {
+          "input": 0.0,
+          "output": 0.0
+        }
+      },
+      {
         "id": "mistral-nemo",
         "name": "Mistral",
         "api_url": "https://api.mistral.ai/v1/chat/completions",
@@ -70,6 +81,17 @@
         "pricing_tpm": {
           "input": 0.10,
           "output": 0.30
+        }
+      },
+      {
+        "id": "gemini-2.0-flash",
+        "name": "Gemini",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "api_key": "${GEMINI_API_KEY}",
+        "model": "gemini-2.0-flash",
+        "pricing_tpm": {
+          "input": 0.10,
+          "output": 0.40
         }
       },
       {
@@ -176,14 +198,14 @@
       "path": "../../embedder_cpp",
       "recursive": true,
       "extensions": [ ".cpp", ".h", ".hpp" ],
-      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*", "*/3rdparty/*" ]
     },
     {
       "type": "directory",
       "path": "../../rag-code-assistant/clients/webview",
       "recursive": true,
       "extensions": [ ".cpp", ".h", ".hpp" ],
-      "exclude": [ "*/build/*", "*/test/*" ]
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
     },
     {
       "type": "directory",

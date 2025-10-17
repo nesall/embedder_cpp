@@ -152,7 +152,8 @@ namespace {
           db_->beginTransaction();
           db_->deleteDocumentsBySource(filepath);
 
-          std::string content = readFile(filepath);
+          std::string content;
+          SourceProcessor::readFile(filepath, content);
           auto chunks = chunker.chunkText(content, filepath);
 
           for (const auto &chunk : chunks) {
@@ -181,7 +182,8 @@ namespace {
         try {
           db_->beginTransaction();
 
-          std::string content = readFile(filepath);
+          std::string content;
+          SourceProcessor::readFile(filepath, content);
           auto chunks = chunker.chunkText(content, filepath);
 
           for (const auto &chunk : chunks) {
@@ -236,17 +238,6 @@ namespace {
           std::cout << "  - " << file << std::endl;
         }
       }
-    }
-
-  private:
-    std::string readFile(const std::string &path) {
-      std::ifstream file(path);
-      if (!file.is_open()) {
-        throw std::runtime_error("Cannot open file: " + path);
-      }
-      std::stringstream buffer;
-      buffer << file.rdbuf();
-      return buffer.str();
     }
   };
 

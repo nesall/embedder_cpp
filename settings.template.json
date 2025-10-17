@@ -94,7 +94,7 @@
   ],
   "files": {
     "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
-    "global_exclude": [ "*/node_modules/*", "*.min.js", "*.log", "*/.git/*", ".gitignore" ],
+    "global_exclude": [ "*/node_modules/*", "*/build/*", "*/build_rel/*", "*/dist/*", "*.min.js", "*.log", "*/.git/*", ".gitignore" ],
     "encoding": "utf-8",
     "max_file_size_mb": 10
   }

@@ -4,8 +4,19 @@
 #include <fstream>
 #include <exception>
 #include <filesystem>
+#include <iterator>
 #include <httplib.h>
 #include <ulogger.hpp>
+#include <3rdparty/utf8.h>
+
+
+namespace {
+  std::string sanitizeUtf8(const std::string &input) {
+    std::string out;
+    utf8::replace_invalid(input.begin(), input.end(), std::back_inserter(out), '?');
+    return out;
+  }
+} // anonymous namespace
 
 
 std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
@@ -63,6 +74,17 @@ std::vector<std::string> SourceProcessor::filterRelatedSources(const std::vector
   return res;
 }
 
+bool SourceProcessor::readFile(const std::string &uri, std::string &data)
+{
+  std::ifstream file(uri);
+  if (file.is_open()) {
+    std::string raw((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    data = std::move(sanitizeUtf8(std::move(raw)));
+    return true;
+  }
+  return false;
+}
+
 void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::vector<SourceProcessor::Data> &content) const
 {
   namespace fs = std::filesystem;
@@ -109,11 +131,10 @@ void SourceProcessor::processFile(const std::string &filepath, std::vector<Sourc
       return;
     }
   }
-  std::ifstream file(filepath);
-  if (file.is_open()) {
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    content.push_back({ buffer.str(), std::filesystem::path(filepath).lexically_normal().generic_string() });
+  
+  std::string text;
+  if (SourceProcessor::readFile(filepath, text)) {
+    content.push_back({ std::move(text), std::filesystem::path(filepath).lexically_normal().generic_string() });
   } else {
     LOG_MSG << "Unable to process resource " << filepath << ". Skipped.";
   }
