@@ -1,5 +1,5 @@
 #include "tokenizer.h"
-
+#include <utils_log/logger.hpp>
 #include <vector>
 #include <string>
 #include <fstream>
@@ -114,7 +114,7 @@ namespace {
 } // anonymous namespace
 
 
-SimpleTokenCounter::SimpleTokenCounter(const std::string &configPath)
+SimpleTokenizer::SimpleTokenizer(const std::string &configPath)
 {
   std::ifstream file(configPath);
   if (file.is_open()) {
@@ -122,11 +122,14 @@ SimpleTokenCounter::SimpleTokenCounter(const std::string &configPath)
     file >> jsonObj;
     if (jsonObj.contains("model") && jsonObj["model"].contains("vocab")) {
       vocab_ = jsonObj["model"]["vocab"];
+      LOG_MSG << "Using vocab file" << configPath << "with" << vocab_.size() << "entries.";
     }
+  } else {
+    LOG_MSG << "Unable to locate vocab file" << configPath << ". Skipped.";
   }
 }
 
-size_t SimpleTokenCounter::estimateTokenCount(const std::string &text, bool addSpecialTokens) const
+size_t SimpleTokenizer::estimateTokenCount(const std::string &text, bool addSpecialTokens) const
 {
   std::string padded = padChineseChars(text);
   std::vector<std::string> words = splitSimple(padded);
@@ -149,7 +152,7 @@ size_t SimpleTokenCounter::estimateTokenCount(const std::string &text, bool addS
   return totalTokens;
 }
 
-size_t SimpleTokenCounter::countTokensWithVocab(const std::string &text, bool addSpecialTokens) const
+size_t SimpleTokenizer::countTokensWithVocab(const std::string &text, bool addSpecialTokens) const
 {
   if (vocab_.empty()) {
     return estimateTokenCount(text);
@@ -168,7 +171,7 @@ size_t SimpleTokenCounter::countTokensWithVocab(const std::string &text, bool ad
   return totalTokens;
 }
 
-size_t SimpleTokenCounter::simulateWordpiece(const std::string &word, bool addSpecialTokens) const
+size_t SimpleTokenizer::simulateWordpiece(const std::string &word, bool addSpecialTokens) const
 {
   if (word.length() > maxInputCharsPerWord_) {
     return addSpecialTokens ? 1 : 0; // [UNK]

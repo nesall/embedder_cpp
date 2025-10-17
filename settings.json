@@ -1,6 +1,6 @@
 {
   "tokenizer": {
-    "config_path": "../../bge_tokenizer.json"
+    "config_path": "../bge_tokenizer.json"
   },
   "embedding": {
     "apis": [
@@ -20,7 +20,7 @@
       }
     ],
     "current_api": "local",
-    "batch_size": 32,
+    "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,
     "top_k": 5
@@ -167,7 +167,7 @@
         }
       }
     ],
-    "current_api": "local-qwen",
+    "current_api": "remote-hosted",
     "timeout_ms": 120000,
     "max_chunks": 7,
     "max_full_sources": 2,
@@ -178,8 +178,8 @@
     "default_max_tokens_name": "max_tokens"
   },
   "database": {
-    "sqlite_path": "db_metadata.db",
-    "index_path": "db_embeddings.index",
+    "sqlite_path": "c:/users/arman/workspace/db_metadata.db",
+    "index_path": "c:/users/arman/workspace/db_embeddings.index",
     "vector_dim": 768,
     "max_elements": 100000,
     "distance_metric": "cosine",
@@ -240,13 +240,20 @@
   ],
   "files": {
     "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
-    "global_exclude": [ "*/node_modules/*", "*.min.js", "*.log", "*/.git/*", ".gitignore" ],
+    "global_exclude": [
+      "*/node_modules/*", "*.min.js", "*.log", 
+      "*/.git/*", ".gitignore", "*/CVS/*",
+      "*/debug/*", "*/release/*", "*/lib/*", "*/docker/*",
+      "*/fonts/*", "*/images/*", "*/test/*","*/tests/*",
+      "*/example/*", "*/examples/*", "*/obj/*"
+    ],
     "encoding": "utf-8",
     "max_file_size_mb": 10
   },
   "logging": {
     "level": "info",
-    "file": "embedder.log",
-    "console": true
+    "logging_file": "embedder.log",
+    "diagnostics_file": "embedder_diag.log",
+    "log_to_file": true
   }
 }

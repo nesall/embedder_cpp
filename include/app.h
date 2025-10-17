@@ -9,7 +9,7 @@ class VectorDatabase;
 class SourceProcessor;
 class EmbeddingClient;
 class CompletionClient;
-class SimpleTokenCounter;
+class SimpleTokenizer;
 
 class App {
   struct Impl;
@@ -30,7 +30,7 @@ public:
   void serve(int port, bool watch = false, int interval = 60);
 
   const Settings &settings() const;
-  const SimpleTokenCounter &tokenizer() const;
+  const SimpleTokenizer &tokenizer() const;
   const SourceProcessor &sourceProcessor() const;
   const Chunker &chunker() const;
   const VectorDatabase &db() const;

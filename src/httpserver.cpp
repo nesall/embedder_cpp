@@ -8,7 +8,7 @@
 #include "tokenizer.h"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
-#include <ulogger.hpp>
+#include <utils_log/logger.hpp>
 #include <cassert>
 #include <thread>
 #include <exception>
@@ -128,7 +128,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       std::string query = request["query"].get<std::string>();
       size_t top_k = request.value("top_k", 5);
       std::vector<float> queryEmbedding;
-      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ query }, queryEmbedding);
+      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(query, queryEmbedding);
 
       auto results = imp->app_.db().search(queryEmbedding, top_k);
 
@@ -160,14 +160,26 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       LOG_MSG << "POST /api/embed";
       json request = json::parse(req.body);
       std::string text = request["text"].get<std::string>();
+      auto chunks = imp->app_.chunker().chunkText(text, "api-request");
+      std::vector<std::string> texts;
+      for (const auto &c : chunks) {
+        texts.push_back(c.text);
+      }
+      json response = json::array();
+      const auto &ss = imp->app_.settings();
+      const auto batchSize = ss.embeddingBatchSize();
+      EmbeddingClient embeddingClient(ss.embeddingCurrentApi(), ss.embeddingTimeoutMs());
+      for (size_t i = 0; i < chunks.size(); i += batchSize) {
+        size_t end = (std::min)(i + batchSize, chunks.size());
+        std::vector<std::string> batchTexts(texts.begin() + i, texts.begin() + end);
 
-      std::vector<float> embedding;
-      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ text }, embedding);
+        std::vector<std::vector<float>> embeddings;
+        embeddingClient.generateEmbeddings(batchTexts, embeddings);
 
-      json response = {
-          {"embedding", embedding},
-          {"dimension", embedding.size()}
-      };
+        for (const auto &emb : embeddings) {
+          response.push_back({ {"embedding", emb}, {"dimension", emb.size()} });
+        }
+      }
 
       res.set_content(response.dump(), "application/json");
 
@@ -191,7 +203,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       size_t inserted = 0;
       for (const auto &chunk : chunks) {
         std::vector<float> embedding;
-        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ chunk.text }, embedding);
+        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(chunk.text, embedding);
         imp->app_.db().addDocument(chunk, embedding);
         inserted++;
       }
@@ -308,7 +320,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
         throw std::invalid_argument("Last message role must be 'user', got: " + role);
       }
       const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
-      const float maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
+      const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
       std::string question = messagesJson.back()["content"].get<std::string>();
 
       auto attachmentsJson = request["attachments"];
@@ -348,7 +360,7 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
       const auto questionChunks = imp->app_.chunker().chunkText(question, "", false);
       for (const auto &qc : questionChunks) {
         std::vector<float> embedding;
-        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings({ qc.text }, embedding);
+        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(qc.text, embedding);
         auto res = imp->app_.db().search(embedding, imp->app_.settings().embeddingTopK());
         filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
         for (const auto &r : res) {

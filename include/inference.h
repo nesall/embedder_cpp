@@ -30,8 +30,8 @@ protected:
 class EmbeddingClient : public InferenceClient {
 public:
   EmbeddingClient(const ApiConfig &cfg, size_t timeout);
-  void generateEmbeddings(const std::vector<std::string> &texts, std::vector<float> &embedding) const;
-  std::vector<std::vector<float>> generateBatchEmbeddings(const std::vector<std::string> &texts) const;
+  void generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList) const;
+  void generateEmbeddings(const std::string &text, std::vector<float> &embeddings) const;
 
 private:
   static float calculateL2Norm(const std::vector<float> &vec);

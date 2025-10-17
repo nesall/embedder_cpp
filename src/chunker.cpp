@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
-#include <ulogger.hpp>
+#include <utils_log/logger.hpp>
 
 namespace {
   struct Unit {
@@ -298,7 +298,7 @@ namespace {
 } // anonymous namespace
 
 
-Chunker::Chunker(SimpleTokenCounter &tok, size_t min_tok, size_t max_tok, float overlap)
+Chunker::Chunker(SimpleTokenizer &tok, size_t min_tok, size_t max_tok, float overlap)
   : tokenizer_(tok), minTokens_(min_tok), maxTokens_(max_tok), overlapTokens_(static_cast<size_t>(max_tok * overlap))
 {
 }

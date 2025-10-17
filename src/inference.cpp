@@ -4,10 +4,10 @@
 #include "settings.h"
 #include "tokenizer.h"
 #include <stdexcept>
-#include <iostream>
+#include <cassert>
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
-#include <ulogger.hpp>
+#include <utils_log/logger.hpp>
 
 
 struct InferenceClient::Impl {
@@ -73,9 +73,9 @@ EmbeddingClient::EmbeddingClient(const ApiConfig &cfg, size_t timeout)
 {
 }
 
-void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, std::vector<float> &embedding) const
+void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList) const
 {
-  embedding.reserve(1024);
+  embeddingsList.reserve(texts.size());
   try {
     httplib::Client client(schemaHostPort());
     client.set_connection_timeout(0, timeoutMs()* 1000);
@@ -100,21 +100,31 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
     if (!response.is_array() || response.size() != texts.size()) {
       throw std::runtime_error("Unexpected embedding response format");
     }
-    const auto &item = response[0];
-    if (!item.contains("embedding") || !item["embedding"].is_array()) {
-      throw std::runtime_error("Missing or invalid 'embedding' field in response");
-    }
-    const auto &embeddingArray = item["embedding"];
-    if (embeddingArray.empty() || !embeddingArray[0].is_array()) {
-      throw std::runtime_error("Invalid embedding structure");
-    }
-    const auto &embeddingData = embeddingArray[0];
-    for (const auto &value : embeddingData) {
-      if (value.is_number()) {
-        embedding.push_back(value.get<float>());
-      } else {
-        throw std::runtime_error("Non-numeric value in embedding data");
+    for (size_t j = 0; j < texts.size(); j ++) {
+      assert(j < response.size());
+      if (response.size() <= j) {
+        LOG_MSG << "Not enough entries in the embedding response (asked for" << texts.size() << " but got" << response.size() << "). Skipped";
+        break;
       }
+      const auto &item = response[j];
+      if (!item.contains("embedding") || !item["embedding"].is_array()) {
+        throw std::runtime_error("Missing or invalid 'embedding' field in response");
+      }
+      const auto &embeddingArray = item["embedding"];
+      if (embeddingArray.empty() || !embeddingArray[0].is_array()) {
+        throw std::runtime_error("Invalid embedding structure");
+      }
+      const auto &embeddingData = embeddingArray[0];
+      std::vector<float> embedding;
+      embedding.reserve(1024);
+      for (const auto &value : embeddingData) {
+        if (value.is_number()) {
+          embedding.push_back(value.get<float>());
+        } else {
+          throw std::runtime_error("Non-numeric value in embedding data");
+        }
+      }
+      embeddingsList.push_back(embedding);
     }
     //float l2Norm = calculateL2Norm(embedding);
     //std::cout << "[l2norm] " << l2Norm << std::endl;
@@ -127,15 +137,11 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
   }
 }
 
-std::vector<std::vector<float>> EmbeddingClient::generateBatchEmbeddings(const std::vector<std::string> &texts) const
+void EmbeddingClient::generateEmbeddings(const std::string &text, std::vector<float> &embeddings) const
 {
-  std::vector<std::vector<float>> results;
-  for (const auto &text : texts) {
-    std::vector<float> embedding;
-    generateEmbeddings({ text }, embedding);
-    results.push_back(embedding);
-  }
-  return results;
+  std::vector<std::vector<float>> embs;
+  generateEmbeddings({ text }, embs);
+  if (embs.empty()) embeddings = std::move(embs.front());
 }
 
 float EmbeddingClient::calculateL2Norm(const std::vector<float> &vec)

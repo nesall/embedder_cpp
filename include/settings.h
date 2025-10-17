@@ -86,6 +86,9 @@ public:
   std::vector<std::string> filesGlobalExclusions() const { return config_["files"].value("global_exclude", std::vector<std::string>{}); }
   std::vector<std::string> filesDefaultExtensions() const { return config_["files"].value("default_extensions", std::vector<std::string>{".txt", ".md"}); }
 
+  std::string loggingLoggingFile() const { return config_["logging"].value("logging_file", "output.log"); }
+  std::string loggingDiagnosticsFile() const { return config_["logging"].value("diagnostics_file", "diagnostics.log"); }
+
   std::vector<SourceItem> sources() const;
 };
 

@@ -26,7 +26,7 @@ struct Chunk {
 
 class Chunker {
 private:
-  SimpleTokenCounter &tokenizer_;
+  SimpleTokenizer &tokenizer_;
   size_t maxTokens_;
   size_t minTokens_;
   size_t overlapTokens_;
@@ -48,7 +48,7 @@ private:
 public:
   enum class ContentType { Code, Text, Binary };
 
-  Chunker(SimpleTokenCounter &tok, size_t minTok = 50, size_t maxTok = 500, float overlap = 0.1f);
+  Chunker(SimpleTokenizer &tok, size_t minTok = 50, size_t maxTok = 500, float overlap = 0.1f);
 
   std::vector<Chunk> chunkText(const std::string &text, const std::string &uri = "", bool semantic = true) const;
 

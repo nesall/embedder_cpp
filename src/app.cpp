@@ -13,6 +13,7 @@
 #include <vector>
 #include <sstream>
 #include <ctime>
+#include <cmath>
 #include <iomanip>
 #include <unordered_map>
 #include <thread>
@@ -21,7 +22,7 @@
 #include <ranges>
 #include <cctype>
 #include <nlohmann/json.hpp>
-#include <ulogger.hpp>
+#include <utils_log/logger.hpp>
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -131,7 +132,7 @@ namespace {
         try {
           db_->beginTransaction();
           for (const auto &filepath : info.deletedFiles) {
-            LOG_MSG << "Deleting chunks for: " << filepath;
+            LOG_MSG << "Deleting chunks for:" << filepath;
             db_->deleteDocumentsBySource(filepath);
             db_->removeFileMetadata(filepath);
             totalUpdated++;
@@ -139,14 +140,14 @@ namespace {
           db_->commit();
         } catch (const std::exception &e) {
           db_->rollback();
-          LOG_MSG << "  Error during deletions: " << e.what();
+          LOG_MSG << "  Error during deletions:" << e.what();
           return totalUpdated;
         }
       }
 
       // Handle modifications (delete old, insert new)
       for (const auto &filepath : info.modifiedFiles) {
-        LOG_MSG << "Updating: " << filepath;
+        LOG_MSG << "Updating:" << filepath;
 
         try {
           db_->beginTransaction();
@@ -158,26 +159,26 @@ namespace {
 
           for (const auto &chunk : chunks) {
             std::vector<float> embedding;
-            client.generateEmbeddings({ chunk.text }, embedding);
+            client.generateEmbeddings(chunk.text, embedding);
             db_->addDocument(chunk, embedding);
           }
 
           //updateFileMetadata(filepath);
           totalUpdated++;
 
-          LOG_MSG << "  Updated with " << chunks.size() << " chunks";
+          LOG_MSG << "  Updated with" << chunks.size() << " chunks";
 
           db_->commit();
 
         } catch (const std::exception &e) {
           db_->rollback();
-          LOG_MSG << "  Error: " << e.what();
+          LOG_MSG << "  Error:" << e.what();
         }
       }
 
       // Handle new files
       for (const auto &filepath : info.newFiles) {
-        LOG_MSG << "Adding new file: " << filepath;
+        LOG_MSG << "Adding new file:" << filepath;
 
         try {
           db_->beginTransaction();
@@ -188,16 +189,16 @@ namespace {
 
           for (const auto &chunk : chunks) {
             std::vector<float> embedding;
-            client.generateEmbeddings({ chunk.text }, embedding);
+            client.generateEmbeddings(chunk.text, embedding);
             db_->addDocument(chunk, embedding);
           }
 
           totalUpdated++;
 
-          LOG_MSG << "  Added with " << chunks.size() << " chunks";
+          LOG_MSG << "  Added with" << chunks.size() << " chunks";
           db_->commit();
         } catch (const std::exception &e) {
-          LOG_MSG << "  Error: " << e.what();
+          LOG_MSG << "  Error:" << e.what();
           db_->rollback();
         }
       }
@@ -247,7 +248,7 @@ namespace {
 struct App::Impl {
   std::unique_ptr<Settings> settings_;
   std::unique_ptr<VectorDatabase> db_;
-  std::unique_ptr<SimpleTokenCounter> tokenizer_;
+  std::unique_ptr<SimpleTokenizer> tokenizer_;
   std::unique_ptr<Chunker> chunker_;
   std::unique_ptr<SourceProcessor> processor_;
   std::unique_ptr<IncrementalUpdater> updater_;
@@ -268,6 +269,10 @@ App::~App()
 void App::initialize()
 {
   auto &ss = *imp->settings_;
+
+  SET_LOGGING_OUTPUT_FILE_PATH(ss.loggingLoggingFile());
+  SET_LOGGING_DIAGNOSTICS_FILE_PATH(ss.loggingDiagnosticsFile());
+
   std::string dbPath = ss.databaseSqlitePath();
   std::string indexPath = ss.databaseIndexPath();
   size_t vectorDim = ss.databaseVectorDim();
@@ -276,7 +281,7 @@ void App::initialize()
 
   imp->db_ = std::make_unique<HnswSqliteVectorDatabase>(dbPath, indexPath, vectorDim, maxElements, metric);
 
-  imp->tokenizer_ = std::make_unique<SimpleTokenCounter>(ss.tokenizerConfigPath());
+  imp->tokenizer_ = std::make_unique<SimpleTokenizer>(ss.tokenizerConfigPath());
 
   size_t minTokens = ss.chunkingMinTokens();
   size_t maxTokens = ss.chunkingMaxTokens();
@@ -291,7 +296,7 @@ void App::initialize()
 
 void App::embed()
 {
-  std::cout << "Starting embedding process..." << std::endl;
+  LOG_MSG << "Starting embedding process...";
   auto sources = imp->processor_->collectSources();
   size_t totalChunks = 0;
   size_t totalFiles = 0;
@@ -300,24 +305,34 @@ void App::embed()
   for (size_t i = 0; i < sources.size(); ++i) {
     const auto &[text, source] = sources[i];
     try {
-      std::cout << "PROCESSING " << source << std::endl;
+      LOG_MSG << "PROCESSING" << source;
       std::string sourceId = std::filesystem::path(source).string();
       auto chunks = imp->chunker_->chunkText(text, sourceId);
-      std::cout << "  Generated " << chunks.size() << " chunks" << std::endl;
-      size_t batchSize = imp->settings_->embeddingBatchSize();
+      LOG_MSG << "  Generated" << chunks.size() << "chunks";
+      const size_t batchSize = imp->settings_->embeddingBatchSize();
+      size_t iBatch = 1;
+      const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
       for (size_t i = 0; i < chunks.size(); i += batchSize) {
         size_t end = (std::min)(i + batchSize, chunks.size());
         std::vector<Chunk> batch(chunks.begin() + i, chunks.begin() + end);
         std::vector<std::vector<float>> embeddings;
-        size_t iBatch = 1;
+        std::vector<std::string> texts;
         for (const auto &chunk : batch) {
-          std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << batch.size() << "\r" << std::flush;
-          std::vector<float> emb;
-          embeddingClient.generateEmbeddings({ chunk.text }, emb);
-          embeddings.push_back(emb);
+          texts.push_back(chunk.text);
           totalTokens += chunk.metadata.tokenCount;
         }
+        std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
+        //for (const auto &chunk : batch) {
+        //  std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << batch.size() << "\r" << std::flush;
+        //  std::vector<float> emb;
+        //  embeddingClient.generateEmbeddings({ chunk.text }, emb);
+        //  embeddings.push_back(emb);
+        //  totalTokens += chunk.metadata.tokenCount;
+        //}
+        embeddingClient.generateEmbeddings(texts, embeddings);
+
         imp->db_->addDocuments(batch, embeddings);
+        imp->db_->persist();
         std::cout << "  Processed all chunks.                     \r" << std::flush;
       }
       std::cout << std::endl;
@@ -336,10 +351,10 @@ void App::embed()
 
 void App::compact()
 {
-  std::cout << "Compacting vector index..." << std::endl;
+  LOG_MSG << "Compacting vector index...";
   imp->db_->compact();
   imp->db_->persist();
-  std::cout << "Done!" << std::endl;
+  LOG_MSG << "Done!";
 }
 
 void App::search(const std::string &query, size_t topK)
@@ -348,7 +363,7 @@ void App::search(const std::string &query, size_t topK)
 
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   std::vector<float> queryEmbedding;
-  embeddingClient.generateEmbeddings({ query }, queryEmbedding);
+  embeddingClient.generateEmbeddings(query, queryEmbedding);
   auto results = imp->db_->search(queryEmbedding, topK);
 
   std::cout << "\nFound " << results.size() << " results:" << std::endl;
@@ -400,9 +415,9 @@ void App::clear()
 
 void App::chat()
 {
-  std::cout << "Entering chat mode. Type 'exit' to quit." << std::endl;
   auto apiCfg = imp->settings_->generationCurrentApi();
   std::cout << "Using model: " << apiCfg.model << " at " << apiCfg.apiUrl << std::endl;
+  std::cout << "Entering chat mode. Type 'exit' to quit." << std::endl;
   std::vector<json> messages;
   messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
@@ -417,7 +432,7 @@ void App::chat()
       messages.push_back({ {"role", "user"}, {"content", userInput} });
       // Generate embedding for the user input
       std::vector<float> queryEmbedding;
-      embeddingClient.generateEmbeddings({ userInput }, queryEmbedding);
+      embeddingClient.generateEmbeddings(userInput, queryEmbedding);
       auto searchResults = imp->db_->search(queryEmbedding, 5);
       std::cout << "\nAssistant: " << std::flush;
       std::string assistantResponse = completionClient.generateCompletion(
@@ -482,7 +497,7 @@ const Settings &App::settings() const
   return *imp->settings_;
 }
 
-const SimpleTokenCounter &App::tokenizer() const
+const SimpleTokenizer &App::tokenizer() const
 {
   return *imp->tokenizer_;
 }
