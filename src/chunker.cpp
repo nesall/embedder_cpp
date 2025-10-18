@@ -399,10 +399,13 @@ std::vector<Chunk> Chunker::splitIntoTextChunks(std::string text, const std::str
     if (start < end) {
       size_t startChar = units[start].startChar;
       size_t endChar = units[end - 1].endChar;
-      std::string raw = text.substr(startChar, endChar - startChar);
+      std::string raw;
+#ifdef _DEBUG
+      raw = text.substr(startChar, endChar - startChar);
+      size_t tokensToCheck = tokenCount(raw);
+#endif
       std::string chunkText;
       for (size_t i = start; i < end; i++) chunkText += units[i].text;
-      size_t tokensToCheck = tokenCount(raw);
       chunks.push_back({
           uri,
           uri + "_" + std::to_string(chunkId++),
@@ -460,7 +463,9 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
     }
     if (start < end) {
       std::string raw;
+#ifdef _DEBUG
       for (size_t i = start; i < end; i++) raw += lines[i];
+#endif
       chunks.push_back({
           uri,
           uri + "_" + std::to_string(chunkId++),
@@ -473,9 +478,10 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
     if (0 < overlapTokens_) {
       size_t overlapTokens = 0;
       size_t overlapLines = 0;
-      while (start + overlapLines < end && overlapTokens < overlapTokens_) {
+      while (start < end - overlapLines - 1) {
         overlapTokens += tokenCount(lines[end - 1 - overlapLines]);
-        overlapLines++;
+        if (overlapTokens < overlapTokens_) overlapLines++;
+        else break;
       }
       start = end - overlapLines;
     } else {
