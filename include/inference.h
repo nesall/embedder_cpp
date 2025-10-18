@@ -33,8 +33,8 @@ public:
   void generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList) const;
   void generateEmbeddings(const std::string &text, std::vector<float> &embeddings) const;
 
-private:
   static float calculateL2Norm(const std::vector<float> &vec);
+private:
 };
 
 class CompletionClient : public InferenceClient {

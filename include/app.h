@@ -18,8 +18,10 @@ public:
   explicit App(const std::string &configPath);
   ~App();
 
+  bool testSettings() const;
+
   // CLI commands
-  void embed();
+  void embed(bool ask = true);
   void watch(int interval_seconds = 60);
   size_t update();
   void compact();

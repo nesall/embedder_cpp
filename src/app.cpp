@@ -22,6 +22,8 @@
 #include <ranges>
 #include <format>
 #include <cctype>
+#include <cassert>
+#include <csignal>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
 
@@ -70,6 +72,16 @@ std::string utils::trimmed(std::string_view sv)
 
 
 namespace {
+
+  std::string stripUrlQueryAndAnchor(const std::string &url) {
+    size_t qpos = url.find('?');
+    size_t apos = url.find('#');
+    size_t pos = (std::min)(
+      qpos != std::string::npos ? qpos : url.size(),
+      apos != std::string::npos ? apos : url.size()
+    );
+    return url.substr(0, pos);
+  }
 
   size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db) {
     size_t totalTokens = 0;
@@ -179,16 +191,16 @@ namespace {
 
           std::string content;
           SourceProcessor::readFile(filepath, content);
+          if (content.empty()) {
+            LOG_MSG << "  Empty file" << filepath << ".Skipped.";
+            db_->rollback();
+            continue;
+          }
+
           auto chunks = chunker.chunkText(content, filepath);
 
-          //for (const auto &chunk : chunks) {
-          //  std::vector<float> embedding;
-          //  client.generateEmbeddings(chunk.text, embedding);
-          //  db_->addDocument(chunk, embedding);
-          //}
           addEmbedChunks(chunks, batchSize_, client, *db_);
 
-          //updateFileMetadata(filepath);
           totalUpdated++;
 
           LOG_MSG << "  Updated with" << chunks.size() << " chunks";
@@ -211,13 +223,14 @@ namespace {
 
           std::string content;
           SourceProcessor::readFile(filepath, content);
+          if (content.empty()) {
+            LOG_MSG << "  Empty file" << filepath << ".Skipped.";
+            db_->rollback();
+            continue;
+          }
+
           auto chunks = chunker.chunkText(content, filepath);
 
-          //for (const auto &chunk : chunks) {
-          //  std::vector<float> embedding;
-          //  client.generateEmbeddings(chunk.text, embedding);
-          //  db_->addDocument(chunk, embedding);
-          //}
           addEmbedChunks(chunks, batchSize_, client, *db_);
 
           totalUpdated++;
@@ -269,6 +282,30 @@ namespace {
       }
     }
   };
+
+  class SignalHandler {
+  private:
+    static volatile std::sig_atomic_t shutdownRequested;
+
+  public:
+    static void handleSignal(int sig) {
+      shutdownRequested = 1;
+    }
+
+    static bool shouldShutdown() {
+      return shutdownRequested != 0;
+    }
+
+    static void setup() {
+      // Only use standard C++ signal function
+      std::signal(SIGINT, handleSignal);
+      std::signal(SIGTERM, handleSignal);
+
+      // Note: SIGKILL cannot be caught on any platform
+      // Note: Some signals are platform-specific
+    }
+  };
+  volatile std::sig_atomic_t SignalHandler::shutdownRequested = 0;
 
 } // anonymous namespace
 
@@ -322,82 +359,135 @@ void App::initialize()
   imp->httpServer_ = std::make_unique<HttpServer>(*this);
 }
 
-void App::embed()
+bool App::testSettings() const
+{
+  bool ok = true;
+  {
+    auto api = settings().embeddingCurrentApi();
+    LOG_MSG << "Testing embedding client...";
+    EmbeddingClient cl{ api, settings().embeddingTimeoutMs() };
+    std::vector<float> v;
+    cl.generateEmbeddings("test!", v);
+    if (0 < v.size()) {
+      float l2Norm = EmbeddingClient::calculateL2Norm(v);
+      LOG_MSG << "Embedding client works fine." << "[l2norm]" << l2Norm;
+    } else {
+      LOG_MSG << "Embedding client not working. Please, check settings.json and edit manually if needed.";
+      ok = false;
+    }
+  }
+
+  {
+    auto api = settings().generationCurrentApi();
+    LOG_MSG << "Testing completion client...";
+    CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
+    std::vector<json> messages;
+    messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+    messages.push_back({ {"role", "user"}, {"content", "Answer in one word only - what is the capital of France?"}});
+
+    std::string fullResponse = cl.generateCompletion(
+      messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
+      [](const std::string &chunk) {
+        //std::cout << chunk << std::flush;
+      }
+    );
+    if (fullResponse.find("Paris") != std::string::npos) {
+      LOG_MSG << "Completion client works fine.";
+    } else {
+      LOG_MSG << "Comletion client not working. Please, check settings.json and edit manually if needed.";
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+void App::embed(bool ask)
 {
   LOG_MSG << "Starting embedding process...";
-  auto sources = imp->processor_->collectSources();
+  auto sources = imp->processor_->collectSources(false);
   LOG_MSG << "Total" << sources.size() << "sources collected";
 
   // Print number of sources by extension
   std::unordered_map<std::string, size_t> extCount;
   std::unordered_map<std::string, size_t> dirCount;
+  size_t urlCount = 0;
   size_t emptyTextCount = 0;
-  for (const auto &[text, source] : sources) {
-    std::filesystem::path p(source);
-    extCount[p.extension().string()]++;
-    dirCount[p.parent_path().string()]++;
-    if (text.empty()) emptyTextCount++;
+  for (const auto &[isUrl, text, source] : sources) {
+    if (!isUrl) {
+      std::filesystem::path p(source);
+      extCount[p.extension().string()]++;
+      dirCount[p.parent_path().string()]++;
+    } else {
+      urlCount ++;
+      if (text.empty()) emptyTextCount++;
+    }
   }
 
   LOG_MSG << "Sources by extension:";
   for (const auto &[ext, count] : extCount) {
-    LOG_MSG << "  " << (ext.empty() ? "[no extension]" : ext) << ": " << count;
+    LOG_MSG << "  " << (ext.empty() ? "[no extension]" : ext) << ":" << count;
   }
 
   LOG_MSG << "Sources by directory:";
   for (const auto &[dir, count] : dirCount) {
-    LOG_MSG << "  " << (dir.empty() ? "[root]" : dir) << ": " << count;
+    LOG_MSG << "  " << (dir.empty() ? "[root]" : dir) << ":" << count;
   }
 
-  LOG_MSG << "Sources with empty text: " << emptyTextCount;
+  LOG_MSG << "URLs" << urlCount;
 
-  std::cout << "Proceed? (type yes or y to proceed): ";
-  std::string confirm;
-  std::cin >> confirm;
-  if (!(confirm == "yes" || confirm == "y")) {
-    LOG_MSG << "Exitted.";
-    return;
+  //LOG_MSG << "Sources with empty text: " << emptyTextCount;
+
+  if (ask) {
+    std::cout << "Proceed? (type yes or y to proceed): ";
+    std::string confirm;
+    std::cin >> confirm;
+    if (!(confirm == "yes" || confirm == "y")) {
+      LOG_MSG << "Exitted.";
+      return;
+    }
   }
 
   size_t totalChunks = 0;
   size_t totalFiles = 0;
   size_t totalTokens = 0;
+  size_t skippedFiles = 0;
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   for (size_t i = 0; i < sources.size(); ++i) {
-    const auto &[text, source] = sources[i];
+    const auto &source = sources[i].source;
     try {
-      // TODO: check if source is not already in db
+      if (!sources[i].isUrl && !fs::exists(source)) {
+        LOG_MSG << "File not found: " << source << ". Skipped.";
+        skippedFiles++;
+        continue;
+      }
       if (imp->db_->fileExistsInMetadata(source)) {
-        LOG_MSG << "Duplicate skipped." << source;
+        LOG_MSG << "Duplicate source" << source << ". Skipped.";
+        skippedFiles ++;
         continue;
       }
 
       imp->db_->beginTransaction();
-
-
       LOG_MSG << "PROCESSING" << source << std::format("({}/{})", i + 1, sources.size());
-      std::string sourceId = std::filesystem::path(source).string();
-      auto chunks = imp->chunker_->chunkText(text, sourceId);
+
+      std::string content{ sources[i].content };
+
+      if (!sources[i].isUrl) {
+        assert(content.empty());
+        SourceProcessor::readFile(source, content);
+        if (content.empty()) {
+          LOG_MSG << "  Empty file. Skipped.";
+          imp->db_->rollback();
+          skippedFiles++;
+          continue;
+        }
+      }
+
+      const std::string sourceId = sources[i].isUrl ? stripUrlQueryAndAnchor(source) : std::filesystem::path(source).string();
+      
+      auto chunks = imp->chunker_->chunkText(content, sourceId);
+      
       LOG_MSG << "  Generated" << chunks.size() << "chunks";
       const size_t batchSize = imp->settings_->embeddingBatchSize();
-      //size_t iBatch = 1;
-      //const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
-      //for (size_t i = 0; i < chunks.size(); i += batchSize) {
-      //  size_t end = (std::min)(i + batchSize, chunks.size());
-      //  std::vector<Chunk> batch(chunks.begin() + i, chunks.begin() + end);
-      //  std::vector<std::vector<float>> embeddings;
-      //  std::vector<std::string> texts;
-      //  for (const auto &chunk : batch) {
-      //    texts.push_back(chunk.text);
-      //    totalTokens += chunk.metadata.tokenCount;
-      //  }
-      //  std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
-      //  embeddingClient.generateEmbeddings(texts, embeddings);
-
-      //  imp->db_->addDocuments(batch, embeddings);
-      //  imp->db_->persist();
-      //  std::cout << "  Processed all chunks.                     \r" << std::flush;
-      //}
       totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_);
       std::cout << std::endl;
       totalChunks += chunks.size();
@@ -406,14 +496,16 @@ void App::embed()
       imp->db_->persist();
     } catch (const std::exception &e) {
       imp->db_->rollback();
+      skippedFiles++;
       LOG_MSG << "Error processing" << source << ": " << e.what();
     }
   }
   imp->db_->persist();
   LOG_MSG << "\nCompleted!";
-  LOG_MSG << "  Files processed: " << totalFiles;
-  LOG_MSG << "  Total chunks: " << totalChunks;
-  LOG_MSG << "  Total tokens: " << totalTokens;
+  LOG_MSG << "  Files processed:" << totalFiles;
+  LOG_MSG << "  Files skipped:" << skippedFiles;
+  LOG_MSG << "  Total chunks:" << totalChunks;
+  LOG_MSG << "  Total tokens:" << totalTokens;
 }
 
 void App::compact()
@@ -519,13 +611,79 @@ void App::chat()
 
 void App::serve(int port, bool watch, int interval)
 {
-  imp->httpServer_->startServer(port, watch, interval);
+  std::thread watchThread;
+  std::thread serverThread;
+
+  // Use scope guard for cleanup
+  auto cleanup = [&]() {
+    LOG_MSG << "Shutting down gracefully...";
+
+    imp->httpServer_->stop();
+    imp->db_->persist();
+
+    if (serverThread.joinable()) serverThread.join();
+    if (watchThread.joinable()) watchThread.join();
+
+    LOG_MSG << "Shutdown complete.";
+    };
+
+  try {
+    if (watch) {
+      LOG_MSG << "  Auto-update: enabled (every " << interval << "s)";
+      watchThread = std::thread([this, interval]() {
+        LOG_MSG << "[Watch] Background monitoring started (interval: " << interval << "s)";
+        auto nextUpdate = std::chrono::steady_clock::now() + std::chrono::seconds(interval);
+        while (!SignalHandler::shouldShutdown()) {
+          auto now = std::chrono::steady_clock::now();
+          if (now < nextUpdate) {
+            // Sleep for the remaining time or 100ms, whichever is smaller
+            auto r = std::chrono::duration_cast<std::chrono::milliseconds>(nextUpdate - now);
+            auto d = (std::min)(r, std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(d);
+            continue;
+          }
+          try {
+            update();
+          } catch (const std::exception &e) {
+            LOG_MSG << "[Watch] Error during update: " << e.what();
+          }
+          nextUpdate = std::chrono::steady_clock::now() + std::chrono::seconds(interval);
+        }
+        LOG_MSG << "[Watch] Background monitoring stopped";
+        });
+    } else {
+      LOG_MSG << "  Auto-update: disabled";
+    }
+
+    serverThread = std::thread([this, port]() {
+      imp->httpServer_->startServer(port);
+      });
+
+    while (!SignalHandler::shouldShutdown()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    cleanup();
+
+  } catch (...) {
+    cleanup();
+    throw;
+  }
 }
 
 size_t App::update()
 {
-  std::cout << "Checking for changes..." << std::endl;
-  auto sources = imp->processor_->collectSources();
+  LOG_MSG << "Checking for changes...";
+
+  // Check if index database is missing or empty
+  auto dbStats = imp->db_->getStats();
+  if (dbStats.totalChunks == 0) {
+    LOG_MSG << "No index found. Performing full embedding...";
+    embed(false);
+    return dbStats.totalChunks; // After embed, totalChunks will be updated
+  }
+
+  auto sources = imp->processor_->collectSources(false);
   std::vector<std::string> currentFiles;
   for (const auto &source : sources) {
     currentFiles.push_back(source.source);
@@ -533,13 +691,13 @@ size_t App::update()
   auto info = imp->updater_->detectChanges(currentFiles);
   imp->updater_->printUpdateSummary(info);
   if (!imp->updater_->needsUpdate(info)) {
-    std::cout << "\nNo updates needed. Database is up to date." << std::endl;
+    LOG_MSG << "No updates needed. Database is up to date.";
     return 0;
   }
-  std::cout << "\nApplying updates..." << std::endl;
+  LOG_MSG << "Applying updates...";
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   size_t updated = imp->updater_->updateDatabase(embeddingClient, *imp->chunker_, info);
-  std::cout << "\nUpdate completed! " << updated << " files processed." << std::endl;
+  LOG_MSG << "Update completed! " << updated << " files processed.";
   return updated;
 }
 
@@ -588,16 +746,6 @@ VectorDatabase &App::db()
 {
   return *imp->db_;
 }
-
-//const EmbeddingClient &App::embeddingClient() const
-//{
-//  return *imp->embeddingClient_;
-//}
-//
-//const CompletionClient &App::completionClient() const
-//{
-//  return *imp->completionClient_;
-//}
 
 void App::printUsage()
 {
@@ -709,6 +857,8 @@ std::string App::createConfigFile()
 
 int App::run(int argc, char *argv[])
 {
+  SignalHandler::setup();
+
   try {
     if (argc < 2) {
       printUsage();
@@ -734,6 +884,11 @@ int App::run(int argc, char *argv[])
     }
 
     App app(configPath);
+
+    if (!app.testSettings()) {
+      LOG_MSG << "Wrong/incomplete settings. Exiting.";
+      return 1;
+    }
 
     if (false) {
     } else if (command == "embed") {

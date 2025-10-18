@@ -72,7 +72,7 @@ public:
   size_t generationMaxRelatedPerSource() const { return config_["generation"].value("max_related_per_source", size_t(3)); }
   size_t generationMaxContextTokens() const { return config_["generation"].value("max_context_tokens", size_t(20'000)); }
   size_t generationMaxChunks() const { return config_["generation"].value("max_chunks", size_t(5)); }
-  size_t generationDefaultTemperature() const { return config_["generation"].value("default_temperature", size_t(0.5)); }
+  float generationDefaultTemperature() const { return config_["generation"].value("default_temperature", 0.5f); }
   size_t generationDefaultMaxTokens() const { return config_["generation"].value("default_max_tokens", size_t(2048)); }
 
   std::string databaseSqlitePath() const { return config_["database"].value("sqlite_path", "db.sqlite"); }

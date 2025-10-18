@@ -92,8 +92,8 @@ struct HttpServer::Impl {
 
   App &app_;
 
-  std::unique_ptr<std::thread> watchThread_;
-  std::atomic<bool> watchRunning_{ false };
+  //std::unique_ptr<std::thread> watchThread_;
+  //std::atomic<bool> watchRunning_{ false };
 
   static int counter_;
 };
@@ -110,7 +110,7 @@ HttpServer::~HttpServer()
 {
 }
 
-bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
+bool HttpServer::startServer(int port)
 {
   auto &server = imp->server_;
 
@@ -575,12 +575,12 @@ bool HttpServer::startServer(int port, bool enableWatch, int watchInterval)
 
     LOG_MSG << "Starting HTTP API server on port " << port << "...";
 
-    if (enableWatch) {
-      startWatch(watchInterval);
-      LOG_MSG << "  Auto-update: enabled (every " << watchInterval << "s)";
-    } else {
-      LOG_MSG << "  Auto-update: disabled";
-    }
+    //if (enableWatch) {
+    //  startWatch(watchInterval);
+    //  LOG_MSG << "  Auto-update: enabled (every " << watchInterval << "s)";
+    //} else {
+    //  LOG_MSG << "  Auto-update: disabled";
+    //}
 
     LOG_MSG << "\nEndpoints:";
     LOG_MSG << "  GET  /api/health";
@@ -604,35 +604,35 @@ void HttpServer::stop()
     LOG_MSG << "Server stopped!";
   }
 }
-
-void HttpServer::startWatch(int intervalSeconds)
-{
-  imp->watchRunning_ = true;
-  imp->watchThread_ = std::make_unique<std::thread>([this, intervalSeconds]() {
-    LOG_MSG << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)";
-    while (imp->watchRunning_) {
-      // Sleep in small chunks so we can stop quickly
-      for (int i = 0; i < intervalSeconds && imp->watchRunning_; ++i) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-      }
-      if (!imp->watchRunning_) break;
-      try {
-        imp->app_.update();
-      } catch (const std::exception &e) {
-        std::cerr << "[Watch] Error during update: " << e.what();
-      }
-    }
-    LOG_MSG << "[Watch] Background monitoring stopped";
-    });
-}
-
-void HttpServer::stopWatch()
-{
-  if (imp->watchRunning_) {
-    LOG_MSG << "Stopping watch mode...";
-    imp->watchRunning_ = false;
-    if (imp->watchThread_ && imp->watchThread_->joinable()) {
-      imp->watchThread_->join();
-    }
-  }
-}
+//
+//void HttpServer::startWatch(int intervalSeconds)
+//{
+//  imp->watchRunning_ = true;
+//  imp->watchThread_ = std::make_unique<std::thread>([this, intervalSeconds]() {
+//    LOG_MSG << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)";
+//    while (imp->watchRunning_) {
+//      // Sleep in small chunks so we can stop quickly
+//      for (int i = 0; i < intervalSeconds && imp->watchRunning_; ++i) {
+//        std::this_thread::sleep_for(std::chrono::seconds(1));
+//      }
+//      if (!imp->watchRunning_) break;
+//      try {
+//        imp->app_.update();
+//      } catch (const std::exception &e) {
+//        std::cerr << "[Watch] Error during update: " << e.what();
+//      }
+//    }
+//    LOG_MSG << "[Watch] Background monitoring stopped";
+//    });
+//}
+//
+//void HttpServer::stopWatch()
+//{
+//  if (imp->watchRunning_) {
+//    LOG_MSG << "Stopping watch mode...";
+//    imp->watchRunning_ = false;
+//    if (imp->watchThread_ && imp->watchThread_->joinable()) {
+//      imp->watchThread_->join();
+//    }
+//  }
+//}

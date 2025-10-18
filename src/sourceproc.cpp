@@ -19,9 +19,11 @@ namespace {
 } // anonymous namespace
 
 
-std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
+std::vector<SourceProcessor::Data> SourceProcessor::collectSources(bool readContent)
 {
   LOG_START;
+  const bool oldReadContent = readContent_;
+  readContent_ = readContent;
   std::vector<SourceProcessor::Data> allContent;
   auto sources = settings_.sources();
   for (const auto &source : sources) {
@@ -37,6 +39,7 @@ std::vector<SourceProcessor::Data> SourceProcessor::collectSources()
   for (const auto &a : allContent) {
     sources_.insert(a.source);
   }
+  readContent_ = oldReadContent;
   return allContent;
 }
 
@@ -131,10 +134,9 @@ void SourceProcessor::processFile(const std::string &filepath, std::vector<Sourc
       return;
     }
   }
-  
   std::string text;
-  if (SourceProcessor::readFile(filepath, text)) {
-    content.push_back({ std::move(text), std::filesystem::path(filepath).lexically_normal().generic_string() });
+  if (!readContent_ || SourceProcessor::readFile(filepath, text)) {
+    content.push_back({ false, std::move(text), std::filesystem::path(filepath).lexically_normal().generic_string() });
   } else {
     LOG_MSG << "Unable to process resource " << filepath << ". Skipped.";
   }
@@ -159,7 +161,7 @@ void SourceProcessor::processUrl(const Settings::SourceItem &source, std::vector
     }
     auto res = client.Get(path.c_str(), headers);
     if (res && res->status == 200) {
-      content.push_back({ res->body, url });
+      content.push_back({ true, res->body, url });
     }
   } catch (const std::exception &) {
     LOG_MSG << "Unable to process resource " << url << ". Skipped.";
