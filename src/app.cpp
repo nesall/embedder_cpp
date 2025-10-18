@@ -433,7 +433,7 @@ void App::embed(bool ask)
     LOG_MSG << "  " << (dir.empty() ? "[root]" : dir) << ":" << count;
   }
 
-  LOG_MSG << "URLs" << urlCount;
+  LOG_MSG << "URLs:" << urlCount;
 
   //LOG_MSG << "Sources with empty text: " << emptyTextCount;
 
