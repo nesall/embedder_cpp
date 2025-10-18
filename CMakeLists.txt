@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(embeddings_cpp)
+project(rag_embedder_service)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,7 +54,6 @@ target_include_directories(utils_log INTERFACE ${utils_log_SOURCE_DIR})
 add_executable(${PROJECT_NAME} 
   README.md
   settings.json
-  main.cpp
   include/tokenizer.h
   include/settings.h
   include/chunker.h
@@ -63,6 +62,7 @@ add_executable(${PROJECT_NAME}
   include/sourceproc.h
   include/httpserver.h
   include/app.h
+  src/main.cpp
   src/tokenizer.cpp
   src/settings.cpp
   src/chunker.cpp

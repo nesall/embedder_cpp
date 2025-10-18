@@ -1,11 +1,16 @@
 # Build directories
 dist/
 build/
+build-dbg/
+build_dbg/
 build-rel/
 build_rel/
 cmake-build-*/
+cmake/
 bin/
 lib/
+dist.zip
+dist.*
 *.so
 *.dll
 *.dylib

@@ -20,7 +20,7 @@
       }
     ],
     "current_api": "local",
-    "batch_size": 8,
+    "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,
     "top_k": 5
@@ -178,8 +178,8 @@
     "default_max_tokens_name": "max_tokens"
   },
   "database": {
-    "sqlite_path": "../db_metadata.db",
-    "index_path": "../db_embeddings.index",
+    "sqlite_path": "db_metadata.db",
+    "index_path": "db_embeddings.index",
     "vector_dim": 768,
     "max_elements": 100000,
     "distance_metric": "cosine",
@@ -195,10 +195,47 @@
   "sources": [
     {
       "type": "directory",
-      "path": "C:\\Users\\Arman\\workspace\\misc",
+      "path": "../../embedder_cpp",
       "recursive": true,
       "extensions": [ ".cpp", ".h", ".hpp" ],
       "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*", "*/3rdparty/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/webview",
+      "recursive": true,
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/spa-svelte2",
+      "recursive": true,
+      "extensions": [ ".svelte", ".ts", ".js", ".html" ],
+      "exclude": [ "*/node_modules/*", "*/dist/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "./docs",
+      "recursive": false,
+      "extensions": [ ".md", ".txt" ],
+      "exclude": []
+    },
+    {
+      "type": "file",
+      "path": "./README.md"
+    },
+    {
+      "type": "url",
+      "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
+    },
+    {
+      "type": "url",
+      "url": "https://docs.example.com/api",
+      "timeout_ms": 10000
     }
   ],
   "files": {

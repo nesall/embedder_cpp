@@ -1,0 +1,29 @@
+Embedder RAG - Installation Guide
+==================================
+
+Quick Start:
+1. Run "start.bat" or "start.sh" to generate settings.json
+2. Run "install-service.bat" to install as Windows service (optional)
+3. Access API at http://localhost:8081/api/health
+4. Edit generated settings.json to set directories and files for scanning.
+
+Manual Start:
+- Run "start.bat" to start in console mode
+
+Service Management:
+- Install: install-service.bat or install-service.sh
+- Uninstall: uninstall-service.bat or uninstall-service.sh
+- Status: nssm status EmbedderCoreRAG (Windows)
+- Status: systemctl status embedder-rag-core
+
+Logs Location:
+- configurable in settings.json
+
+Configuration:
+- Edit settings.json manually, or
+- Re-run config-wizard.bat
+
+Troubleshooting:
+- Check logs for errors
+- Ensure port 8081 is not in use
+- Run rag_embedder_service executable directly to see console output

@@ -10,11 +10,17 @@ cd ..
 
 echo "Copying release artifacts to dist folder..."
 rm -rf dist
+rm -f dist.zip
 mkdir -p dist
-cp -r build_rel/* dist/
+cp -r build_rel/Release* dist/
 rm dist\output.log -f
 rm dist\diagnostics.log -f
-cp settings.template.json dist/
-cp bge_tokenizer.json dist/
+cp assets/README dist/
+cp assets/settings.template.json dist/
+cp assets/bge_tokenizer.json dist/
+cp scripts/install-service.sh dist/
+cp scripts/uninstall-service.sh dist/
+cp scripts/start.sh dist/
+cp scripts/stop.sh dist/
 
 echo "Build complete. Package is in dist folder!"
