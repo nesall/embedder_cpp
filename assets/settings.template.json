@@ -17,7 +17,9 @@
         "name": "Default",
         "api_url": "_PL_EMB_API_URL_",
         "api_key": "_PL_EMB_API_KEY_",
-        "model": "_PL_EMB_MODEL_NAME_"
+        "model": "_PL_EMB_MODEL_NAME_",
+        "document_format": "{}",
+        "query_format": "{}"
       }
     ],
     "current_api": "default",

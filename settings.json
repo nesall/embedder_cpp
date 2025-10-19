@@ -17,9 +17,18 @@
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
         "api_key": "${MOLSOFT_API_KEY}",
         "model": ""
+      },
+      {
+        "id": "remote-coder",
+        "name": "Remote BGE-coder",
+        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
+        "api_key": "${MOLSOFT_API_KEY}",
+        "model": "",
+        "document_format": "<instruct>Represent the following code snippet for retrieval.\n<query>{}",
+        "query_format": "<instruct>Given a programming question, retrieve relevant code snippets.\n<query>{}"
       }
     ],
-    "current_api": "local",
+    "current_api": "remote-local",
     "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,

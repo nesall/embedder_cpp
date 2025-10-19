@@ -128,7 +128,8 @@ bool HttpServer::startServer(int port)
       std::string query = request["query"].get<std::string>();
       size_t top_k = request.value("top_k", 5);
       std::vector<float> queryEmbedding;
-      EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(query, queryEmbedding);
+      EmbeddingClient embeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs());
+      embeddingClient.generateEmbeddings(query, queryEmbedding, EmbeddingClient::EncodeType::Query);
 
       auto results = imp->app_.db().search(queryEmbedding, top_k);
 
@@ -174,7 +175,7 @@ bool HttpServer::startServer(int port)
         std::vector<std::string> batchTexts(texts.begin() + i, texts.begin() + end);
 
         std::vector<std::vector<float>> embeddings;
-        embeddingClient.generateEmbeddings(batchTexts, embeddings);
+        embeddingClient.generateEmbeddings(batchTexts, embeddings, EmbeddingClient::EncodeType::Query);
 
         for (const auto &emb : embeddings) {
           response.push_back({ {"embedding", emb}, {"dimension", emb.size()} });
@@ -200,10 +201,11 @@ bool HttpServer::startServer(int port)
 
       auto chunks = imp->app_.chunker().chunkText(content, source_id);
 
+      EmbeddingClient embeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs());
       size_t inserted = 0;
       for (const auto &chunk : chunks) {
         std::vector<float> embedding;
-        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(chunk.text, embedding);
+        embeddingClient.generateEmbeddings(chunk.text, embedding, EmbeddingClient::EncodeType::Index);
         imp->app_.db().addDocument(chunk, embedding);
         inserted++;
       }
@@ -356,11 +358,12 @@ bool HttpServer::startServer(int port)
         }
       }
 
+      EmbeddingClient embeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs());
       std::unordered_map<std::string, float> sourcesRank;
       const auto questionChunks = imp->app_.chunker().chunkText(question, "", false);
       for (const auto &qc : questionChunks) {
         std::vector<float> embedding;
-        EmbeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs()).generateEmbeddings(qc.text, embedding);
+        embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
         auto res = imp->app_.db().search(embedding, imp->app_.settings().embeddingTopK());
         filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
         for (const auto &r : res) {

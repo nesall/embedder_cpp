@@ -9,6 +9,9 @@ cmake-build-*/
 cmake/
 bin/
 lib/
+tmp/
+temp/
+test/
 dist.zip
 dist.*
 *.so

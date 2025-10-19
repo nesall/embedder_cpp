@@ -5,6 +5,7 @@
 #include "tokenizer.h"
 #include <stdexcept>
 #include <cassert>
+#include <format>
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 #include <utils_log/logger.hpp>
@@ -15,7 +16,8 @@ struct InferenceClient::Impl {
   std::string schemaHostPort_;
   std::string path_;
   size_t timeoutMs_;
-  //int port_ = 0;
+  
+  std::unique_ptr<httplib::Client> httpClient_;
 
   void parseUrl();
 };
@@ -39,6 +41,14 @@ InferenceClient::InferenceClient(const ApiConfig &cfg, size_t timeout) : imp(new
   imp->apiCfg_ = cfg;
   imp->timeoutMs_ = timeout;
   imp->parseUrl();
+  try {
+    imp->httpClient_ = std::make_unique<httplib::Client>(schemaHostPort());
+    imp->httpClient_->set_connection_timeout(0, timeoutMs() * 1000);
+    imp->httpClient_->set_read_timeout(timeoutMs() / 1000, (timeoutMs() % 1000) * 1000);
+  } catch (const std::exception &e) {
+    LOG_MSG << "Error initializing http client " << e.what();
+    imp->httpClient_.reset();
+  }
 }
 
 InferenceClient::~InferenceClient()
@@ -73,23 +83,24 @@ EmbeddingClient::EmbeddingClient(const ApiConfig &cfg, size_t timeout)
 {
 }
 
-void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList) const
+void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList, EmbeddingClient::EncodeType et) const
 {
   embeddingsList.reserve(texts.size());
   try {
-    httplib::Client client(schemaHostPort());
-    client.set_connection_timeout(0, timeoutMs()* 1000);
-    client.set_read_timeout(timeoutMs() / 1000, (timeoutMs() % 1000) * 1000);
+    if (!imp->httpClient_) {
+      throw std::runtime_error("Failed to initialize http client");
+    }
 
     nlohmann::json requestBody;
-    requestBody["content"] = texts;
+    requestBody["content"] = prepareContent(texts, et);
     std::string bodyStr = requestBody.dump();
 
     httplib::Headers headers = {
       {"Content-Type", "application/json"},
-      {"Authorization", "Bearer " + cfg().apiKey}
+      {"Authorization", "Bearer " + cfg().apiKey},
+      {"Connection", "keep-alive"}
     };
-    auto res = client.Post(path().c_str(), headers, bodyStr, "application/json");
+    auto res = imp->httpClient_->Post(path().c_str(), headers, bodyStr, "application/json");
     if (!res) {
       throw std::runtime_error("Failed to connect to embedding server");
     }
@@ -137,10 +148,10 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
   }
 }
 
-void EmbeddingClient::generateEmbeddings(const std::string &text, std::vector<float> &embeddings) const
+void EmbeddingClient::generateEmbeddings(const std::string &text, std::vector<float> &embeddings, EmbeddingClient::EncodeType et) const
 {
   std::vector<std::vector<float>> embs;
-  generateEmbeddings({ text }, embs);
+  generateEmbeddings({ text }, embs, et);
   if (!embs.empty()) embeddings = std::move(embs.front());
 }
 
@@ -151,6 +162,30 @@ float EmbeddingClient::calculateL2Norm(const std::vector<float> &vec)
     sum += val * val;
   }
   return std::sqrt(sum);
+}
+
+std::vector<std::string> EmbeddingClient::prepareContent(const std::vector<std::string> &texts, EmbeddingClient::EncodeType et) const
+{
+  std::vector<std::string> res{ texts };
+  const auto &fmtDoc = imp->apiCfg_.documentFormat;
+  const auto &fmtQry = imp->apiCfg_.queryFormat;
+  switch (et) {
+  case EmbeddingClient::EncodeType::Index:
+    if (!fmtDoc.empty() && fmtDoc.find("{}") != std::string::npos) {
+      for (auto &t : res) {
+        t = std::vformat(fmtDoc, std::make_format_args(t));
+      }
+    }
+    break;
+  case EmbeddingClient::EncodeType::Query:
+    if (!fmtQry.empty() && fmtQry.find("{}") != std::string::npos) {
+      for (auto &t : res) {
+        t = std::vformat(fmtQry, std::make_format_args(t));
+      }
+    }
+    break;
+  }
+  return res;
 }
 
 
@@ -188,9 +223,9 @@ std::string CompletionClient::generateCompletion(
     throw std::runtime_error("HTTPS not supported in this build");
   }
 #endif
-  httplib::Client client(schemaHostPort());
-  client.set_connection_timeout(0, timeoutMs() * 1000);
-  client.set_read_timeout(timeoutMs() / 1000, (timeoutMs() % 1000) * 1000);
+  if (!imp->httpClient_) {
+    throw std::runtime_error("Failed to initialize http client");
+  }
 
   /*
   * Json Request body format.
@@ -250,13 +285,14 @@ std::string CompletionClient::generateCompletion(
 
   httplib::Headers headers = {
     {"Accept", "text/event-stream"},
-    {"Authorization", "Bearer " + cfg().apiKey}
+    {"Authorization", "Bearer " + cfg().apiKey},
+    {"Connection", "keep-alive"}
   };
 
   std::string fullResponse;
   std::string buffer; // holds leftover partial data
 
-  auto res = client.Post(
+  auto res = imp->httpClient_->Post(
     path().c_str(),
     headers,
     requestBody.dump(),

@@ -12,6 +12,8 @@ struct ApiConfig {
   std::string apiUrl;
   std::string apiKey;
   std::string model;
+  std::string queryFormat;
+  std::string documentFormat;
   std::string maxTokensName; // e.g. max_tokens or max_completion_tokens
   bool temperatureSupport = true;
   struct {

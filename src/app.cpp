@@ -97,7 +97,7 @@ namespace {
         totalTokens += chunk.metadata.tokenCount;
       }
       std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
-      ec.generateEmbeddings(texts, embeddings);
+      ec.generateEmbeddings(texts, embeddings, EmbeddingClient::EncodeType::Index);
 
       db.addDocuments(batch, embeddings);
       std::cout << "  Processed all chunks.                     \r" << std::flush;
@@ -364,22 +364,22 @@ bool App::testSettings() const
   bool ok = true;
   {
     auto api = settings().embeddingCurrentApi();
-    LOG_MSG << "Testing embedding client...";
+    LOG_MSG << "Testing embedding client" << api.apiUrl;
     EmbeddingClient cl{ api, settings().embeddingTimeoutMs() };
     std::vector<float> v;
-    cl.generateEmbeddings("test!", v);
+    cl.generateEmbeddings("test!", v, EmbeddingClient::EncodeType::Query);
     if (0 < v.size()) {
       float l2Norm = EmbeddingClient::calculateL2Norm(v);
-      LOG_MSG << "Embedding client works fine." << "[l2norm]" << l2Norm;
+      LOG_MSG << "  Embedding client works fine." << "[l2norm]" << l2Norm;
     } else {
-      LOG_MSG << "Embedding client not working. Please, check settings.json and edit manually if needed.";
+      LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";
       ok = false;
     }
   }
 
   {
     auto api = settings().generationCurrentApi();
-    LOG_MSG << "Testing completion client...";
+    LOG_MSG << "Testing completion client" << api.apiUrl;
     CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
     std::vector<json> messages;
     messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
@@ -392,9 +392,9 @@ bool App::testSettings() const
       }
     );
     if (fullResponse.find("Paris") != std::string::npos) {
-      LOG_MSG << "Completion client works fine.";
+      LOG_MSG << "  Completion client works fine.";
     } else {
-      LOG_MSG << "Comletion client not working. Please, check settings.json and edit manually if needed.";
+      LOG_MSG << "  Comletion client not working. Please, check settings.json and edit manually if needed.";
       ok = false;
     }
   }
@@ -522,7 +522,7 @@ void App::search(const std::string &query, size_t topK)
 
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   std::vector<float> queryEmbedding;
-  embeddingClient.generateEmbeddings(query, queryEmbedding);
+  embeddingClient.generateEmbeddings(query, queryEmbedding, EmbeddingClient::EncodeType::Query);
   auto results = imp->db_->search(queryEmbedding, topK);
 
   std::cout << "\nFound " << results.size() << " results:" << std::endl;
@@ -591,7 +591,7 @@ void App::chat()
       messages.push_back({ {"role", "user"}, {"content", userInput} });
       // Generate embedding for the user input
       std::vector<float> queryEmbedding;
-      embeddingClient.generateEmbeddings(userInput, queryEmbedding);
+      embeddingClient.generateEmbeddings(userInput, queryEmbedding, EmbeddingClient::EncodeType::Query);
       auto searchResults = imp->db_->search(queryEmbedding, 5);
       std::cout << "\nAssistant: " << std::flush;
       std::string assistantResponse = completionClient.generateCompletion(
@@ -883,6 +883,7 @@ int App::run(int argc, char *argv[])
       }
     }
 
+    LOG_MSG << "Reading config file" << std::filesystem::path(configPath).string();
     App app(configPath);
 
     if (!app.testSettings()) {

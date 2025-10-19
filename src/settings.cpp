@@ -22,6 +22,8 @@ namespace {
     cfg.apiKey = expandEnvVar(item.value("api_key", item.value("apiKey", "")));
     cfg.model = item.value("model", "");
     cfg.maxTokensName = item.value("max_tokens_name", section.value("default_max_tokens_name", "max_tokens"));
+    cfg.documentFormat = item.value("document_format", "");
+    cfg.queryFormat = item.value("query_format", "");
     cfg.temperatureSupport = item.value("temperature_support", true);
     if (item.contains("pricing_tpm")) {
       auto pricing = item["pricing_tpm"];
@@ -59,14 +61,7 @@ namespace {
       }
     }
     if (!section["apis"].empty()) {
-      auto &api = section["apis"][0];
-      return {
-        api.value("id", ""),
-        api.value("name", ""),
-        api.value("api_url", ""),
-        expandEnvVar(api.value("api_key", "")),
-        api.value("model", "")
-      };
+      fetchApiConfigFromItem(section["apis"][0], cfg, section);
     }
     return cfg;
   }
