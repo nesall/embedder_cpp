@@ -586,6 +586,7 @@ bool HttpServer::startServer(int port)
     //}
 
     LOG_MSG << "\nEndpoints:";
+    LOG_MSG << "  GET  /api";
     LOG_MSG << "  GET  /api/health";
     LOG_MSG << "  GET  /api/stats";
     LOG_MSG << "  GET  /api/settings";
