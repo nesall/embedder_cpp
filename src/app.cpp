@@ -318,6 +318,9 @@ struct App::Impl {
   std::unique_ptr<SourceProcessor> processor_;
   std::unique_ptr<IncrementalUpdater> updater_;
   std::unique_ptr<HttpServer> httpServer_;
+
+  std::chrono::system_clock::time_point appStartTime_;
+  std::chrono::system_clock::time_point lastUpdateTime_;
 };
 
 App::App(const std::string &configPath) : imp(new Impl)
@@ -333,6 +336,8 @@ App::~App()
 
 void App::initialize()
 {
+  imp->appStartTime_ = std::chrono::system_clock::now();
+
   auto &ss = *imp->settings_;
 
   SET_LOGGING_OUTPUT_FILE_PATH(ss.loggingLoggingFile());
@@ -675,6 +680,8 @@ size_t App::update()
 {
   LOG_MSG << "Checking for changes...";
 
+  imp->lastUpdateTime_ = std::chrono::system_clock::now();
+
   // Check if index database is missing or empty
   auto dbStats = imp->db_->getStats();
   if (dbStats.totalChunks == 0) {
@@ -698,6 +705,9 @@ size_t App::update()
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   size_t updated = imp->updater_->updateDatabase(embeddingClient, *imp->chunker_, info);
   LOG_MSG << "Update completed! " << updated << " files processed.";
+
+  imp->lastUpdateTime_ = std::chrono::system_clock::now();
+
   return updated;
 }
 
@@ -745,6 +755,54 @@ const VectorDatabase &App::db() const
 VectorDatabase &App::db()
 {
   return *imp->db_;
+}
+
+float App::dbSizeMB() const
+{
+  try {
+    auto &ss = *imp->settings_;
+    std::string dbPath = ss.databaseSqlitePath();
+    if (std::filesystem::exists(dbPath)) {
+      auto sizeBytes = std::filesystem::file_size(dbPath);
+      return std::round(sizeBytes / (1024.0f * 1024.0f) * 100.f) / 100.f;
+    }
+  } catch (const std::exception &e) {
+    LOG_MSG << "Error getting database size: " << e.what();
+  }
+  return 0;
+}
+
+float App::indSizeMB() const
+{
+  try {
+    auto &ss = *imp->settings_;
+    std::string indexPath = ss.databaseIndexPath();
+    if (std::filesystem::exists(indexPath)) {
+      auto sizeBytes = std::filesystem::file_size(indexPath);
+      return std::round(sizeBytes / (1024.0f * 1024.0f) * 100.f) / 100.f;
+    }
+  } catch (const std::exception &e) {
+    LOG_MSG << "Error getting index size: " << e.what();
+  }
+  return 0;
+}
+
+size_t App::uptimeSeconds() const
+{
+  auto now = std::chrono::system_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - imp->appStartTime_);
+  return static_cast<size_t>(duration.count());
+}
+
+size_t App::startTimestamp() const
+{
+  auto timeT = std::chrono::system_clock::to_time_t(imp->appStartTime_);
+  return static_cast<size_t>(timeT);
+}
+
+size_t App::lastUpdateTimestamp() const
+{
+  return static_cast<size_t>(std::chrono::system_clock::to_time_t(imp->lastUpdateTime_));
 }
 
 void App::printUsage()
@@ -805,8 +863,13 @@ namespace {
   }
 } // anonymous namespace
 
-std::string App::createConfigFile()
+std::string App::runSetupWizard()
 {
+  std::cout << "\n";
+  std::cout << " =========================================\n";
+  std::cout << "|   Embedder RAG - Configuration Wizard   |\n";
+  std::cout << " =========================================\n\n";
+
   LOG_MSG << "Creating default settings.json file";
   LOG_MSG << "Reading template settings.json file...";
 
@@ -846,11 +909,35 @@ std::string App::createConfigFile()
 
   replacePlaceholders(j, values);
 
+  LOG_MSG << "\nSource directories to index (one per line, empty to finish):\n";
+  std::vector<json> sources;
+  while (true) {
+    std::cout << "  Path: ";
+    std::string path;
+    std::cin >> path;
+    if (path.empty()) break;
+    if (!std::filesystem::exists(path)) {
+      std::cout << "Path entered does not exist. Do you want to keep it (yes/no, default: no): ";
+      std::string yn;
+      std::cin >> yn;
+      if (yn != "yes") continue;
+    }
+    json item;
+    item["type"] = "directory";
+    item["path"] = path;
+    item["recursive"] = true;
+    j["sources"].push_back(item);
+  }
+
   std::filesystem::path path("settings.json");
   std::ofstream out(path);
   out << std::setw(2) << j;
-  LOG_MSG << path.string() << "generated successfully.";
-  LOG_MSG << "You may manually modify this file later on if there is a need to modify settings.";
+  LOG_MSG << "\nConfiguration saved to settings.json\n";
+  std::cout << "\nNext steps:\n";
+  std::cout << "  1. Review settings.json (optional)\n";
+  std::cout << "  2. Run: embeddings_cpp embed\n";
+  std::cout << "  3. Start server: embeddings_cpp serve\n";
+  std::cout << "  or install as service: scripts/install-service\n\n";
 
   return path.string();
 }
@@ -878,7 +965,7 @@ int App::run(int argc, char *argv[])
       if (!std::filesystem::exists(configPath)) {        
         configPath = "../" + configPath;
         if (!std::filesystem::exists(configPath)) {
-          configPath = createConfigFile();
+          configPath = runSetupWizard();
         }
       }
     }

@@ -9,30 +9,32 @@
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
-#include <cassert>
+#include <chrono>
 #include <thread>
 #include <exception>
 #include <algorithm>
-#include <set>
+#include <atomic>
 
 using json = nlohmann::json;
 
 
 namespace {
 
-  //auto testStreaming = [](std::function<void(const std::string &)> onChunk)
-  //  {
-  //    for (int i = 0; i < 25; ++i) {
-  //      std::this_thread::sleep_for(std::chrono::milliseconds(250));
-  //      std::ostringstream oss;
-  //      oss << "thread ";
-  //      oss << std::this_thread::get_id();
-  //      oss << ", chunk ";
-  //      oss << std::to_string(i);
-  //      oss << "\n\n";
-  //      onChunk(oss.str());
-  //    }
-  //  };
+#if 0
+  auto testStreaming = [](std::function<void(const std::string &)> onChunk)
+    {
+      for (int i = 0; i < 25; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        std::ostringstream oss;
+        oss << "thread ";
+        oss << std::this_thread::get_id();
+        oss << ", chunk ";
+        oss << std::to_string(i);
+        oss << "\n\n";
+        onChunk(oss.str());
+      }
+    };
+#endif
 
   template <class T>
   bool vecContains(const std::vector<T> &vec, const T &t) {
@@ -79,6 +81,16 @@ namespace {
     return res;
   }
 
+  void recordDuration(const std::chrono::steady_clock::time_point &start, std::atomic<double> &v) {
+    std::chrono::duration<double> duration = std::chrono::steady_clock::now() - start;
+    double newSearchTimeMs = duration.count() * 1000.0;
+    double oldVal = v.load();
+    double newVal;
+    do {
+      newVal = oldVal * 0.9 + newSearchTimeMs * 0.1;
+    } while (!v.compare_exchange_weak(oldVal, newVal));
+  }
+
 } // anonymous namespace
 
 
@@ -92,13 +104,30 @@ struct HttpServer::Impl {
 
   App &app_;
 
-  //std::unique_ptr<std::thread> watchThread_;
-  //std::atomic<bool> watchRunning_{ false };
+  static std::atomic<size_t> requestCounter_;
+  static std::atomic<size_t> searchCounter_;
+  static std::atomic<size_t> chatCounter_;
+  static std::atomic<size_t> embedCounter_;
+  static std::atomic<size_t> errorCounter_;
 
-  static int counter_;
+  static std::chrono::steady_clock::time_point startTime_;
+
+  // Moving averages for performance
+  static std::atomic<double> avgSearchTimeMs_;
+  static std::atomic<double> avgChatTimeMs_;
+  static std::atomic<double> avgEmbedTimeMs_;
 };
 
-int HttpServer::Impl::counter_ = 0;
+std::atomic<size_t> HttpServer::Impl::requestCounter_{ 0 };
+std::atomic<size_t> HttpServer::Impl::searchCounter_{ 0 };
+std::atomic<size_t> HttpServer::Impl::chatCounter_{ 0 };
+std::atomic<size_t> HttpServer::Impl::embedCounter_{ 0 };
+std::atomic<size_t> HttpServer::Impl::errorCounter_{ 0 };
+std::chrono::steady_clock::time_point HttpServer::Impl::startTime_;
+std::atomic<double> HttpServer::Impl::avgSearchTimeMs_{ 0.0 };
+std::atomic<double> HttpServer::Impl::avgChatTimeMs_{ 0.0 };
+std::atomic<double> HttpServer::Impl::avgEmbedTimeMs_{ 0.0 };
+
 
 HttpServer::HttpServer(App &a)
   : imp(new Impl(a))
@@ -118,21 +147,20 @@ bool HttpServer::startServer(int port)
     LOG_MSG << "GET /api/health";
     json response = { {"status", "ok"} };
     res.set_content(response.dump(), "application/json");
+    HttpServer::Impl::requestCounter_++;
     });
 
   server.Post("/api/search", [this](const httplib::Request &req, httplib::Response &res) {
+    const auto start = std::chrono::steady_clock::now();
     try {
       LOG_MSG << "POST /api/search";
       json request = json::parse(req.body);
-
       std::string query = request["query"].get<std::string>();
       size_t top_k = request.value("top_k", 5);
       std::vector<float> queryEmbedding;
       EmbeddingClient embeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs());
       embeddingClient.generateEmbeddings(query, queryEmbedding, EmbeddingClient::EncodeType::Query);
-
       auto results = imp->app_.db().search(queryEmbedding, top_k);
-
       json response = json::array();
       for (const auto &result : results) {
         response.push_back({
@@ -145,18 +173,21 @@ bool HttpServer::startServer(int port)
             {"end_pos", result.end}
           });
       }
-
       res.set_content(response.dump(), "application/json");
-
     } catch (const std::exception &e) {
       json error = { {"error", e.what()} };
       res.status = 400;
       res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
     }
+    Impl::requestCounter_++;
+    Impl::searchCounter_++;
+    recordDuration(start, Impl::avgSearchTimeMs_);
     });
 
   // (one-off embedding without storage)
   server.Post("/api/embed", [this](const httplib::Request &req, httplib::Response &res) {
+    const auto start = std::chrono::steady_clock::now();
     try {
       LOG_MSG << "POST /api/embed";
       json request = json::parse(req.body);
@@ -181,14 +212,16 @@ bool HttpServer::startServer(int port)
           response.push_back({ {"embedding", emb}, {"dimension", emb.size()} });
         }
       }
-
       res.set_content(response.dump(), "application/json");
-
     } catch (const std::exception &e) {
       json error = { {"error", e.what()} };
       res.status = 400;
       res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
     }
+    Impl::requestCounter_++;
+    Impl::embedCounter_++;
+    recordDuration(start, Impl::avgEmbedTimeMs_);
     });
 
   server.Post("/api/documents", [this](const httplib::Request &req, httplib::Response &res) {
@@ -223,7 +256,9 @@ bool HttpServer::startServer(int port)
       json error = { {"error", e.what()} };
       res.status = 400;
       res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
     }
+    Impl::requestCounter_++;
     });
 
   server.Get("/api/documents", [this](const httplib::Request &req, httplib::Response &res) {
@@ -244,6 +279,7 @@ bool HttpServer::startServer(int port)
       res.status = 500;
       res.set_content(error.dump(), "application/json");
     }
+    Impl::requestCounter_++;
     });
 
   server.Get("/api/stats", [this](const httplib::Request &, httplib::Response &res) {
@@ -267,7 +303,9 @@ bool HttpServer::startServer(int port)
       json error = { {"error", e.what()} };
       res.status = 500;
       res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
     }
+    Impl::requestCounter_++;
     });
 
   server.Post("/api/update", [this](const httplib::Request &req, httplib::Response &res) {
@@ -280,10 +318,13 @@ bool HttpServer::startServer(int port)
       json error = { {"error", e.what()} };
       res.status = 500;
       res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
     }
+    Impl::requestCounter_++;
     });
 
   server.Post("/api/chat", [this](const httplib::Request &req, httplib::Response &res) {
+    const auto start = std::chrono::steady_clock::now();
     try {
       LOG_MSG << "POST /api/chat";
       // format for messages field in request
@@ -523,7 +564,11 @@ bool HttpServer::startServer(int port)
         json error = { {"error", e.what()} };
         res.status = 400;
         res.set_content(error.dump(), "application/json");
+        Impl::errorCounter_++;
       }
+      Impl::requestCounter_++;
+      Impl::chatCounter_++;
+      recordDuration(start, Impl::avgChatTimeMs_);
     });
 
     server.Get("/api/settings", [this](const httplib::Request &, httplib::Response &res) {
@@ -553,7 +598,108 @@ bool HttpServer::startServer(int port)
         errorJson["message"] = e.what();
         res.status = 500;
         res.set_content(errorJson.dump(2), "application/json");
+        Impl::errorCounter_++;
       }
+      HttpServer::Impl::requestCounter_++;
+      });
+
+    // Add to your HTTP server
+    server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
+      auto &app = imp->app_;
+      auto stats = app.db().getStats();
+
+      json metrics = {
+          {"service", {
+              {"version", "1.0.0"},
+              {"uptime_seconds", app.uptimeSeconds()},
+              {"started_at", app.startTimestamp()}
+          }},
+          {"database", {
+              {"total_chunks", stats.totalChunks},
+              {"vector_count", stats.vectorCount},
+              {"deleted_count", stats.deletedCount},
+              {"active_count", stats.activeCount},
+              {"db_size_mb", app.dbSizeMB()},
+              {"index_size_mb", app.indSizeMB()}
+          }},
+          {"requests", {
+              {"total", Impl::requestCounter_.load()},
+              {"search", Impl::searchCounter_.load()},
+              {"chat", Impl::chatCounter_.load()},
+              {"embed", Impl::embedCounter_.load()},
+              {"errors", Impl::errorCounter_.load()}
+          }},
+          {"performance", {
+              {"avg_search_ms", Impl::avgSearchTimeMs_.load()},
+              {"avg_embedding_ms", Impl::avgEmbedTimeMs_.load()},
+              {"avg_chat_ms", Impl::avgChatTimeMs_.load()}
+          }},
+          {"system", {
+              {"last_update", app.lastUpdateTimestamp()},
+              {"sources_indexed", stats.sources.size()}
+          }}
+      };
+      res.set_content(metrics.dump(2), "application/json");
+      Impl::requestCounter_++;
+      });
+
+    server.Get("/metrics", [this](const httplib::Request &, httplib::Response &res) {
+      std::stringstream prometheus;
+
+      // Request counters
+      prometheus << "# HELP embedder_requests_total Total requests\n";
+      prometheus << "# TYPE embedder_requests_total counter\n";
+      prometheus << "embedder_requests_total " << Impl::requestCounter_ << "\n\n";
+
+      prometheus << "# HELP embedder_search_requests_total Total search requests\n";
+      prometheus << "# TYPE embedder_search_requests_total counter\n";
+      prometheus << "embedder_search_requests_total " << Impl::searchCounter_ << "\n\n";
+
+      prometheus << "# HELP embedder_chat_requests_total Total chat requests\n";
+      prometheus << "# TYPE embedder_chat_requests_total counter\n";
+      prometheus << "embedder_chat_requests_total " << Impl::chatCounter_ << "\n\n";
+
+      prometheus << "# HELP embedder_embed_requests_total Total embedding requests\n";
+      prometheus << "# TYPE embedder_embed_requests_total counter\n";
+      prometheus << "embedder_embed_requests_total " << Impl::embedCounter_ << "\n\n";
+
+      prometheus << "# HELP embedder_error_requests_total Total error requests\n";
+      prometheus << "# TYPE embedder_error_requests_total counter\n";
+      prometheus << "embedder_error_requests_total " << Impl::errorCounter_ << "\n\n";
+
+      // Performance metrics (moving averages)
+      prometheus << "# HELP embedder_avg_search_time_ms Average search time in milliseconds\n";
+      prometheus << "# TYPE embedder_avg_search_time_ms gauge\n";
+      prometheus << "embedder_avg_search_time_ms " << Impl::avgSearchTimeMs_.load() << "\n\n";
+
+      prometheus << "# HELP embedder_avg_chat_time_ms Average chat time in milliseconds\n";
+      prometheus << "# TYPE embedder_avg_chat_time_ms gauge\n";
+      prometheus << "embedder_avg_chat_time_ms " << Impl::avgChatTimeMs_.load() << "\n\n";
+
+      prometheus << "# HELP embedder_avg_embed_time_ms Average embedding time in milliseconds\n";
+      prometheus << "# TYPE embedder_avg_embed_time_ms gauge\n";
+      prometheus << "embedder_avg_embed_time_ms " << Impl::avgEmbedTimeMs_.load() << "\n\n";
+
+      // Database metrics
+      try {
+        auto stats = imp->app_.db().getStats();
+        prometheus << "# HELP embedder_database_chunks_total Total chunks in database\n";
+        prometheus << "# TYPE embedder_database_chunks_total gauge\n";
+        prometheus << "embedder_database_chunks_total " << stats.totalChunks << "\n\n";
+
+        prometheus << "# HELP embedder_database_vectors_total Total vectors in database\n";
+        prometheus << "# TYPE embedder_database_vectors_total gauge\n";
+        prometheus << "embedder_database_vectors_total " << stats.vectorCount << "\n\n";
+
+        prometheus << "# HELP embedder_database_sources_total Total sources in database\n";
+        prometheus << "# TYPE embedder_database_sources_total gauge\n";
+        prometheus << "embedder_database_sources_total " << stats.sources.size() << "\n\n";
+      } catch (const std::exception &e) {
+        prometheus << "# Database metrics unavailable: " << e.what() << "\n\n";
+      }
+
+      res.set_content(prometheus.str(), "text/plain");
+      Impl::requestCounter_++;
       });
 
     server.Get("/api", [](const httplib::Request &, httplib::Response &res) {
@@ -566,6 +712,8 @@ bool HttpServer::startServer(int port)
               {"GET /api/documents", "Get documents"},
               {"GET /api/stats", "Database statistics"},
               {"GET /api/settings", "Available APIs"},
+              {"GET /api/metrics", "Service and database metrics"},
+              {"GET /metrics", "Prometheus-compatible metrics"},
               {"POST /api/search", "Semantic search"},
               {"POST /api/chat", "Chat with context (streaming)"},
               {"POST /api/embed", "Generate embeddings"},
@@ -574,19 +722,14 @@ bool HttpServer::startServer(int port)
           }}
       };
       res.set_content(info.dump(2), "application/json");
+      HttpServer::Impl::requestCounter_++;
       });
 
     LOG_MSG << "Starting HTTP API server on port " << port << "...";
-
-    //if (enableWatch) {
-    //  startWatch(watchInterval);
-    //  LOG_MSG << "  Auto-update: enabled (every " << watchInterval << "s)";
-    //} else {
-    //  LOG_MSG << "  Auto-update: disabled";
-    //}
-
     LOG_MSG << "\nEndpoints:";
     LOG_MSG << "  GET  /api";
+    LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
+    LOG_MSG << "  GET  /api/metrics";
     LOG_MSG << "  GET  /api/health";
     LOG_MSG << "  GET  /api/stats";
     LOG_MSG << "  GET  /api/settings";
@@ -608,35 +751,3 @@ void HttpServer::stop()
     LOG_MSG << "Server stopped!";
   }
 }
-//
-//void HttpServer::startWatch(int intervalSeconds)
-//{
-//  imp->watchRunning_ = true;
-//  imp->watchThread_ = std::make_unique<std::thread>([this, intervalSeconds]() {
-//    LOG_MSG << "[Watch] Background monitoring started (interval: " << intervalSeconds << "s)";
-//    while (imp->watchRunning_) {
-//      // Sleep in small chunks so we can stop quickly
-//      for (int i = 0; i < intervalSeconds && imp->watchRunning_; ++i) {
-//        std::this_thread::sleep_for(std::chrono::seconds(1));
-//      }
-//      if (!imp->watchRunning_) break;
-//      try {
-//        imp->app_.update();
-//      } catch (const std::exception &e) {
-//        std::cerr << "[Watch] Error during update: " << e.what();
-//      }
-//    }
-//    LOG_MSG << "[Watch] Background monitoring stopped";
-//    });
-//}
-//
-//void HttpServer::stopWatch()
-//{
-//  if (imp->watchRunning_) {
-//    LOG_MSG << "Stopping watch mode...";
-//    imp->watchRunning_ = false;
-//    if (imp->watchThread_ && imp->watchThread_->joinable()) {
-//      imp->watchThread_->join();
-//    }
-//  }
-//}

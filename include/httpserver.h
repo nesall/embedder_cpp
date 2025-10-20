@@ -16,8 +16,8 @@ public:
   void stop();
 
 private:
-  //void startWatch(int intervalSeconds);
-  //void stopWatch();
+  HttpServer(const HttpServer &) = delete;
+  HttpServer &operator =(const HttpServer &) = delete;
 };
 
 #endif // _HTTPSERVER_H_

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(rag_embedder_service)
+project(embeddings_cpp)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -42,9 +42,16 @@ public:
   static void printUsage();
   static int run(int argc, char *argv[]);
 
+public:
+  float dbSizeMB() const;
+  float indSizeMB() const;
+  size_t uptimeSeconds() const;
+  size_t startTimestamp() const;
+  size_t lastUpdateTimestamp() const;
+
 private:
   void initialize();
-  static std::string createConfigFile();
+  static std::string runSetupWizard();
 };
 
 namespace utils {
