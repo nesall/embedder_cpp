@@ -822,6 +822,7 @@ bool HttpServer::startServer(int port)
           {"name", "Embeddings RAG API"},
           {"version", "1.0.0"},
           {"endpoints", {
+              {"GET /api/setup", "Fetch setup configuration"},
               {"GET /api/health", "Health check"},
               {"GET /api/documents", "Get documents"},
               {"GET /api/stats", "Database statistics"},
@@ -845,6 +846,7 @@ bool HttpServer::startServer(int port)
     LOG_MSG << "  GET  /api";
     LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
     LOG_MSG << "  GET  /api/metrics";
+    LOG_MSG << "  GET  /api/setup";
     LOG_MSG << "  GET  /api/health";
     LOG_MSG << "  GET  /api/stats";
     LOG_MSG << "  GET  /api/settings";

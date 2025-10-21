@@ -1,265 +1,244 @@
 {
-  "tokenizer": {
-    "config_path": "../assets/bge_tokenizer.json"
+  "chunking": {
+    "code_boundaries": [
+      "function",
+      "class",
+      "method"
+    ],
+    "nof_max_tokens": 450,
+    "nof_min_tokens": 50,
+    "overlap_percentage": 0.1,
+    "semantic": true
+  },
+  "database": {
+    "distance_metric": "cosine",
+    "distance_metric_": "l2",
+    "index_path": "db_embeddings.index",
+    "max_elements": 100000,
+    "sqlite_path": "db_metadata.db",
+    "vector_dim": 768
   },
   "embedding": {
     "apis": [
       {
-        "id": "local",
-        "name": "Local Server",
-        "api_url": "http://127.0.0.1:8583/embedding",
         "api_key": "",
-        "model": ""
-      },
-      {
-        "id": "remote",
-        "name": "Remote Server",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
-        "api_key": "${MOLSOFT_API_KEY}",
-        "model": ""
-      },
-      {
-        "id": "remote-coder",
-        "name": "Remote BGE-coder",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
-        "api_key": "${MOLSOFT_API_KEY}",
+        "api_url": "http://127.0.0.1:8583/embedding",
+        "id": "local",
         "model": "",
+        "name": "Local Server"
+      },
+      {
+        "api_key": "${MOLSOFT_API_KEY}",
+        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
+        "id": "remote",
+        "model": "",
+        "name": "Remote Server"
+      },
+      {
+        "api_key": "${MOLSOFT_API_KEY}",
+        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
         "document_format": "<instruct>Represent the following code snippet for retrieval.\n<query>{}",
+        "id": "remote-coder",
+        "model": "",
+        "name": "Remote BGE-coder",
         "query_format": "<instruct>Given a programming question, retrieve relevant code snippets.\n<query>{}"
       }
     ],
-    "current_api": "remote-local",
     "batch_size": 4,
-    "timeout_ms": 30000,
+    "current_api": "remote-local",
     "retry_attempts": 3,
+    "timeout_ms": 30000,
     "top_k": 5
   },
   "generation": {
     "apis": [
       {
-        "id": "local-qwen",
-        "name": "Local Qwen2.5 1.5b",
-        "api_url": "http://127.0.0.1:8585/v1/chat/completions",
         "api_key": "",
+        "api_url": "http://127.0.0.1:8585/v1/chat/completions",
+        "id": "local-qwen",
         "model": "qwen2.5-coder-1.5b",
+        "name": "Local",
         "pricing_tpm": {
-          "input": 0.00,
-          "output": 0.00
+          "input": 0,
+          "output": 0
         }
       },
       {
-        "id": "remote-hosted",
-        "name": "Hosted",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/chat",
         "api_key": "${MOLSOFT_API_KEY}",
+        "api_url": "https://molsoft.com/support-test/api/ask-proxy/chat",
+        "id": "remote-hosted",
         "model": "mistral-small-3.2-24B",
+        "name": "Hosted",
         "pricing_tpm": {
-          "input": 0.00,
-          "cached_input": 0.00,
-          "output": 0.00
+          "cached_input": 0,
+          "input": 0,
+          "output": 0
         }
       },
       {
-        "id": "gemma3",
-        "name": "Gemini",
-        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "api_key": "${HF_TOKEN}",
+        "api_url": "https://router.huggingface.co/v1/chat/completions",
+        "id": "hfq",
+        "model": "Qwen/Qwen2.5-Coder-32B-Instruct",
+        "name": "HF (Qwen2.5 32B)",
+        "pricing_tpm": {
+          "input": 0,
+          "output": 0
+        }
+      },
+      {
         "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemma3",
         "model": "gemma-3-27b-it",
+        "name": "Gemini",
         "pricing_tpm": {
-          "input": 0.0,
-          "output": 0.0
+          "input": 0,
+          "output": 0
         }
       },
       {
-        "id": "mistral-nemo",
-        "name": "Mistral",
-        "api_url": "https://api.mistral.ai/v1/chat/completions",
         "api_key": "${MISTRAL_API_KEY}",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "id": "mistral-nemo",
         "model": "open-mistral-nemo",
+        "name": "Mistral",
         "pricing_tpm": {
           "input": 0.15,
           "output": 0.15
         }
       },
       {
-        "id": "mistral-devstral",
-        "name": "Mistral",
-        "api_url": "https://api.mistral.ai/v1/chat/completions",
         "api_key": "${MISTRAL_API_KEY}",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "id": "mistral-devstral",
         "model": "devstral-small-latest",
+        "name": "Mistral",
         "pricing_tpm": {
-          "input": 0.10,
-          "output": 0.30
+          "input": 0.1,
+          "output": 0.3
         }
       },
       {
-        "id": "gemini-2.0-flash",
-        "name": "Gemini",
-        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemini-2.0-flash",
         "model": "gemini-2.0-flash",
+        "name": "Gemini",
         "pricing_tpm": {
-          "input": 0.10,
-          "output": 0.40
+          "input": 0.1,
+          "output": 0.4
         }
       },
       {
-        "id": "deepseek",
-        "name": "DeepSeek",
-        "api_url": "https://api.deepseek.com/chat/completions",
         "api_key": "${DEEPSEEK_API_KEY}",
+        "api_url": "https://api.deepseek.com/chat/completions",
+        "id": "deepseek",
         "model": "deepseek-chat",
+        "name": "DeepSeek",
         "pricing_tpm": {
-          "input": 0.28,
           "cached_input": 0.028,
+          "input": 0.28,
           "output": 0.42
         }
       },
       {
+        "api_key": "${XAI_API_KEY}",
+        "api_url": "https://api.x.ai/v1/chat/completions",
         "id": "xai",
-        "name": "X AI",
-        "api_url": "https://api.x.ai/v1/chat/completions",
-        "api_key": "${XAI_API_KEY}",
         "model": "grok-4-fast-non-reasoning",
-        "pricing_tpm": {
-          "input": 0.20,
-          "cached_input": 0.05,
-          "output": 0.50
-        }
-      },
-      {
-        "id": "openai-4o-mini",
-        "name": "OpenAI",
-        "api_url": "https://api.openai.com/v1/chat/completions",
-        "api_key": "${OPENAI_API_KEY}",
-        "model": "gpt-4o-mini",
-        "pricing_tpm": {
-          "input": 0.15,
-          "cached_input": 0.075,
-          "output": 0.60
-        }
-      },
-      {
-        "id": "mistral-codestral",
-        "name": "Mistral",
-        "api_url": "https://codestral.mistral.ai/v1/chat/completions",
-        "api_key": "${CODESTRAL_API_KEY}",
-        "model": "codestral-latest",
-        "pricing_tpm": {
-          "input": 0.30,
-          "output": 0.90
-        }
-      },
-      {
-        "id": "grok-4-coder",
         "name": "X AI",
-        "api_url": "https://api.x.ai/v1/chat/completions",
-        "api_key": "${XAI_API_KEY}",
-        "model": "grok-code-fast-1",
         "pricing_tpm": {
-          "input": 0.20,
-          "cached_input": 0.02,
-          "output": 1.50
+          "cached_input": 0.05,
+          "input": 0.2,
+          "output": 0.5
         }
       },
       {
-        "id": "openai-4.1-mini",
-        "name": "OpenAI",
-        "api_url": "https://api.openai.com/v1/chat/completions",
         "api_key": "${OPENAI_API_KEY}",
-        "model": "gpt-4.1-mini",
-        "max_tokens_name": "max_completion_tokens",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "id": "openai-4o-mini",
+        "model": "gpt-4o-mini",
+        "name": "OpenAI",
         "pricing_tpm": {
-          "input": 0.40,
-          "cached_input": 0.10,
-          "output": 1.60
+          "cached_input": 0.075,
+          "input": 0.15,
+          "output": 0.6
         }
       },
       {
-        "id": "gemini-2.5-flash",
-        "name": "Gemini",
-        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        "api_key": "${GEMINI_API_KEY}",
-        "model": "gemini-2.5-flash",
+        "api_key": "${CODESTRAL_API_KEY}",
+        "api_url": "https://codestral.mistral.ai/v1/chat/completions",
+        "id": "mistral-codestral",
+        "model": "codestral-latest",
+        "name": "Mistral",
         "pricing_tpm": {
-          "input": 0.30,
-          "output": 2.50
+          "input": 0.3,
+          "output": 0.9
+        }
+      },
+      {
+        "api_key": "${XAI_API_KEY}",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "id": "grok-4-coder",
+        "model": "grok-code-fast-1",
+        "name": "X AI",
+        "pricing_tpm": {
+          "cached_input": 0.02,
+          "input": 0.2,
+          "output": 1.5
+        }
+      },
+      {
+        "api_key": "${OPENAI_API_KEY}",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "id": "openai-4.1-mini",
+        "max_tokens_name": "max_completion_tokens",
+        "model": "gpt-4.1-mini",
+        "name": "OpenAI",
+        "pricing_tpm": {
+          "cached_input": 0.1,
+          "input": 0.4,
+          "output": 1.6
+        }
+      },
+      {
+        "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemini-2.5-flash",
+        "model": "gemini-2.5-flash",
+        "name": "Gemini",
+        "pricing_tpm": {
+          "input": 0.3,
+          "output": 2.5
         }
       }
     ],
     "current_api": "remote-hosted",
-    "timeout_ms": 120000,
+    "default_max_tokens": 2048,
+    "default_max_tokens_name": "max_tokens",
+    "default_temperature": 0.5,
     "max_chunks": 7,
+    "max_context_tokens": 20000,
     "max_full_sources": 2,
     "max_related_per_source": 3,
-    "max_context_tokens": 20000,
-    "default_temperature": 0.5,
-    "default_max_tokens": 2048,
-    "default_max_tokens_name": "max_tokens"
+    "timeout_ms": 120000
   },
-  "database": {
-    "sqlite_path": "db_metadata.db",
-    "index_path": "db_embeddings.index",
-    "vector_dim": 768,
-    "max_elements": 100000,
-    "distance_metric": "cosine",
-    "distance_metric_": "l2"
-  },
-  "chunking": {
-    "semantic": true,
-    "nof_min_tokens": 50,
-    "nof_max_tokens": 450,
-    "overlap_percentage": 0.1,
-    "code_boundaries": [ "function", "class", "method" ]
+  "logging": {
+    "diagnostics_file": "embedder_diag.log",
+    "level": "info",
+    "log_to_file": true,
+    "logging_file": "embedder.log"
   },
   "source": {
-    "paths": [
-      {
-        "type": "directory",
-        "path": "../../embedder_cpp",
-        "recursive": true,
-        "extensions": [ ".cpp", ".h", ".hpp" ],
-        "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*", "*/3rdparty/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "../../rag-code-assistant/clients/webview",
-        "recursive": true,
-        "extensions": [ ".cpp", ".h", ".hpp" ],
-        "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "../../rag-code-assistant/clients/spa-svelte2",
-        "recursive": true,
-        "extensions": [ ".svelte", ".ts", ".js", ".html" ],
-        "exclude": [ "*/node_modules/*", "*/dist/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "./docs",
-        "recursive": false,
-        "extensions": [ ".md", ".txt" ],
-        "exclude": []
-      },
-      {
-        "type": "file",
-        "path": "./README.md"
-      },
-      {
-        "type": "url",
-        "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
-        "headers": {
-          "Authorization": "Bearer ${GITHUB_TOKEN}"
-        }
-      },
-      {
-        "type": "url",
-        "url": "https://docs.example.com/api",
-        "timeout_ms": 10000
-      }
+    "default_extensions": [
+      ".cpp",
+      ".h",
+      ".py",
+      ".js",
+      ".md"
     ],
-    "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
+    "encoding": "utf-8",
     "global_exclude": [
       "*/node_modules/*",
       "*.min.js",
@@ -281,13 +260,85 @@
       "*/build_dbg/*",
       "*/build_rel/*"
     ],
-    "encoding": "utf-8",
-    "max_file_size_mb": 10
+    "max_file_size_mb": 10,
+    "paths": [
+      {
+        "exclude": [
+          "*/build/*",
+          "*/build_rel/*",
+          "*/dist/*",
+          "*/test/*",
+          "*/3rdparty/*"
+        ],
+        "extensions": [
+          ".cpp",
+          ".h",
+          ".hpp"
+        ],
+        "path": "../../embedder_cpp",
+        "recursive": true,
+        "type": "directory"
+      },
+      {
+        "exclude": [
+          "*/build/*",
+          "*/build_rel/*",
+          "*/dist/*",
+          "*/test/*"
+        ],
+        "extensions": [
+          ".cpp",
+          ".h",
+          ".hpp"
+        ],
+        "path": "../../rag-code-assistant/clients/webview",
+        "recursive": true,
+        "type": "directory"
+      },
+      {
+        "exclude": [
+          "*/node_modules/*",
+          "*/dist/*"
+        ],
+        "extensions": [
+          ".svelte",
+          ".ts",
+          ".js",
+          ".html"
+        ],
+        "path": "../../rag-code-assistant/clients/spa-svelte2",
+        "recursive": true,
+        "type": "directory"
+      },
+      {
+        "exclude": [],
+        "extensions": [
+          ".md",
+          ".txt"
+        ],
+        "path": "./docs",
+        "recursive": false,
+        "type": "directory"
+      },
+      {
+        "path": "./README.md",
+        "type": "file"
+      },
+      {
+        "headers": {
+          "Authorization": "Bearer ${GITHUB_TOKEN}"
+        },
+        "type": "url",
+        "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md"
+      },
+      {
+        "timeout_ms": 10000,
+        "type": "url",
+        "url": "https://docs.example.com/api"
+      }
+    ]
   },
-  "logging": {
-    "level": "info",
-    "logging_file": "embedder.log",
-    "diagnostics_file": "embedder_diag.log",
-    "log_to_file": true
+  "tokenizer": {
+    "config_path": "../assets/bge_tokenizer.json"
   }
 }
