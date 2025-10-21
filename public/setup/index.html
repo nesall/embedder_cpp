@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Configuration Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --primary-color: #3b82f6;
+      /* blue-500 */
+      --background-color: #f3f4f6;
+      /* gray-100 */
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--background-color);
+    }
+
+    .section-card {
+      background-color: white;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    .field-label {
+      font-weight: 500;
+      color: #1f2937;
+      /* gray-800 */
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    input[type="password"] {
+      padding: 0.5rem 0.75rem !important;
+      border: 1px solid #d1d5db;
+      /* gray-300 */
+      border-radius: 0.375rem;
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+    }
+
+    .array-item {
+      background-color: #f9fafb;
+      /* gray-50 */
+      border: 1px solid #e5e7eb;
+      /* gray-200 */
+    }
+  </style>
+</head>
+
+<body class="p-4 md:p-8">
+
+  <div id="auth-gate" class="flex flex-col items-center justify-center min-h-screen hidden">
+    <div class="section-card max-w-md w-full">
+      <div class="pb-2 flex items-center justify-between gap-2 mx-auto">
+        <span class="code pre font-mono text-lg">Phenix Code Assistant</span>
+        <span><img src="./logo.png" alt="logo" class="w-9"></span>
+      </div>
+      <!-- <hr class="hr" /> -->
+      <div class="py-2"></div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Admin Access Required</h2>
+      <form id="auth-form" onsubmit="event.preventDefault(); attemptAccess();">
+        <div class="mb-4">
+          <label for="admin-password" class="field-label mb-1 block">Admin Password</label>
+          <input type="password" id="admin-password" required class="w-full"
+            placeholder="Enter password to gain access">
+        </div>
+        <button type="submit" id="access-btn"
+          class="w-full bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+          Gain Access
+        </button>
+        <p id="auth-error" class="text-red-500 text-sm mt-3 text-center hidden">Access Denied. Please check your
+          password.</p>
+      </form>
+    </div>
+  </div>
+  <div id="config-editor" class="hidden">
+    <header class="mb-8 text-center">
+      <div class="pb-2 flex items-center justify-between gap-2 mx-auto">
+        <span class="code pre font-mono text-lg">Phenix Code Assistant</span>
+        <span><img src="./logo.png" alt="logo" class="w-9"></span>
+      </div>
+
+      <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Configuration Editor</h1>
+      <p class="text-gray-600">Edit the JSON structure below and generate the new configuration.</p>
+    </header>
+
+    <main class="max-w-4xl mx-auto space-y-8">
+      <div id="config-form"></div>
+
+      <div class="section-card">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Output Configuration</h2>
+        <div class="flex items-center gap-2">
+          <button id="generate-json-btn"
+            class="w-full bg-blue-500 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+            Generate New JSON
+          </button>
+          <button id="save-json-btn"
+            class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+            SAVE THIS CONFIGURATION
+          </button>
+        </div>
+        <pre id="json-output" class="mt-6 p-4 bg-gray-900 text-green-400 rounded-lg overflow-x-auto text-sm"
+          style="min-height: 100px;"></pre>
+      </div>
+    </main>
+  </div>
+  <script>
+    // --- AUTHENTICATION LOGIC ---
+
+    // Utility function to convert a string to Base64
+    function toBase64(str) {
+      return btoa(str);
+    }
+
+    // Main function to handle the access attempt
+    async function attemptAccess() {
+      const passwordInput = document.getElementById('admin-password');
+      const errorElement = document.getElementById('auth-error');
+      const accessBtn = document.getElementById('access-btn');
+
+      const password = passwordInput.value;
+      if (!password) return;
+
+      // Disable button and show loading state
+      accessBtn.disabled = true;
+      accessBtn.textContent = 'Gaining Access...';
+      errorElement.classList.add('hidden');
+
+      try {
+        const base64basic = toBase64(`admin:${password}`);
+        console.log("attemptAccess", password);
+        // NOTE: The Authorization Bearer token is typically base64-encoded credentials (like 'username:password'),
+        // but for a password-only admin scheme, we'll use the plain Base64-encoded password as requested.
+        const response = await fetch("/api/authenticate", {
+          method: "POST",
+          headers: {
+            "Authorization": `Basic ${base64basic}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const token = data.token;
+          if (!token) {
+            throw new Error("No token received from server");
+          }
+          localStorage.setItem("jwtToken", token);
+
+          // SUCCESS: Hide auth gate and show the editor
+          document.getElementById('auth-gate').classList.add('hidden');
+          document.getElementById('config-editor').classList.remove('hidden');
+          // window.onload(); // Re-trigger the main initialization
+          initializeEditor();
+        } else {
+          // FAILURE: Authentication failed (e.g., 401 Unauthorized)
+          errorElement.textContent = `Access Denied. Status: ${response.status}`;
+          errorElement.classList.remove('hidden');
+        }
+      } catch (e) {
+        // ERROR: Network or other failure
+        errorElement.textContent = 'A network error occurred. Check server status.';
+        errorElement.classList.remove('hidden');
+        console.error("Authentication error:", e);
+      } finally {
+        // Re-enable button
+        accessBtn.disabled = false;
+        accessBtn.textContent = 'Gain Access';
+      }
+    }
+
+
+    // --- ORIGINAL CONFIGURATION LOGIC ---
+
+    const initialConfig = {
+      "tokenizer": {
+        "config_path": "../assets/bge_tokenizer.json"
+      },
+      "embedding": {
+        "apis": [
+          {
+            "id": "api_1",
+            "name": "Local Server",
+            "api_url": "http://127.0.0.1:8583/embedding",
+            "api_key": "",
+            "model": ""
+          }
+        ],
+        "current_api": "api_1",
+        "batch_size": 10,
+        "timeout_ms": 30000,
+        "retry_attempts": 3,
+        "top_k": 5
+      },
+      "generation": {
+        "apis": [
+          {
+            "id": "api_1",
+            "name": "Local Qwen2.5 1.5b",
+            "api_url": "http://127.0.0.1:8585/v1/chat/completions",
+            "api_key": "",
+            "model": "qwen2.5-coder-1.5b",
+            "pricing_tpm": {
+              "input": 0.00,
+              "output": 0.00
+            }
+          },
+          {
+            "id": "gemini",
+            "name": "Gemini API",
+            "api_url": "https://api.gemini.com",
+            "api_key": "sk-...",
+            "model": "gemini-2.5-flash",
+            "pricing_tpm": {
+              "input": 0.00035,
+              "output": 0.00070
+            }
+          }
+        ],
+        "current_api": "api_1",
+        "timeout_ms": 120000,
+        "max_chunks": 7,
+        "max_full_sources": 2,
+        "max_related_per_source": 3,
+        "max_context_tokens": 20000,
+        "default_temperature": 0.5,
+        "default_max_tokens": 2048,
+        "default_max_tokens_name": "max_tokens"
+      },
+      "database": {
+        "sqlite_path": "db_metadata.db",
+        "index_path": "db_embeddings.index",
+        "vector_dim": 1536,
+        "max_elements": 100000,
+        "distance_metric": "cosine",
+      },
+      "chunking": {
+        "semantic": true,
+        "nof_min_tokens": 50,
+        "nof_max_tokens": 900,
+        "overlap_percentage": 0.1,
+      },
+      "source": {
+        "paths": [
+          {
+            "type": "directory",
+            "path": "./src",
+            "recursive": true,
+            "extensions": [".c", ".cpp", ".h", ".hpp"],
+            "exclude": ["*/build/*", "*/build_rel/*", "*/dist/*", "*/3rdparty/*"]
+          }
+        ],
+        "default_extensions": [".cpp", ".h", ".py", ".js", ".md"],
+        "global_exclude": [
+          "*/node_modules/*",
+          "*.min.js",
+          "*.log",
+          "*/.git/*",
+          ".gitignore",
+          "*/CVS/*",
+          "*/debug/*",
+          "*/release/*",
+          "*/lib/*",
+          "*/docker/*",
+          "*/fonts/*",
+          "*/images/*",
+          "*/tests/*",
+          "*/example/*",
+          "*/examples/*",
+          "*/obj/*",
+          "*/build_dbg/*",
+          "*/build_rel/*"
+        ],
+        "encoding": "utf-8",
+        "max_file_size_mb": 10
+      },
+      "logging": {
+        "logging_file": "output.log",
+        "diagnostics_file": "diagnostics.log"
+      }
+    };
+
+    // Deep copy the initial config to make it mutable
+    let config = JSON.parse(JSON.stringify(initialConfig));
+
+    // --- Templates for dynamic array elements ---
+
+    const newApiTemplate = (isGeneration = false) => {
+      const base = {
+        "id": `api_${crypto.randomUUID().substring(0, 8)}`,
+        "name": "New API",
+        "api_url": "",
+        "api_key": "",
+        "model": ""
+      };
+      if (isGeneration) {
+        base.pricing_tpm = { "input": 0.00, "output": 0.00 };
+      }
+      return base;
+    };
+
+    const newSourceTemplate = {
+      "type": "directory",
+      "path": "./new_path",
+      "recursive": false,
+      "extensions": [".new"],
+      "exclude": ["*/*.tmp"]
+    };
+
+
+    // --- Utility Functions for path management ---
+
+    /**
+     * Safely retrieves a nested value from an object using a dot-separated path.
+     * @param {object} obj - The object to traverse.
+     * @param {string} path - The dot-separated path (e.g., 'a.b.c').
+     * @returns {*} The value at the path, or undefined.
+     */
+    function getNestedValue(obj, path) {
+      return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    }
+
+    /**
+     * Safely sets a nested value in an object using a dot-separated path.
+     * @param {object} obj - The object to modify.
+     * @param {string} path - The dot-separated path (e.g., 'a.b.c').
+     * @param {*} value - The value to set.
+     */
+    function setNestedValue(obj, path, value) {
+      const parts = path.split('.');
+      let current = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!current[part] || typeof current[part] !== 'object') {
+          // Initialize if the part is missing or not an object
+          // Check if the next part is an index (heuristic: starts with a digit)
+          current[part] = /^\d+$/.test(parts[i + 1]) ? [] : {};
+        }
+        current = current[part];
+      }
+      const lastPart = parts[parts.length - 1];
+      current[lastPart] = value;
+    }
+
+    /**
+     * Removes an item from an array at a given path/index.
+     * @param {string} path - The full path to the array index to remove (e.g., 'sources.0').
+     */
+    function removeArrayItem(path) {
+      const parts = path.split('.');
+      const index = parseInt(parts.pop());
+      const arrayPath = parts.join('.');
+      const array = getNestedValue(config, arrayPath);
+
+      if (Array.isArray(array) && !isNaN(index) && index >= 0 && index < array.length) {
+        array.splice(index, 1);
+
+        const isObjectArray = arrayPath === 'sources' || arrayPath.endsWith('.apis');
+        // The element marked with data-path is the array container itself (for objects) or the list container (for primitives)
+        const arrayElement = document.querySelector(`[data-path="${arrayPath}"]`);
+
+        if (arrayElement) {
+          if (isObjectArray) {
+            // Re-render the entire object array wrapper
+            arrayElement.innerHTML = '';
+            renderArray(array, arrayPath, arrayElement);
+          } else {
+            // Re-render only the list of items for primitive arrays
+            renderPrimitiveArrayItems(array, arrayPath, arrayElement);
+          }
+          // Re-attach listeners after modification, especially for the 'current_api' dropdown
+          attachEventListeners();
+          updateOutput();
+        }
+      }
+    }
+
+    /**
+     * Adds a new item to an array and re-renders the containing element.
+     * @param {string} path - The full path to the array (e.g., 'sources').
+     * @param {object|string} template - The template object or initial string value.
+     */
+    function addArrayItem(path, template) {
+      const array = getNestedValue(config, path);
+      if (Array.isArray(array)) {
+        array.push(JSON.parse(JSON.stringify(template)));
+
+        const isObjectArray = path === 'sources' || path.endsWith('.apis');
+        // The element marked with data-path is the array container itself (for objects) or the list container (for primitives)
+        const arrayElement = document.querySelector(`[data-path="${path}"]`);
+
+        if (arrayElement) {
+          if (isObjectArray) {
+            // Re-render the entire object array block
+            arrayElement.innerHTML = '';
+            renderArray(array, path, arrayElement);
+            // Also re-render the entire object that contains this API array, 
+            // as a new API affects the 'current_api' dropdown which is rendered outside this block.
+            const parentPath = path.substring(0, path.lastIndexOf('.'));
+            const parentElement = document.querySelector(`[data-path="${parentPath}"]`);
+            if (parentElement) {
+              parentElement.innerHTML = '';
+              renderObject(getNestedValue(config, parentPath), parentPath, parentElement);
+            }
+          } else {
+            // Re-render only the list of items for primitive arrays
+            renderPrimitiveArrayItems(array, path, arrayElement);
+          }
+          attachEventListeners();
+          updateOutput();
+        }
+      }
+    }
+
+    /**
+     * Gets the available API IDs (options) for a given 'current_api' path.
+     * @param {string} currentApiPath - The path to the current_api field (e.g., 'embedding.current_api').
+     * @returns {Array<string>} List of API IDs.
+     */
+    function getApiOptions(currentApiPath) {
+      // Find the path to the 'apis' array (e.g., 'embedding.apis')
+      const apiListPath = currentApiPath.substring(0, currentApiPath.lastIndexOf('.')) + '.apis';
+      const apiArray = getNestedValue(config, apiListPath);
+
+      if (Array.isArray(apiArray)) {
+        return apiArray.map(api => api.id).filter(id => id); // Filter out empty or null IDs
+      }
+      return [];
+    }
+
+
+    // --- Core Rendering Functions ---
+
+    /**
+     * Renders an individual primitive field (string, number, boolean, or select).
+     */
+    function renderField(key, value, path) {
+      const container = document.createElement('div');
+      container.className = 'flex flex-col mb-4';
+
+      const label = document.createElement('label');
+      label.className = 'field-label capitalize mb-1';
+      label.textContent = key.replace(/_/g, ' ');
+
+      let input;
+
+      if (key === 'current_api') {
+        // SPECIAL CASE: Dropdown for current_api
+        input = document.createElement('select');
+        input.dataset.type = 'string';
+        input.value = value;
+        input.title = "Current API";
+
+        const options = getApiOptions(path);
+
+        if (options.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No APIs defined';
+          input.appendChild(option);
+          input.disabled = true;
+        } else {
+          options.forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            if (id === value) {
+              option.selected = true;
+            }
+            input.appendChild(option);
+          });
+        }
+      }
+      else if (typeof value === 'boolean') {
+        container.className = 'flex items-center mb-4 space-x-2';
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'h-5 w-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500';
+        input.checked = value;
+        input.dataset.type = 'boolean';
+
+        label.className = 'field-label';
+        container.appendChild(input);
+        container.appendChild(label);
+
+        input.dataset.path = path;
+        return container;
+
+      } else if (typeof value === 'number') {
+        input = document.createElement('input');
+        input.type = 'number';
+        input.value = value;
+        input.dataset.type = 'number';
+      } else { // string
+        input = document.createElement('input');
+        input.type = 'text';
+        input.value = value;
+        input.dataset.type = 'string';
+      }
+
+      input.dataset.path = path;
+      input.id = `input-${path}`;
+      label.htmlFor = input.id;
+
+      container.appendChild(label);
+      container.appendChild(input);
+
+      return container;
+    }
+
+    /**
+     * Renders the individual items (inputs) for a primitive array.
+     * Used for initial render and re-rendering after add/remove.
+     * @param {Array<string|number>} array - The array data.
+     * @param {string} path - The path to the array (e.g., 'files.extensions').
+     * @param {HTMLElement} listElement - The container div to append items to.
+     */
+    function renderPrimitiveArrayItems(array, path, listElement) {
+      listElement.innerHTML = ''; // Clear existing content before rendering new
+      listElement.className = 'space-y-2';
+
+      array.forEach((item, index) => {
+        const itemPath = `${path}.${index}`;
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex items-center space-x-3 array-item p-2 rounded-md';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = item;
+        input.className = 'flex-grow border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm';
+        input.dataset.path = itemPath; // Crucial for identifying fields in config
+        input.dataset.type = 'string';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'text-red-500 hover:text-red-700 text-sm font-medium transition duration-150';
+        removeBtn.textContent = 'Remove';
+        removeBtn.dataset.removePath = itemPath;
+
+        itemDiv.appendChild(input);
+        itemDiv.appendChild(removeBtn);
+        listElement.appendChild(itemDiv);
+      });
+    }
+
+
+    /**
+     * Renders an array of primitives (strings or numbers).
+     */
+    function renderPrimitiveArray(key, array, path) {
+      const container = document.createElement('div');
+      container.className = 'mb-6 p-4 rounded-lg bg-gray-50 border border-gray-200';
+
+      const title = document.createElement('h3');
+      title.className = 'text-lg font-semibold mb-3 text-gray-700 capitalize';
+      title.textContent = key.replace(/_/g, ' ');
+      container.appendChild(title);
+
+      const list = document.createElement('div');
+      list.dataset.path = path; // Mark the list container for re-rendering
+
+      // Initial render of the items
+      renderPrimitiveArrayItems(array, path, list);
+
+      container.appendChild(list);
+
+      // Add new item input
+      const addGroup = document.createElement('div');
+      addGroup.className = 'mt-4 flex space-x-2';
+      const newInput = document.createElement('input');
+      newInput.type = 'text';
+      newInput.placeholder = 'Enter new item value';
+      newInput.className = 'flex-grow';
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'bg-green-500 hover:bg-green-600 text-white text-sm font-bold py-2 px-4 rounded-md transition duration-150';
+      addBtn.textContent = 'Add Item';
+      addBtn.onclick = () => {
+        if (newInput.value) {
+          // Primitive arrays contain strings, so we pass the input value directly
+          addArrayItem(path, newInput.value);
+          newInput.value = ''; // Clear input after adding
+        }
+      };
+
+      addGroup.appendChild(newInput);
+      addGroup.appendChild(addBtn);
+      container.appendChild(addGroup);
+
+      return container;
+    }
+
+
+    /**
+     * Renders the dynamic array of objects (like sources or apis).
+     */
+    function renderArray(array, path, targetElement) {
+
+      const moveInPlace = (ar, j, dir) => {
+        const target = j + dir;
+        if (target < 0 || target >= ar.length) return false; // out of bounds
+        const tmp = ar[j];
+        ar[j] = ar[target];
+        ar[target] = tmp;
+        return true;
+      }
+
+      // Define a function to handle the re-render logic
+      const reRenderArray = (arrayPath) => {
+        const arrayElement = document.querySelector(`[data-path="${arrayPath}"]`);
+        if (arrayElement) {
+          arrayElement.innerHTML = ''; // Clear existing DOM
+          const array = getNestedValue(config, arrayPath);
+          renderArray(array, arrayPath, arrayElement); // Re-render from the updated config
+          attachEventListeners(); // Re-attach all listeners
+          updateOutput(); // Update the JSON output
+        }
+      }
+
+      array.forEach((item, index) => {
+        const itemPath = `${path}.${index}`;
+
+        const card = document.createElement('div');
+        card.className = 'section-card mt-4 border border-blue-200';
+
+        // Header (e.g., "API 1", "Source 0")
+        const header = document.createElement('div');
+        header.className = 'flex justify-between gap-2 items-center mb-4 pb-2 border-b';
+
+        // Collapse/expand button
+        const expandBtn = document.createElement('button');
+        expandBtn.innerHTML = '&#9660;';
+        header.appendChild(expandBtn);
+
+        const titleKey = item.name || item.id || item.type || `Item ${index}`;
+        const title = document.createElement('h4');
+        title.className = 'text-lg font-bold text-blue-600';
+        title.textContent = `${path.split('.').at(-1).replace(/_/g, ' ').toUpperCase()} ${index + 1}: ${titleKey}`;
+        header.appendChild(title);
+
+
+        // Move down button
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'ml-auto bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded-full transition duration-150';
+        moveDownBtn.innerHTML = '&darr;';
+        header.appendChild(moveDownBtn);
+
+        // Move up button
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded-full transition duration-150';
+        moveUpBtn.innerHTML = '&uarr;';
+        header.appendChild(moveUpBtn);
+
+        // Remove Button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-full transition duration-150';
+        removeBtn.textContent = 'Remove';
+        removeBtn.dataset.removePath = itemPath;
+        header.appendChild(removeBtn);
+
+        card.appendChild(header);
+
+        // Body (recursive rendering of the object)
+        const body = document.createElement('div');
+        renderObject(item, itemPath, body);
+
+        card.appendChild(body);
+        targetElement.appendChild(card);
+
+        body.classList.add('hidden');
+
+        expandBtn.onclick = () => {
+          if (body.classList.contains('hidden')) {
+            body.classList.remove('hidden');
+            expandBtn.innerHTML = '&#9650';
+          } else {
+            body.classList.add('hidden');
+            expandBtn.innerHTML = '&#9660';
+          }
+        };
+
+        moveDownBtn.onclick = () => {
+          if (moveInPlace(array, index, +1)) {
+            reRenderArray(path);
+          }
+        };
+
+        moveUpBtn.onclick = () => {
+          if (moveInPlace(array, index, -1)) {
+            reRenderArray(path);
+          }
+        };
+
+      });
+
+      // Add new object button
+      const addBtn = document.createElement('button');
+      const isGeneration = path === 'generation.apis';
+
+      addBtn.className = 'my-6 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out';
+      addBtn.textContent = `+ Add New ${path.split('.').at(-1).slice(0, -1).replace(/_/g, ' ').toUpperCase()}`;
+
+      addBtn.onclick = () => {
+        let template;
+        if (path.endsWith('apis')) {
+          template = newApiTemplate(isGeneration);
+        } else if (path === 'sources') {
+          template = newSourceTemplate;
+        }
+
+        if (template) {
+          // Object arrays contain objects, so we pass the template object
+          addArrayItem(path, template);
+        }
+      };
+
+      targetElement.appendChild(addBtn);
+    }
+
+    /**
+     * Recursively renders a JSON object.
+     */
+    function renderObject(data, currentPath = '', targetElement = document.getElementById('config-form'), key = '') {
+      const keys = Object.keys(data);
+      const isTopLevel = currentPath === '';
+
+      let resElement = null;
+
+      if (isTopLevel) {
+        // For the top level, we iterate directly over the main keys
+      } else if (key) {
+        // If it's a nested object (like pricing_tpm), wrap it
+        const section = document.createElement('div');
+        section.className = 'p-4';
+        targetElement.appendChild(section);
+        targetElement = section;
+        resElement = section;
+      } else if (!Array.isArray(getNestedValue(config, currentPath))) {
+        // If it's a top-level section like 'embedding' or 'database'
+        const section = document.createElement('div');
+        section.className = 'section-card';
+        section.dataset.path = currentPath; // Mark the main section for re-rendering
+
+        const header = document.createElement('h2');
+        header.className = 'text-2xl font-semibold text-gray-800 mb-4 border-b pb-2 capitalize';
+        header.textContent = currentPath.replace(/_/g, ' ');
+        section.appendChild(header);
+
+        targetElement.appendChild(section);
+        targetElement = section;
+        resElement = section;
+      }
+
+      // Grid layout for primitive fields
+      const grid = document.createElement('div');
+      grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+
+      keys.forEach(key => {
+        const value = data[key];
+        const path = currentPath ? `${currentPath}.${key}` : key;
+
+        if (Array.isArray(value)) {
+          // Check if it's an array of objects or primitives (heuristic: check first item)
+          const isArrayOfObjects = value.length > 0 && typeof value[0] === 'object' && !Array.isArray(value[0]);
+
+          if (isArrayOfObjects) {
+            // Array of Objects (e.g., apis, sources) - needs separate rendering
+            // Close the current grid before adding the dynamic array structure
+            if (grid.children.length > 0) {
+              targetElement.appendChild(grid);
+              // Re-initialize grid for fields that follow
+              grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+            }
+
+            const arrayWrapper = document.createElement('div');
+            arrayWrapper.className = 'md:col-span-2 mt-6';
+            arrayWrapper.dataset.path = path;
+            targetElement.appendChild(arrayWrapper);
+
+            // Render the array of objects dynamically
+            renderArray(value, path, arrayWrapper);
+
+          } else {
+            // Array of Primitives (e.g., extensions, global_exclude)
+            const arrayElement = renderPrimitiveArray(key, value, path);
+            arrayElement.className += ' md:col-span-2'; // Make primitive arrays span full width
+            grid.appendChild(arrayElement);
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          // Object (e.g., pricing_tpm)
+          // If the current grid is not empty, append it first
+          if (grid.children.length > 0) {
+            targetElement.appendChild(grid);
+            // Re-initialize grid for fields that follow
+            grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+          }
+
+          const subSection = document.createElement('div');
+          subSection.className = 'md:col-span-2 mt-4 p-4 rounded-lg border border-gray-200';
+          subSection.dataset.path = path;
+
+          const header = document.createElement('h3');
+          header.className = 'text-lg font-bold text-gray-700 mb-3 border-b pb-2 capitalize';
+          header.textContent = key.replace(/_/g, ' ');
+          subSection.appendChild(header);
+
+          targetElement.appendChild(subSection);
+          resElement = renderObject(value, path, subSection); // Recursively call object rendering
+
+          if (isTopLevel && resElement) {
+            header.classList.add('flex', 'items-center');
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'text-blue-500 ml-auto';
+            expandBtn.innerHTML = '&#9660;';
+            header.appendChild(expandBtn);
+            resElement.classList.add('hidden');
+            header.classList.remove('mb-3', 'pb-2', 'border-b');
+            expandBtn.bodyElement = resElement;
+            expandBtn.onclick = () => {
+              const el = expandBtn.bodyElement;
+              if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                header.classList.add('mb-3', 'pb-2', 'border-b');
+                expandBtn.innerHTML = '&#9650';
+              } else {
+                el.classList.add('hidden');
+                header.classList.remove('mb-3', 'pb-2', 'border-b');
+                expandBtn.innerHTML = '&#9660';
+              }
+            };
+          }
+
+        } else {
+          // Primitive (string, number, boolean, or select)
+          const fieldElement = renderField(key, value, path);
+          grid.appendChild(fieldElement);
+        }
+      });
+
+      // Append the last grid if it has content
+      if (grid.children.length > 0) {
+        targetElement.appendChild(grid);
+      }
+
+      return resElement;
+    }
+
+
+    // --- Event Handlers ---
+
+    function handleInputChange(event) {
+      const input = event.target;
+      const path = input.dataset.path;
+      const type = input.dataset.type;
+      let value;
+
+      if (type === 'number') {
+        value = parseFloat(input.value);
+        if (isNaN(value)) {
+          console.error('Invalid number input:', input.value);
+          return;
+        }
+      } else if (type === 'boolean') {
+        value = input.checked;
+      } else {
+        value = input.value;
+      }
+
+      setNestedValue(config, path, value);
+
+      // Special handling for array items where the name/id changes (e.g., api name)
+      if (/*path.includes('.name') || */path.includes('.id') || path.includes('.type')) {
+        // The structure may have changed, so we re-render the parent array to update titles/indices
+        const parts = path.split('.');
+        // The parent array path is everything up to the index part (e.g., 'generation.apis')
+        const arrayPath = parts.slice(0, -2).join('.');
+        const parentElement = document.querySelector(`[data-path="${arrayPath}"]`);
+
+        if (parentElement) {
+          // Re-render the array of objects (apis/sources)
+          parentElement.innerHTML = '';
+          const array = getNestedValue(config, arrayPath);
+          renderArray(array, arrayPath, parentElement);
+
+          // If APIs changed, also re-render the section (embedding/generation) to update 'current_api' dropdown
+          const sectionPath = arrayPath.substring(0, arrayPath.lastIndexOf('.'));
+          const sectionElement = document.querySelector(`[data-path="${sectionPath}"]`);
+          if (sectionElement) {
+            sectionElement.innerHTML = '';
+            renderObject(getNestedValue(config, sectionPath), sectionPath, sectionElement);
+          }
+
+          attachEventListeners();
+        }
+      }
+    }
+
+    function attachEventListeners() {
+      // 1. Input/Change Listeners for all fields (input and select) with a data-path attribute
+      document.querySelectorAll('#config-editor input[data-path], #config-editor select[data-path]').forEach(input => {
+        // Ensure event listener is only attached once
+        input.removeEventListener('input', handleInputChange);
+        input.addEventListener('input', handleInputChange);
+        // For select elements, 'change' is often better, but 'input' catches everything.
+      });
+
+      // 2. Remove Button Listeners (must be re-attached after any array modification)
+      document.querySelectorAll('#config-editor [data-remove-path]').forEach(btn => {
+        btn.onclick = () => {
+          const path = btn.dataset.removePath;
+          removeArrayItem(path);
+        };
+      });
+
+      // 3. JSON Generation Button
+      const generateBtn = document.getElementById('generate-json-btn');
+      // Ensure the listener is on the *visible* button, which is inside config-editor
+      if (generateBtn) {
+        generateBtn.onclick = updateOutput;
+      }
+
+
+      // 4. Save
+      const saveBtn = document.getElementById('save-json-btn');
+      if (saveBtn) {
+        saveBtn.onclick = saveOutput;
+      }
+    }
+
+    function updateOutput() {
+      console.log("updateOutput", config);
+      const outputElement = document.getElementById('json-output');
+      outputElement.textContent = JSON.stringify(config, null, 2);
+    }
+
+    async function saveOutput() {
+      const token = localStorage.getItem("jwtToken");
+      if (!token) throw new Error("No JWT token available.");
+      const res = await fetch("/api/setup", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+      });
+      if (!res.ok) {
+        localStorage.removeItem("jwtToken"); // force re-login
+        console.log("saveOutput OK.", res);
+        alert(`Failed to save config: ${res.statusText}`);
+      } else {
+        console.log("saveOutput OK.");
+      }
+    }
+
+    // --- Initialization ---
+
+    // The function that runs when access is gained (replaces window.onload for the editor's logic)
+    async function initializeEditor() {
+      console.log("initializeEditor");
+      const token = localStorage.getItem("jwtToken");
+      if (!token) throw new Error("No JWT token available.");
+
+      const res = await fetch("/api/setup", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log(data);
+        config = data;
+        renderObject(config);
+        attachEventListeners();
+        updateOutput(); // Display initial JSON on load
+      } else {
+        throw new Error("Failed to GET config");
+      }
+    };
+
+    // Replace the original window.onload with the new structure.
+    window.onload = async () => {
+      console.log("window.onload");
+      try {
+        const token = localStorage.getItem("jwtToken");
+        if (token) {
+          const response = await fetch("/api/authenticate", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+            }
+          });
+          if (response.ok) {
+            document.getElementById('auth-gate').classList.add('hidden');
+            document.getElementById('config-editor').classList.remove('hidden');
+            initializeEditor();
+            return;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      document.getElementById('auth-gate').classList.remove('hidden');
+      document.getElementById('config-editor').classList.add('hidden');
+      document.getElementById('admin-password').focus();
+
+      // document.getElementById('auth-gate').classList.add('hidden');
+      // document.getElementById('config-editor').classList.remove('hidden');
+      // renderObject(config);
+      // attachEventListeners();
+      // updateOutput(); // Display initial JSON on load
+    };
+
+    // Alias the editor's initialization to window.onload for successful access
+    // window.onload = initializeEditor;
+  </script>
+</body>
+
+</html>

@@ -17,11 +17,11 @@ public:
 private:
   Settings &settings_;
   std::set<std::string> sources_; // last parsed files/urls
-  bool readContent_ = true;
+  mutable bool readContent_ = true;
 public:
   SourceProcessor(Settings &s) : settings_(s) {}
   std::vector<SourceProcessor::Data> collectSources(bool readContent);
-  SourceProcessor::Data fetchSource(const std::string &uri) const;
+  SourceProcessor::Data fetchSource(const std::string &uri, bool readContent) const;
   std::vector<std::string> filterRelatedSources(const std::vector<std::string> &sources, const std::string &src) const;
   static bool readFile(const std::string &uri, std::string &data);
 

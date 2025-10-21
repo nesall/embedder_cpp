@@ -39,8 +39,17 @@ FetchContent_Declare(
   GIT_TAG main
 )
 
+# Fetch jwt-cpp (header-only)
+FetchContent_Declare(
+  jwt-cpp
+  GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
+  GIT_TAG v0.7.0  # or latest stable
+)
+FetchContent_MakeAvailable(jwt-cpp)
+
+
 # Make dependencies available
-FetchContent_MakeAvailable(httplib hnswlib sqlite3 nlohmann_json utils_log)
+FetchContent_MakeAvailable(httplib hnswlib sqlite3 nlohmann_json utils_log jwt-cpp)
 
 # Create SQLite3 library
 add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)
@@ -54,6 +63,7 @@ target_include_directories(utils_log INTERFACE ${utils_log_SOURCE_DIR})
 add_executable(${PROJECT_NAME} 
   README.md
   settings.json
+  public/setup/index.html
   include/tokenizer.h
   include/settings.h
   include/chunker.h
@@ -62,6 +72,7 @@ add_executable(${PROJECT_NAME}
   include/sourceproc.h
   include/httpserver.h
   include/app.h
+  include/auth.h
   src/main.cpp
   src/tokenizer.cpp
   src/settings.cpp
@@ -71,6 +82,7 @@ add_executable(${PROJECT_NAME}
   src/sourceproc.cpp
   src/httpserver.cpp
   src/app.cpp
+  src/auth.cpp
 )
 
 # Link libraries
@@ -79,6 +91,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     sqlite3_lib
     nlohmann_json::nlohmann_json
     utils_log
+    jwt-cpp::jwt-cpp
 )
 
 # Include directories
@@ -112,7 +125,7 @@ if(NOT NO_OPENSSL)
         message(STATUS "  OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
         message(STATUS "  OpenSSL libraries: ${OPENSSL_LIBRARIES}")
         target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-        target_compile_definitions(${PROJECT_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT HAS_OPENSSL)
     else()
         message(WARNING "OpenSSL not found - HTTPS support disabled")
         if(WIN32)
@@ -143,3 +156,11 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
           $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${PROJECT_NAME}>>
   )
 endif()
+
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/public/
+        ${CMAKE_BINARY_DIR}/public/
+    COMMENT "Copying setup UI files"
+)

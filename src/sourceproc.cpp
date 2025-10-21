@@ -43,9 +43,11 @@ std::vector<SourceProcessor::Data> SourceProcessor::collectSources(bool readCont
   return allContent;
 }
 
-SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri) const
+SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri, bool readContent) const
 {
   LOG_START;
+  const bool oldReadContent = readContent_;
+  readContent_ = readContent;
   std::vector<SourceProcessor::Data> res;
   auto sources = settings_.sources();
   for (const auto &source : sources) {
@@ -58,6 +60,7 @@ SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri) const
     }
     if (!res.empty()) break;
   }
+  readContent_ = oldReadContent;
   return res.empty() ? Data{} : res[0];
 }
 

@@ -6,6 +6,8 @@
 #include "inference.h"
 #include "settings.h"
 #include "tokenizer.h"
+#include "auth.h"
+#include "3rdparty/base64.h"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
@@ -91,6 +93,40 @@ namespace {
     } while (!v.compare_exchange_weak(oldVal, newVal));
   }
 
+  std::optional<std::pair<std::string, std::string>> extractPassword(const httplib::Request &req) {
+    try {
+      auto header = req.get_header_value("Authorization");
+      if (header.find("Basic ") == 0) {
+        std::string encoded = header.substr(6);
+        std::string decoded = base64_decode(encoded);
+        // Format is "username:password" - we only care about password
+        size_t colon = decoded.find(':');
+        if (colon == std::string::npos) {
+          return std::nullopt;
+        }
+        return std::pair{ decoded.substr(colon + 1), "Basic" };
+      } else if (header.find("Bearer ") == 0) {
+        std::string encoded = header.substr(7);
+        return std::pair{ encoded, "Bearer" };
+      }
+    } catch (const std::exception &e) {
+      LOG_MSG << "Error extracting password" << e.what();
+    }
+    return std::nullopt;
+  }
+
+  bool requireAuth(AdminAuth &auth, const httplib::Request &req, httplib::Response &res, std::string *jwtToken) {
+    auto password = extractPassword(req);
+    std::string jwt;
+    if (!password.has_value() || !auth.authenticate(password.value(), jwt)) {
+      res.status = 401;
+      res.set_header("WWW-Authenticate", "Basic realm=\"Embedder Admin\"");
+      res.set_content(R"({"error": "Authentication required"})", "application/json");
+      return false;
+    }
+    if (jwtToken) *jwtToken = jwt;
+    return true;
+  }
 } // anonymous namespace
 
 
@@ -142,12 +178,95 @@ HttpServer::~HttpServer()
 bool HttpServer::startServer(int port)
 {
   auto &server = imp->server_;
+  auto &auth = imp->app_.auth();
+
+  server.set_mount_point("/", "./public/");
+
+  server.Get("/", [this](const httplib::Request &, httplib::Response &res) {
+    LOG_MSG << "GET /";
+    if (!std::filesystem::exists(imp->app_.settings().configPath())) {
+      res.set_redirect("/setup/");
+    } else {
+      res.set_content(R"(
+                <h1>PhenixCode Embedder</h1>
+                <p>API is running!</p>
+                <ul>
+                    <li><a href="/api/health">Health Check</a></li>
+                    <li><a href="/api/stats">Statistics</a></li>
+                    <li><a href="/api/metrics">Metrics</a></li>
+                    <li><a href="/setup/">Setup Wizard</a></li>
+                </ul>
+            )", "text/html");
+    }
+    Impl::requestCounter_++;
+    });
+
+  server.Post("/api/authenticate", [&](const httplib::Request &req, httplib::Response &res) {
+    LOG_MSG << "POST /api/authenticate";
+    std::string jwt;
+    if (!requireAuth(auth, req, res, &jwt)) return; // Validate password
+    json response = { 
+      {"status", "OK"},
+      {"token", jwt}
+    };
+    res.set_content(response.dump(), "application/json");
+    Impl::requestCounter_++;
+    });
+
+  server.Post("/api/setup", [&](const httplib::Request &req, httplib::Response &res) {
+    LOG_MSG << "POST /api/setup";
+    if (!requireAuth(auth, req, res, nullptr)) return;
+    try {
+      json config = json::parse(req.body);
+      // Loosely validate config
+      if (!config.contains("embedding")) {
+        throw std::invalid_argument("Missing embedding field");
+      }
+      if (!config.contains("generation")) {
+        throw std::invalid_argument("Missing generation field");
+      }
+      if (!config.contains("database")) {
+        throw std::invalid_argument("Missing database field");
+      }
+      if (!config.contains("chunking")) {
+        throw std::invalid_argument("Missing chunking field");
+      }
+      auto &settings = imp->app_.refSettings();
+      settings.updateFromConfig(config);
+      settings.save();
+      json response = {
+          {"status", "success"},
+          {"message", "Configuration generated successfully"}
+      };
+      res.set_content(response.dump(), "application/json");
+    } catch (const std::exception &e) {
+      json error = { {"error", e.what()} };
+      res.status = 400;
+      res.set_content(error.dump(), "application/json");
+    }
+    Impl::requestCounter_++;
+    });
+
+  server.Get("/api/setup", [&](const httplib::Request &req, httplib::Response &res) {
+    LOG_MSG << "GET /api/setup";
+    if (!requireAuth(auth, req, res, nullptr)) return;
+    try {
+      const auto &config = imp->app_.settings().configDump();
+      res.set_content(config, "application/json");
+    } catch (const std::exception &e) {
+      json error = { {"error", e.what()} };
+      res.status = 500;
+      res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
+    }
+    Impl::requestCounter_++;
+    });
 
   server.Get("/api/health", [](const httplib::Request &, httplib::Response &res) {
     LOG_MSG << "GET /api/health";
     json response = { {"status", "ok"} };
     res.set_content(response.dump(), "application/json");
-    HttpServer::Impl::requestCounter_++;
+    Impl::requestCounter_++;
     });
 
   server.Post("/api/search", [this](const httplib::Request &req, httplib::Response &res) {
@@ -296,9 +415,6 @@ bool HttpServer::startServer(int port)
           {"sources", sources_obj}
       };
       res.set_content(response.dump(), "application/json");
-      LOG_MSG << std::this_thread::get_id() << " Starting /stats ...";
-      std::this_thread::sleep_for(std::chrono::seconds(20));
-      LOG_MSG << std::this_thread::get_id() << " Finished /stats !";
     } catch (const std::exception &e) {
       json error = { {"error", e.what()} };
       res.status = 500;
@@ -439,7 +555,7 @@ bool HttpServer::startServer(int port)
       }
 
       for (const auto &src : sources) {
-        auto data = imp->app_.sourceProcessor().fetchSource(src);
+        auto data = imp->app_.sourceProcessor().fetchSource(src, true);
         if (!data.content.empty()) {
           fullSourceResults.push_back({
               data.content,
@@ -454,7 +570,7 @@ bool HttpServer::startServer(int port)
         }
       }
       for (const auto &rel : relSources) {
-        auto data = imp->app_.sourceProcessor().fetchSource(rel);
+        auto data = imp->app_.sourceProcessor().fetchSource(rel, true);
         if (!data.content.empty()) {
           relatedSrcResults.push_back({
               data.content,
@@ -529,14 +645,12 @@ bool HttpServer::startServer(int port)
 
             // Add sources information
             nlohmann::json sourcesJson;
-            //std::set<std::string> sources;
+            std::set<std::string> distinctSources;
             for (const auto &result : orderedResults) {
-              //sources.insert(result.sourceId);
-              sourcesJson.push_back(result.sourceId);
+              if (distinctSources.insert(result.sourceId).second) {
+                sourcesJson.push_back(result.sourceId);
+              }
             }
-
-            //for (const auto &source : sources) {
-            //}
 
             // Send sources information as a separate SSE message
             nlohmann::json sourcesPayload = {
@@ -714,6 +828,7 @@ bool HttpServer::startServer(int port)
               {"GET /api/settings", "Available APIs"},
               {"GET /api/metrics", "Service and database metrics"},
               {"GET /metrics", "Prometheus-compatible metrics"},
+              {"POST /api/setup", "Setup configuration"},
               {"POST /api/search", "Semantic search"},
               {"POST /api/chat", "Chat with context (streaming)"},
               {"POST /api/embed", "Generate embeddings"},
@@ -734,6 +849,7 @@ bool HttpServer::startServer(int port)
     LOG_MSG << "  GET  /api/stats";
     LOG_MSG << "  GET  /api/settings";
     LOG_MSG << "  GET  /api/documents";
+    LOG_MSG << "  POST /api/setup     - {\"...\"}";
     LOG_MSG << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}";
     LOG_MSG << "  POST /api/embed     - {\"text\": \"...\"}";
     LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";

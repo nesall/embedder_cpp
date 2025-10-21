@@ -174,17 +174,6 @@
           "cached_input": 0.10,
           "output": 1.60
         }
-      },
-      {
-        "id": "gemini-2.5-flash",
-        "name": "Gemini",
-        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        "api_key": "${GEMINI_API_KEY}",
-        "model": "gemini-2.5-flash",
-        "pricing_tpm": {
-          "input": 0.30,
-          "output": 2.50
-        }
       }
     ],
     "current_api": "remote-hosted",
@@ -212,53 +201,53 @@
     "overlap_percentage": 0.1,
     "code_boundaries": [ "function", "class", "method" ]
   },
-  "source": {
-    "paths": [
-      {
-        "type": "directory",
-        "path": "../../embedder_cpp",
-        "recursive": true,
-        "extensions": [ ".cpp", ".h", ".hpp" ],
-        "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*", "*/3rdparty/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "../../rag-code-assistant/clients/webview",
-        "recursive": true,
-        "extensions": [ ".cpp", ".h", ".hpp" ],
-        "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "../../rag-code-assistant/clients/spa-svelte2",
-        "recursive": true,
-        "extensions": [ ".svelte", ".ts", ".js", ".html" ],
-        "exclude": [ "*/node_modules/*", "*/dist/*" ]
-      },
-      {
-        "type": "directory",
-        "path": "./docs",
-        "recursive": false,
-        "extensions": [ ".md", ".txt" ],
-        "exclude": []
-      },
-      {
-        "type": "file",
-        "path": "./README.md"
-      },
-      {
-        "type": "url",
-        "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
-        "headers": {
-          "Authorization": "Bearer ${GITHUB_TOKEN}"
-        }
-      },
-      {
-        "type": "url",
-        "url": "https://docs.example.com/api",
-        "timeout_ms": 10000
+  "sources": [
+    {
+      "type": "directory",
+      "path": "../../embedder_cpp",
+      "recursive": true,
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*", "*/3rdparty/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/webview",
+      "recursive": true,
+      "extensions": [ ".cpp", ".h", ".hpp" ],
+      "exclude": [ "*/build/*", "*/build_rel/*", "*/dist/*", "*/test/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "../../rag-code-assistant/clients/spa-svelte2",
+      "recursive": true,
+      "extensions": [ ".svelte", ".ts", ".js", ".html" ],
+      "exclude": [ "*/node_modules/*", "*/dist/*" ]
+    },
+    {
+      "type": "directory",
+      "path": "./docs",
+      "recursive": false,
+      "extensions": [ ".md", ".txt" ],
+      "exclude": []
+    },
+    {
+      "type": "file",
+      "path": "./README.md"
+    },
+    {
+      "type": "url",
+      "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
       }
-    ],
+    },
+    {
+      "type": "url",
+      "url": "https://docs.example.com/api",
+      "timeout_ms": 10000
+    }
+  ],
+  "files": {
     "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
     "global_exclude": [
       "*/node_modules/*",

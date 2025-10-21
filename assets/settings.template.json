@@ -67,33 +67,7 @@
     "nof_max_tokens": 450,
     "overlap_percentage": 0.1
   },
-  "sources": [
-    {
-      "type": "directory",
-      "path": "myproject",
-      "recursive": true,
-      "extensions": [ ".cpp", ".h", ".hpp" ],
-      "exclude": [ "*/build/*", "*/test/*" ]
-    },
-    {
-      "type": "directory",
-      "path": "./docs",
-      "recursive": false,
-      "extensions": [ ".md", ".txt" ],
-      "exclude": []
-    },
-    {
-      "type": "file",
-      "path": "./README.md"
-    },
-    {
-      "type": "url",
-      "url": "https://raw.githubusercontent.com/user/repo/main/docs/api.md",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_TOKEN}"
-      }
-    }
-  ],
+  "sources": [],
   "files": {
     "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
         "global_exclude": [

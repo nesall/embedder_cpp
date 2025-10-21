@@ -49,6 +49,23 @@ Server on custom port with auto-update
 Server without auto-update (manual trigger via /update endpoint)  
 ```./embedder serve```
 
+Change Password - Method 1: Direct  
+```./embeddings_cpp reset-password --pass NewPassword456```
+
+Change Password - Method 2: Interactive (hides password input)  
+```./embeddings_cpp reset-password-interactive```
+
+Check password status  
+```./embeddings_cpp password-status```
+
+
+### Editing settings.json
+
+Method 1:  
+Edit file `settings.json` to configure settings manually.
+
+Method 2:  
+Open `http://localhost:8081/setup` to configure settings interactively.
 
 
 ### REST API endpoints

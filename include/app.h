@@ -5,6 +5,7 @@
 
 class Chunker;
 class Settings;
+class AdminAuth;
 class VectorDatabase;
 class SourceProcessor;
 class EmbeddingClient;
@@ -15,10 +16,8 @@ class App {
   struct Impl;
   std::unique_ptr<Impl> imp;
 public:
-  explicit App(const std::string &configPath);
+  explicit App();
   ~App();
-
-  bool testSettings() const;
 
   // CLI commands
   void embed(bool ask = true);
@@ -32,11 +31,14 @@ public:
   void serve(int port, bool watch = false, int interval = 60);
 
   const Settings &settings() const;
+  Settings &refSettings();
   const SimpleTokenizer &tokenizer() const;
   const SourceProcessor &sourceProcessor() const;
   const Chunker &chunker() const;
   const VectorDatabase &db() const;
   VectorDatabase &db();
+  const AdminAuth &auth() const;
+  AdminAuth &auth();
 
 public:
   static void printUsage();
@@ -50,8 +52,9 @@ public:
   size_t lastUpdateTimestamp() const;
 
 private:
-  void initialize();
-  static std::string runSetupWizard();
+  void initialize(const std::string &configPath);
+  bool testSettings() const;
+  static std::string runSetupWizard(AdminAuth &auth);
 };
 
 namespace utils {

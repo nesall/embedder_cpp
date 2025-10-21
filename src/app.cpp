@@ -6,6 +6,7 @@
 #include "tokenizer.h"
 #include "sourceproc.h"
 #include "httpserver.h"
+#include "auth.h"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -24,6 +25,7 @@
 #include <cctype>
 #include <cassert>
 #include <csignal>
+#include <random>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
 
@@ -79,7 +81,7 @@ namespace {
     size_t pos = (std::min)(
       qpos != std::string::npos ? qpos : url.size(),
       apos != std::string::npos ? apos : url.size()
-    );
+      );
     return url.substr(0, pos);
   }
 
@@ -312,6 +314,7 @@ namespace {
 
 struct App::Impl {
   std::unique_ptr<Settings> settings_;
+  std::unique_ptr<AdminAuth> auth_;
   std::unique_ptr<VectorDatabase> db_;
   std::unique_ptr<SimpleTokenizer> tokenizer_;
   std::unique_ptr<Chunker> chunker_;
@@ -323,19 +326,19 @@ struct App::Impl {
   std::chrono::system_clock::time_point lastUpdateTime_;
 };
 
-App::App(const std::string &configPath) : imp(new Impl)
+App::App() : imp(new Impl)
 {
-  imp->settings_ = std::make_unique<Settings>(configPath);
-  initialize();
+  imp->auth_ = std::make_unique<AdminAuth>();
 }
 
 App::~App()
 {
-  imp->httpServer_->stop();
+  if (imp->httpServer_) imp->httpServer_->stop();
 }
 
-void App::initialize()
+void App::initialize(const std::string &configPath)
 {
+  imp->settings_ = std::make_unique<Settings>(configPath);
   imp->appStartTime_ = std::chrono::system_clock::now();
 
   auto &ss = *imp->settings_;
@@ -388,7 +391,7 @@ bool App::testSettings() const
     CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
     std::vector<json> messages;
     messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
-    messages.push_back({ {"role", "user"}, {"content", "Answer in one word only - what is the capital of France?"}});
+    messages.push_back({ {"role", "user"}, {"content", "Answer in one word only - what is the capital of France?"} });
 
     std::string fullResponse = cl.generateCompletion(
       messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
@@ -443,10 +446,10 @@ void App::embed(bool ask)
   //LOG_MSG << "Sources with empty text: " << emptyTextCount;
 
   if (ask) {
-    std::cout << "Proceed? (type yes or y to proceed): ";
+    std::cout << "Proceed? [y/N]: ";
     std::string confirm;
     std::cin >> confirm;
-    if (!(confirm == "yes" || confirm == "y")) {
+    if (confirm != "Y" && confirm != "y") {
       LOG_MSG << "Exitted.";
       return;
     }
@@ -488,9 +491,9 @@ void App::embed(bool ask)
       }
 
       const std::string sourceId = sources[i].isUrl ? stripUrlQueryAndAnchor(source) : std::filesystem::path(source).string();
-      
+
       auto chunks = imp->chunker_->chunkText(content, sourceId);
-      
+
       LOG_MSG << "  Generated" << chunks.size() << "chunks";
       const size_t batchSize = imp->settings_->embeddingBatchSize();
       totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_);
@@ -565,11 +568,11 @@ void App::stats()
 
 void App::clear()
 {
-  std::cout << "Are you sure you want to clear all data? (yes/no): ";
+  std::cout << "Are you sure you want to clear all data? [y/N]: ";
   std::string confirm;
   std::cin >> confirm;
 
-  if (confirm == "yes") {
+  if (confirm == "y") {
     imp->db_->clear();
     std::cout << "Database cleared." << std::endl;
   } else {
@@ -732,6 +735,11 @@ const Settings &App::settings() const
   return *imp->settings_;
 }
 
+Settings &App::refSettings()
+{
+  return *imp->settings_;
+}
+
 const SimpleTokenizer &App::tokenizer() const
 {
   return *imp->tokenizer_;
@@ -755,6 +763,16 @@ const VectorDatabase &App::db() const
 VectorDatabase &App::db()
 {
   return *imp->db_;
+}
+
+const AdminAuth &App::auth() const
+{
+  return *imp->auth_;
+}
+
+AdminAuth &App::auth()
+{
+  return *imp->auth_;
 }
 
 float App::dbSizeMB() const
@@ -824,6 +842,10 @@ void App::printUsage()
   std::cout << "\nGeneral options:\n";
   std::cout << "  --config <path>    - Config file path (default: settings.json)\n";
   std::cout << "  --top <k>          - Number of results for search (default: 5)\n";
+  std::cout << "\nPassword Management:\n";
+  std::cout << "  reset-password --pass <pwd> - Reset admin password\n";
+  std::cout << "  reset-password-interactive  - Reset password (interactive)\n";
+  std::cout << "  password-status             - Check password status\n";
   std::cout << "\nExamples:\n";
   std::cout << "  embedder serve --port 8081 --watch 30\n";
   std::cout << "  embedder serve --watch    # Use defaults\n";
@@ -861,14 +883,65 @@ namespace {
         j = it->second;
     }
   }
+
+  std::string promptPassword(const std::string &prompt) {
+    std::cout << prompt;
+    std::string password;
+
+#ifdef _WIN32
+    // Windows: Hide input
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(hStdin, &mode);
+    SetConsoleMode(hStdin, mode & (~ENABLE_ECHO_INPUT));
+    std::getline(std::cin, password);
+    SetConsoleMode(hStdin, mode);
+#else
+    // Linux/Mac: Use termios
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    std::getline(std::cin, password);
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+
+    std::cout << "\n";
+    return password;
+  }
+
 } // anonymous namespace
 
-std::string App::runSetupWizard()
+std::string App::runSetupWizard(AdminAuth &auth)
 {
   std::cout << "\n";
   std::cout << " =========================================\n";
   std::cout << "|   Embedder RAG - Configuration Wizard   |\n";
   std::cout << " =========================================\n\n";
+
+  // Check password status
+  if (auth.isDefaultPassword()) {
+    std::cout << "  SECURITY WARNING\n";
+    std::cout << "You are using the default admin password.\n";
+    std::cout << "Would you like to change it now? [Y/n]: ";
+
+    std::string response;
+    std::getline(std::cin, response);
+
+    if (response.empty() || response == "y" || response == "Y") {
+      std::string password = promptPassword("Enter new password (min 8 chars): ");
+      std::string confirm = promptPassword("Confirm password: ");
+
+      if (password == confirm && password.length() >= 8 && password != "admin") {
+        auth.setPassword(password);
+        std::cout << " Password changed successfully\n\n";
+      } else {
+        std::cout << " Password change failed. Using default password.\n";
+        std::cout << "You can change it later with: embeddings_cpp reset-password\n\n";
+      }
+    }
+  }
 
   LOG_MSG << "Creating default settings.json file";
   LOG_MSG << "Reading template settings.json file...";
@@ -901,7 +974,7 @@ std::string App::runSetupWizard()
 
   for (const auto &ph : placeholders) {
     std::string prompt = descriptions.count(ph) ? descriptions[ph].get<std::string>() : ph;
-    LOG_MSG << "Enter" << prompt <<" (" << ph << "): ";
+    LOG_MSG << "Enter" << prompt << " (" << ph << "): ";
     std::string val;
     std::getline(std::cin, val);
     values[ph] = val;
@@ -917,16 +990,16 @@ std::string App::runSetupWizard()
     std::cin >> path;
     if (path.empty()) break;
     if (!std::filesystem::exists(path)) {
-      std::cout << "Path entered does not exist. Do you want to keep it (yes/no, default: no): ";
+      std::cout << "Path entered does not exist. Do you want to keep it [y/N]: ";
       std::string yn;
       std::cin >> yn;
-      if (yn != "yes") continue;
+      if (yn != "y") continue;
     }
     json item;
     item["type"] = "directory";
     item["path"] = path;
     item["recursive"] = true;
-    j["sources"].push_back(item);
+    j["source"]["paths"].push_back(item);
   }
 
   std::filesystem::path path("settings.json");
@@ -952,6 +1025,92 @@ int App::run(int argc, char *argv[])
       return 1;
     }
     std::string command = argv[1];
+
+    App app;
+    auto &auth = app.auth();
+
+    // Password management commands (no server needed)
+    if (command == "reset-password" || command == "reset") {
+      if (argc < 3 || std::string(argv[2]) != "--pass") {
+        LOG_MSG << "Usage: embeddings_cpp reset-password --pass <new_password>";
+        return 1;
+      }
+
+      if (argc < 4) {
+        LOG_MSG << "Error: Password not provided";
+        return 1;
+      }
+
+      std::string newPassword = argv[3];
+
+      // Validate password
+      if (newPassword.length() < 8) {
+        LOG_MSG << "Error: Password must be at least 8 characters";
+        return 1;
+      }
+
+      if (newPassword == "admin") {
+        LOG_MSG << "Error: Cannot use 'admin' as password";
+        return 1;
+      }
+
+      auth.setPassword(newPassword);
+
+      LOG_MSG << "\nAdmin password has been reset";
+      LOG_MSG << "Use this password to access /setup and protected endpoints";
+
+      return 0;
+    }
+
+    // Interactive password reset (no command line args needed)
+    if (command == "reset-password-interactive") {
+      std::cout << "===================================\n";
+      LOG_MSG << "   Reset Admin Password             ";
+      std::cout << "===================================\n\n";
+
+      int nofTries = 3;
+      std::string newPassword;
+      do {
+        newPassword = promptPassword("Enter new password (min 8 chars): ");
+        std::string confirm = promptPassword("Confirm password: ");
+        if (newPassword != confirm) {
+          LOG_MSG << "Error: Passwords do not match\n";
+          continue;
+        }
+        if (newPassword.length() < 8) {
+          LOG_MSG << "Error: Password must be at least 8 characters\n";
+          continue;
+        }
+        if (newPassword == "admin") {
+          LOG_MSG << "Error: Cannot use 'admin' as password\n";
+          continue;
+        }
+        break;
+      } while (--nofTries);
+      if (0 == nofTries) {
+        LOG_MSG << "Unable to reset admin password. Exitting.";
+        return 1;
+      }
+      auth.setPassword(newPassword);
+      LOG_MSG << "\nPassword updated successfully!";
+      return 0;
+    }
+
+    // Show current password status
+    if (command == "password-status") {
+      std::cout << "Admin Password Status:\n";
+      std::cout << "-------------------------\n";
+      if (auth.isDefaultPassword()) {
+        LOG_MSG << "Status: Using default password 'admin'\n";
+        LOG_MSG << "  WARNING: Please change the default password!\n";
+        LOG_MSG << "Run: embeddings_cpp reset-password --pass <your_password>\n";
+      } else {
+        LOG_MSG << "Status: Custom password set \n";
+        LOG_MSG << "Last modified: " << auth.fileLastModifiedTime() << "\n";
+      }
+      return 0;
+    }
+
     std::string configPath = "settings.json";
     for (int i = 2; i < argc; ++i) {
       std::string arg = argv[i];
@@ -962,17 +1121,16 @@ int App::run(int argc, char *argv[])
 
     if (!std::filesystem::exists(configPath)) {
       configPath = "../" + configPath;
-      if (!std::filesystem::exists(configPath)) {        
+      if (!std::filesystem::exists(configPath)) {
         configPath = "../" + configPath;
         if (!std::filesystem::exists(configPath)) {
-          configPath = runSetupWizard();
+          configPath = runSetupWizard(auth);
         }
       }
     }
 
     LOG_MSG << "Reading config file" << std::filesystem::path(configPath).string();
-    App app(configPath);
-
+    app.initialize(configPath);
     if (!app.testSettings()) {
       LOG_MSG << "Wrong/incomplete settings. Exiting.";
       return 1;
@@ -1013,6 +1171,20 @@ int App::run(int argc, char *argv[])
     } else if (command == "chat") {
       app.chat();
     } else if (command == "serve") {
+      if (auth.isDefaultPassword()) {
+        std::cout << "\n  WARNING: You are using the default admin password!\n";
+        std::cout << "This is a security risk. Please change it:\n";
+        std::cout << "  embeddings_cpp reset-password --pass <new_password>\n\n";
+        std::cout << "Continue anyway? [y/N]: ";
+
+        std::string response;
+        std::getline(std::cin, response);
+
+        if (response != "y" && response != "Y") {
+          LOG_MSG << "Server start cancelled. Please reset password first.";
+          return 1;
+        }
+      }
       int port = 8081;
       bool enableWatch = false;
       int watchInterval = 60;

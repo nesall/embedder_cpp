@@ -1,6 +1,8 @@
 #ifndef _SETTINGS_H_
 #define _SETTINGS_H_
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <string>
 #include <vector>
 #include <map>
@@ -36,6 +38,7 @@ struct ApiConfig {
 class Settings {
 private:
   nlohmann::json config_;
+  std::string path_;
 
 public:
   struct SourceItem {
@@ -51,6 +54,10 @@ public:
 
 public:
   Settings(const std::string &path = "settings.json");
+
+  void updateFromConfig(const nlohmann::json &config);
+  void save();
+  std::string configPath() const { return path_; }
 
   std::string tokenizerConfigPath() const {
     return config_["tokenizer"].value("config_path", "tokenizer.json");
@@ -83,10 +90,10 @@ public:
   size_t databaseMaxElements() const { return config_["database"].value("max_elements", size_t(100'000)); }
   std::string databaseDistanceMetric() const { return config_["database"].value("distance_metric", "cosine"); }
 
-  size_t filesMaxFileSizeMb() const { return config_["files"].value("max_file_size_mb", size_t(10)); }
-  std::string filesEncoding() const { return config_["files"].value("encoding", "utf-8"); }
-  std::vector<std::string> filesGlobalExclusions() const { return config_["files"].value("global_exclude", std::vector<std::string>{}); }
-  std::vector<std::string> filesDefaultExtensions() const { return config_["files"].value("default_extensions", std::vector<std::string>{".txt", ".md"}); }
+  size_t filesMaxFileSizeMb() const { return config_["source"].value("max_file_size_mb", size_t(10)); }
+  std::string filesEncoding() const { return config_["source"].value("encoding", "utf-8"); }
+  std::vector<std::string> filesGlobalExclusions() const { return config_["source"].value("global_exclude", std::vector<std::string>{}); }
+  std::vector<std::string> filesDefaultExtensions() const { return config_["source"].value("default_extensions", std::vector<std::string>{".txt", ".md"}); }
 
   std::string loggingLoggingFile() const {
     return config_.contains("logging") ? config_["logging"].value("logging_file", "output.log") : std::string("output.log");
@@ -96,6 +103,7 @@ public:
   }
 
   std::vector<SourceItem> sources() const;
+  std::string configDump() const { return config_.dump(2); }
 };
 
 

@@ -74,6 +74,20 @@ Settings::Settings(const std::string &path)
     throw std::runtime_error("Cannot open settings file: " + path);
   }
   file >> config_;
+  path_ = path;
+}
+
+void Settings::updateFromConfig(const nlohmann::json &config)
+{
+  config_ = config; // Or merge specific fields
+}
+
+void Settings::save()
+{
+  std::ofstream file(path_);
+  if (file.is_open()) {
+    file << config_.dump(2);
+  }
 }
 
 ApiConfig Settings::embeddingCurrentApi() const
@@ -103,7 +117,8 @@ std::vector<ApiConfig> Settings::generationApis() const
 std::vector<Settings::SourceItem> Settings::sources() const
 {
   std::vector<SourceItem> res;
-  for (const auto &item : config_["sources"]) {
+  const auto &source = config_["source"];
+  for (const auto &item : source["paths"]) {
     SourceItem si;
     si.type = item["type"];
     if (si.type == "directory" || si.type == "file") {
