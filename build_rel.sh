@@ -13,7 +13,7 @@ rm -rf dist
 rm -f dist.zip
 mkdir -p dist
 cp -r build_rel/Release/* dist/
-cp -r build_rel/public /dist/
+cp -r build_rel/public dist/
 rm dist\output.log -f
 rm dist\diagnostics.log -f
 cp assets/README dist/

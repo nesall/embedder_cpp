@@ -10,6 +10,7 @@ rm dist -rf
 rm dist.zip -f
 mkdir dist
 xcopy build_rel\Release\* dist\ /E /Y
+xcopy build_rel\public dist\ /E /Y
 rm dist\output.log -f
 rm dist\diagnostics.log -f
 rm dist\sqlite3_lib.lib -f
