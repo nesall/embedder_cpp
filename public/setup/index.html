@@ -359,7 +359,7 @@
 
     /**
      * Removes an item from an array at a given path/index.
-     * @param {string} path - The full path to the array index to remove (e.g., 'sources.0').
+     * @param {string} path - The full path to the array index to remove (e.g., 'paths.0').
      */
     function removeArrayItem(path) {
       const parts = path.split('.');
@@ -370,7 +370,7 @@
       if (Array.isArray(array) && !isNaN(index) && index >= 0 && index < array.length) {
         array.splice(index, 1);
 
-        const isObjectArray = arrayPath === 'sources' || arrayPath.endsWith('.apis');
+        const isObjectArray = arrayPath.endsWith('.paths') || arrayPath.endsWith('.apis');
         // The element marked with data-path is the array container itself (for objects) or the list container (for primitives)
         const arrayElement = document.querySelector(`[data-path="${arrayPath}"]`);
 
@@ -392,7 +392,7 @@
 
     /**
      * Adds a new item to an array and re-renders the containing element.
-     * @param {string} path - The full path to the array (e.g., 'sources').
+     * @param {string} path - The full path to the array (e.g., 'paths').
      * @param {object|string} template - The template object or initial string value.
      */
     function addArrayItem(path, template) {
@@ -400,7 +400,7 @@
       if (Array.isArray(array)) {
         array.push(JSON.parse(JSON.stringify(template)));
 
-        const isObjectArray = path === 'sources' || path.endsWith('.apis');
+        const isObjectArray = path.endsWith('.paths') || path.endsWith('.apis');
         // The element marked with data-path is the array container itself (for objects) or the list container (for primitives)
         const arrayElement = document.querySelector(`[data-path="${path}"]`);
 
@@ -606,7 +606,7 @@
 
 
     /**
-     * Renders the dynamic array of objects (like sources or apis).
+     * Renders the dynamic array of objects (like paths or apis).
      */
     function renderArray(array, path, targetElement) {
 
@@ -718,7 +718,7 @@
         let template;
         if (path.endsWith('apis')) {
           template = newApiTemplate(isGeneration);
-        } else if (path === 'sources') {
+        } else if (path.endsWith('.paths')) {
           template = newSourceTemplate;
         }
 
@@ -778,7 +778,7 @@
           const isArrayOfObjects = value.length > 0 && typeof value[0] === 'object' && !Array.isArray(value[0]);
 
           if (isArrayOfObjects) {
-            // Array of Objects (e.g., apis, sources) - needs separate rendering
+            // Array of Objects (e.g., apis, paths) - needs separate rendering
             // Close the current grid before adding the dynamic array structure
             if (grid.children.length > 0) {
               targetElement.appendChild(grid);
@@ -891,7 +891,7 @@
         const parentElement = document.querySelector(`[data-path="${arrayPath}"]`);
 
         if (parentElement) {
-          // Re-render the array of objects (apis/sources)
+          // Re-render the array of objects (apis/paths)
           parentElement.innerHTML = '';
           const array = getNestedValue(config, arrayPath);
           renderArray(array, arrayPath, parentElement);
@@ -996,7 +996,7 @@
 
     // Replace the original window.onload with the new structure.
     window.onload = async () => {
-      console.log("window.onload");
+      console.log("window.onload");/*
       try {
         const token = localStorage.getItem("jwtToken");
         if (token) {
@@ -1020,12 +1020,14 @@
       document.getElementById('auth-gate').classList.remove('hidden');
       document.getElementById('config-editor').classList.add('hidden');
       document.getElementById('admin-password').focus();
+*/
 
-      // document.getElementById('auth-gate').classList.add('hidden');
-      // document.getElementById('config-editor').classList.remove('hidden');
-      // renderObject(config);
-      // attachEventListeners();
-      // updateOutput(); // Display initial JSON on load
+       document.getElementById('auth-gate').classList.add('hidden');
+       document.getElementById('config-editor').classList.remove('hidden');
+       renderObject(config);
+       attachEventListeners();
+       updateOutput(); // Display initial JSON on load
+       
     };
 
     // Alias the editor's initialization to window.onload for successful access
