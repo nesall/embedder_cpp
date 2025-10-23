@@ -14,13 +14,42 @@ make
 
 ### Features overview
 
+Core Functionality:  
 * Lightweight tokenization  
 * Smart chunking with overlap  
 * Local embeddings (llama-server + any choice of embedding model)  
-* Fast vector search (Hnswlib with proper deletion)  
+* Both local and remote completion models of your choice
+* Fast vector search (Hnswlib with cosine similarity)  
 * Metadata storage (SQLite)  
-* Incremental updates
+* Incremental updates with file tracking  
 * CLI + HTTP API  
+
+API & Server:  
+* HTTP API server (httplib)  
+* REST endpoints (/api/search, /api/chat, /api/embed)  
+* Metrics endpoint (JSON + Prometheus format)  
+* Health checks  
+* Graceful shutdown  
+
+Security:  
+* JWT token authentication  
+* Password management (CLI-based)  
+* Protected admin endpoints  
+* Hashed password storage  
+
+Deployment & Operations:  
+* Console setup wizard (interactive)  
+* Web setup wizard (password protected)
+* Service installation scripts (Windows/Linux/macOS)  
+* Structured logging (output.log + diagnostics.log)  
+* Auto-start on boot (systemd/NSSM/LaunchAgent)  
+* Release packaging (build_rel scripts)  
+
+Configuration:  
+* Template-based settings.json  
+* Environment variable overrides  
+* CLI parameter support  
+* Multiple source types (directories, files, URLs)  
 
 
 ### CLI commands
