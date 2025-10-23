@@ -27,11 +27,12 @@ FetchContent_Declare(
     URL https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip
 )
 
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.2
-)
+#FetchContent_Declare(
+#  nlohmann_json
+#  GIT_REPOSITORY https://github.com/nlohmann/json.git
+#  GIT_TAG v3.11.3
+#)
+#FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
   utils_log
@@ -39,17 +40,15 @@ FetchContent_Declare(
   GIT_TAG main
 )
 
-# Fetch jwt-cpp (header-only)
 FetchContent_Declare(
   jwt-cpp
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
   GIT_TAG v0.7.0  # or latest stable
 )
-FetchContent_MakeAvailable(jwt-cpp)
 
 
 # Make dependencies available
-FetchContent_MakeAvailable(httplib hnswlib sqlite3 nlohmann_json utils_log jwt-cpp)
+FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp)
 
 # Create SQLite3 library
 add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)

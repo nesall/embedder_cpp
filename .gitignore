@@ -76,3 +76,9 @@ lcov.info
 # Benchmarks output
 benchmarks/results/
 *.prof
+
+# Other files
+*.db
+*.index
+*.log
+*.bin
