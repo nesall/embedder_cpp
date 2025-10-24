@@ -378,7 +378,7 @@ bool App::testSettings() const
     cl.generateEmbeddings("test!", v, EmbeddingClient::EncodeType::Query);
     if (0 < v.size()) {
       float l2Norm = EmbeddingClient::calculateL2Norm(v);
-      LOG_MSG << "  Embedding client works fine." << "[l2norm]" << l2Norm;
+      LOG_MSG << "  Embedding client works fine." << "[ l2norm" << l2Norm << "]";
     } else {
       LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";
       ok = false;
@@ -550,20 +550,13 @@ void App::search(const std::string &query, size_t topK)
 void App::stats()
 {
   auto s = imp->db_->getStats();
-
-  std::cout << "\n=== Database Statistics ===" << std::endl;
-  std::cout << "Total chunks: " << s.totalChunks << std::endl;
-  std::cout << "Vectors in index: " << s.vectorCount << std::endl;
-
-  std::cout << "\nChunks by source:" << std::endl;
+  LOG_MSG << "\n=== Database Statistics ===";
+  LOG_MSG << "Total chunks: " << s.totalChunks;
+  LOG_MSG << "Vectors in index: " << s.vectorCount;
+  LOG_MSG << "\nChunks by source:";
   for (const auto &[source, count] : s.sources) {
-    std::cout << "  " << source << ": " << count << std::endl;
+    LOG_MSG << "  " << source << ": " << count;
   }
-
-  //std::cout << "\nChunks by type:" << std::endl;
-  //for (const auto &[type, count] : s.types) {
-  //  std::cout << "  " << type << ": " << count << std::endl;
-  //}
 }
 
 void App::clear()
@@ -637,7 +630,7 @@ void App::serve(int port, bool watch, int interval)
 
   try {
     if (watch) {
-      LOG_MSG << "  Auto-update: enabled (every " << interval << "s)";
+      LOG_MSG << "Auto-update: enabled (every " << interval << "s)";
       watchThread = std::thread([this, interval]() {
         LOG_MSG << "[Watch] Background monitoring started (interval: " << interval << "s)";
         auto nextUpdate = std::chrono::steady_clock::now() + std::chrono::seconds(interval);
@@ -725,7 +718,7 @@ void App::watch(int intervalSeconds)
         std::cout << "[" << utils::currentTimestamp() << "] updates detected and applied.\n";
       }
     } catch (const std::exception &e) {
-      std::cerr << "Error during update: " << e.what() << std::endl;
+      LOG_MSG << "Error during update: " << e.what();
     }
   }
 }
@@ -1136,6 +1129,17 @@ int App::run(int argc, char *argv[])
       return 1;
     }
 
+    auto sources = app.imp->settings_->sources();
+    LOG_MSG << "Sources defined in the configuration:";
+    for (const auto src : sources) {
+      if (src.type == "directory")
+        LOG_MSG << " " << src.path << "[ recursive" << src.recursive << "]";
+      else if (src.type == "url")
+        LOG_MSG << " " << src.url;
+      else
+        LOG_MSG << " " << src.path;
+    }
+
     if (false) {
     } else if (command == "embed") {
       app.embed();
@@ -1150,7 +1154,7 @@ int App::run(int argc, char *argv[])
       app.watch(interval);
     } else if (command == "search") {
       if (argc < 3) {
-        std::cerr << "Error: search requires a query" << std::endl;
+        LOG_MSG << "Error: search requires a query";
         return 1;
       }
       std::string query = argv[2];

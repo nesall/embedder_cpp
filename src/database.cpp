@@ -84,17 +84,10 @@ std::vector<size_t> HnswSqliteVectorDatabase::addDocuments(const std::vector<Chu
     throw std::runtime_error("Chunks and embeddings count mismatch");
   }
   std::vector<size_t> chunkIds;
-  //beginTransaction();
-  //try {
-    for (size_t i = 0; i < chunks.size(); ++i) {
-      size_t id = addDocument(chunks[i], embeddings[i]);
-      chunkIds.push_back(id);
-    }
-    //commit();
-  //} catch (...) {
-  //  rollback();
-  //  throw;
-  //}
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    size_t id = addDocument(chunks[i], embeddings[i]);
+    chunkIds.push_back(id);
+  }
   return chunkIds;
 }
 
@@ -182,13 +175,14 @@ void HnswSqliteVectorDatabase::clear()
 
 void HnswSqliteVectorDatabase::initializeDatabase()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  int rc = sqlite3_open(imp->dbPath_.c_str(), &imp->db_);
-  if (rc != SQLITE_OK) {
-    throw std::runtime_error("Cannot open database: " + std::string(sqlite3_errmsg(imp->db_)));
-  }
-  _checkErr = imp->db_;
-  const char *chunksTable = R"(
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    int rc = sqlite3_open(imp->dbPath_.c_str(), &imp->db_);
+    if (rc != SQLITE_OK) {
+      throw std::runtime_error("Cannot open database: " + std::string(sqlite3_errmsg(imp->db_)));
+    }
+    _checkErr = imp->db_;
+    const char *chunksTable = R"(
         CREATE TABLE IF NOT EXISTS chunks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
@@ -201,9 +195,9 @@ void HnswSqliteVectorDatabase::initializeDatabase()
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-  executeSql(chunksTable);
+    executeSql(chunksTable);
 
-  const char *filesTable = R"(
+    const char *filesTable = R"(
         CREATE TABLE IF NOT EXISTS files_metadata (
             path TEXT PRIMARY KEY,
             last_modified INTEGER NOT NULL,
@@ -211,7 +205,10 @@ void HnswSqliteVectorDatabase::initializeDatabase()
             indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-  executeSql(filesTable);
+    executeSql(filesTable);
+  }
+  auto files = getTrackedFiles();
+  LOG_MSG << "Loaded metadata with" << files.size() << "files";
 }
 
 void HnswSqliteVectorDatabase::initializeVectorIndex()
@@ -226,13 +223,13 @@ void HnswSqliteVectorDatabase::initializeVectorIndex()
   if (std::filesystem::exists(imp->indexPath_)) {
     try {
       imp->index_ = std::make_unique<hnswlib::HierarchicalNSW<float>>(imp->space_.get(), imp->indexPath_, false, imp->maxElements_, true);
-      LOG_MSG << "Loaded index with " 
-        << (imp->metric_ == DistanceMetric::Cosine ? "Cosine" : "L2") << " distance, "
-        << imp->index_->getCurrentElementCount() << " total vectors, "
-        << imp->index_->getDeletedCount() << " deleted";
+      LOG_MSG << "Loaded index with" 
+        << (imp->metric_ == DistanceMetric::Cosine ? "Cosine" : "L2") << "distance, "
+        << imp->index_->getCurrentElementCount() << "total vectors, "
+        << imp->index_->getDeletedCount() << "deleted";
       return;
     } catch (const std::exception &e) {
-      LOG_MSG << "Failed to load existing index: " << e.what();
+      LOG_MSG << "Failed to load existing index:" << e.what();
       LOG_MSG << "Creating new index...";
     }
   }
@@ -321,22 +318,17 @@ size_t HnswSqliteVectorDatabase::deleteDocumentsBySource(const std::string &sour
   std::lock_guard<std::mutex> lock(mutex_);
   auto chunkIds = getChunkIdsBySource(sourceId);
   if (chunkIds.empty()) return 0;
-  try {
-    sqlite3_stmt *stmt;
-    const char *sql = "DELETE FROM chunks WHERE source_id = ?";
-    _checkErr = sqlite3_prepare_v2(imp->db_, sql, -1, &stmt, nullptr);
-    _checkErr = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
-    _checkErr = sqlite3_step(stmt);
-    size_t n = sqlite3_changes(imp->db_);
-    _checkErr = sqlite3_finalize(stmt);
-    for (size_t id : chunkIds) {
-      imp->index_->markDelete(id);
-    }
-    return n;
-  } catch (...) {
-    rollback();
-    throw;
+  sqlite3_stmt *stmt;
+  const char *sql = "DELETE FROM chunks WHERE source_id = ?";
+  _checkErr = sqlite3_prepare_v2(imp->db_, sql, -1, &stmt, nullptr);
+  _checkErr = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  _checkErr = sqlite3_step(stmt);
+  size_t n = sqlite3_changes(imp->db_);
+  _checkErr = sqlite3_finalize(stmt);
+  for (size_t id : chunkIds) {
+    imp->index_->markDelete(id);
   }
+  return n;
 }
 
 void HnswSqliteVectorDatabase::removeFileMetadata(const std::string &filepath)
