@@ -1122,7 +1122,7 @@ int App::run(int argc, char *argv[])
       }
     }
 
-    LOG_MSG << "Reading config file" << std::filesystem::path(configPath).string();
+    LOG_MSG << "Reading config file" << std::filesystem::absolute(configPath);
     app.initialize(configPath);
     if (!app.testSettings()) {
       LOG_MSG << "Wrong/incomplete settings. Exiting.";

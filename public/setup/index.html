@@ -425,7 +425,7 @@
         }
       }
     }
-    
+
     /**
      * Gets the available API IDs (options) for a given 'current_api' path.
      * @param {string} currentApiPath - The path to the current_api field (e.g., 'embedding.current_api').
@@ -450,7 +450,7 @@
       document.querySelectorAll('#config-editor select[data-path$=".current_api"]').forEach(selectElement => {
         const currentApiPath = selectElement.dataset.path; // e.g., 'embedding.current_api'
         const apiListPath = currentApiPath.substring(0, currentApiPath.lastIndexOf('.')) + '.apis';
-        
+
         // If a specific array path was provided, only update dropdowns related to it
         if (modifiedApiArrayPath && apiListPath !== modifiedApiArrayPath) {
           return;
@@ -480,13 +480,13 @@
             selectElement.appendChild(option);
           });
         }
-        
+
         // Ensure the config's value is still valid; if not, default to the first option
         if (options.length > 0 && !options.includes(currentValue)) {
-            const newDefault = options[0];
-            setNestedValue(config, currentApiPath, newDefault);
-            selectElement.value = newDefault;
-            updateOutput(); // Update JSON since config changed
+          const newDefault = options[0];
+          setNestedValue(config, currentApiPath, newDefault);
+          selectElement.value = newDefault;
+          updateOutput(); // Update JSON since config changed
         }
       });
     }
@@ -674,7 +674,7 @@
           arrayElement.innerHTML = ''; // Clear existing DOM
           const array = getNestedValue(config, arrayPath);
           renderArray(array, arrayPath, arrayElement); // Re-render from the updated config
-          
+
           // NEW: Update current_api dropdowns if an API array was modified
           if (arrayPath.endsWith('.apis')) {
             updateCurrentApiDropdowns(arrayPath);
@@ -944,9 +944,9 @@
         const propertyKey = parts[parts.length - 1]; // 'id', 'name', or 'type'
         const itemPath = parts.slice(0, -1).join('.'); // e.g., 'generation.apis.0'
         const arrayPath = parts.slice(0, -2).join('.'); // e.g., 'generation.apis'
-        
+
         // Convert the array path key (e.g., 'apis') to a display name (e.g., 'API')
-        const arrayKey = arrayPath.split('.').pop().slice(0, -1).replace(/_/g, ' ').toUpperCase(); 
+        const arrayKey = arrayPath.split('.').pop().slice(0, -1).replace(/_/g, ' ').toUpperCase();
         const index = parseInt(parts[parts.length - 2]); // 0, 1, 2...
 
         // 1. Update the title of the array item card directly
@@ -961,7 +961,7 @@
         if (path.endsWith('.id')) {
           updateCurrentApiDropdowns(arrayPath);
         }
-        
+
         // NO MORE FULL PARENT ARRAY RE-RENDER!
       }
     }
@@ -1055,40 +1055,42 @@
       }
     };
 
-    // Replace the original window.onload with the new structure.
     window.onload = async () => {
-      console.log("window.onload");/*
-      try {
-        const token = localStorage.getItem("jwtToken");
-        if (token) {
-          const response = await fetch("/api/authenticate", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json"
+      console.log("window.onload");
+      const local = location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.protocol === "file:";
+      if (!local) {
+        try {
+          const token = localStorage.getItem("jwtToken");
+          if (token) {
+            const response = await fetch("/api/authenticate", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+              }
+            });
+            if (response.ok) {
+              document.getElementById('auth-gate').classList.add('hidden');
+              document.getElementById('config-editor').classList.remove('hidden');
+              initializeEditor();
+              return;
             }
-          });
-          if (response.ok) {
-            document.getElementById('auth-gate').classList.add('hidden');
-            document.getElementById('config-editor').classList.remove('hidden');
-            initializeEditor();
-            return;
           }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
+        document.getElementById('auth-gate').classList.remove('hidden');
+        document.getElementById('config-editor').classList.add('hidden');
+        document.getElementById('admin-password').focus();
+      } else {
+        document.getElementById('auth-gate').classList.add('hidden');
+        document.getElementById('config-editor').classList.remove('hidden');
+        renderObject(config);
+        attachEventListeners();
+        updateOutput(); // Display initial JSON on load
       }
-      document.getElementById('auth-gate').classList.remove('hidden');
-      document.getElementById('config-editor').classList.add('hidden');
-      document.getElementById('admin-password').focus();
-*/
-
-       document.getElementById('auth-gate').classList.add('hidden');
-       document.getElementById('config-editor').classList.remove('hidden');
-       renderObject(config);
-       attachEventListeners();
-       updateOutput(); // Display initial JSON on load
-       
     };
 
     // Alias the editor's initialization to window.onload for successful access

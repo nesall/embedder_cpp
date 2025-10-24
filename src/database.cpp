@@ -229,7 +229,7 @@ void HnswSqliteVectorDatabase::initializeVectorIndex()
         << imp->index_->getDeletedCount() << "deleted";
       return;
     } catch (const std::exception &e) {
-      LOG_MSG << "Failed to load existing index:" << e.what();
+      LOG_MSG << "Failed to load existing index at" << std::filesystem::absolute(indexPath()) << "|" << e.what();
       LOG_MSG << "Creating new index...";
     }
   }
