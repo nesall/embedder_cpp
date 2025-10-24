@@ -406,13 +406,13 @@ bool HttpServer::startServer(int port)
       LOG_MSG << "GET /api/stats";
       auto stats = imp->app_.db().getStats();
       json sources_obj = json::object();
-      for (const auto &[source, count] : stats.sources) {
-        sources_obj[source] = count;
-      }
+      //for (const auto &[source, count] : stats.sources) {
+      //  sources_obj[source] = count;
+      //}
       json response = {
           {"total_chunks", stats.totalChunks},
           {"vector_count", stats.vectorCount},
-          {"sources", sources_obj}
+          {"sources", imp->app_.sourceStats()}
       };
       res.set_content(response.dump(), "application/json");
     } catch (const std::exception &e) {

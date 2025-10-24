@@ -372,6 +372,20 @@ std::vector<FileMetadata> HnswSqliteVectorDatabase::getTrackedFiles() const
   return files;
 }
 
+size_t HnswSqliteVectorDatabase::getChunkCountBySource(const std::string &sourceId) const
+{
+  sqlite3_stmt *stmt;
+  const char *sql = "SELECT COUNT(*) FROM chunks WHERE source_id = ?";
+  sqlite3_prepare_v2(imp->db_, sql, -1, &stmt, nullptr);
+  sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  size_t count = 0;
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    count = sqlite3_column_int64(stmt, 0);
+  }
+  sqlite3_finalize(stmt);
+  return count;
+}
+
 bool HnswSqliteVectorDatabase::fileExistsInMetadata(const std::string &path)
 {
   std::lock_guard<std::mutex> lock(mutex_);

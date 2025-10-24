@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <nlohmann/json.hpp>
 
 class Chunker;
 class Settings;
@@ -50,6 +51,7 @@ public:
   size_t uptimeSeconds() const;
   size_t startTimestamp() const;
   size_t lastUpdateTimestamp() const;
+  nlohmann::json sourceStats() const;
 
 private:
   void initialize(const std::string &configPath);

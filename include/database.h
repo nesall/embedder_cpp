@@ -58,9 +58,12 @@ public:
   virtual size_t deleteDocumentsBySource(const std::string &source_id) = 0;
   virtual void clear() = 0;
 
-  virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
   virtual void removeFileMetadata(const std::string &path) = 0;
   virtual bool fileExistsInMetadata(const std::string &path) = 0;
+
+  virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
+  virtual size_t getChunkCountBySource(const std::string &sourceId) const = 0;
+
 
   virtual DatabaseStats getStats() const = 0;
   virtual void persist() = 0;
@@ -96,8 +99,10 @@ public:
 
   size_t deleteDocumentsBySource(const std::string &sourceId) override;
   void removeFileMetadata(const std::string &sourceId) override;
-  std::vector<FileMetadata> getTrackedFiles() const override;
   bool fileExistsInMetadata(const std::string &path) override;
+
+  std::vector<FileMetadata> getTrackedFiles() const override;
+  size_t getChunkCountBySource(const std::string &sourceId) const override;
 
   void beginTransaction() override { executeSql("BEGIN TRANSACTION"); }
   void commit() override { executeSql("COMMIT"); }
