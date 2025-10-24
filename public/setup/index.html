@@ -70,7 +70,6 @@
         <span class="code pre font-mono text-lg">Phenix Code Assistant</span>
         <span><img src="./logo.png" alt="logo" class="w-9"></span>
       </div>
-      <!-- <hr class="hr" /> -->
       <div class="py-2"></div>
       <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Admin Access Required</h2>
       <form id="auth-form" onsubmit="event.preventDefault(); attemptAccess();">
@@ -379,6 +378,10 @@
             // Re-render the entire object array wrapper
             arrayElement.innerHTML = '';
             renderArray(array, arrayPath, arrayElement);
+            // NEW: Update current_api dropdowns if an API array was modified
+            if (arrayPath.endsWith('.apis')) {
+              updateCurrentApiDropdowns(arrayPath);
+            }
           } else {
             // Re-render only the list of items for primitive arrays
             renderPrimitiveArrayItems(array, arrayPath, arrayElement);
@@ -409,13 +412,9 @@
             // Re-render the entire object array block
             arrayElement.innerHTML = '';
             renderArray(array, path, arrayElement);
-            // Also re-render the entire object that contains this API array, 
-            // as a new API affects the 'current_api' dropdown which is rendered outside this block.
-            const parentPath = path.substring(0, path.lastIndexOf('.'));
-            const parentElement = document.querySelector(`[data-path="${parentPath}"]`);
-            if (parentElement) {
-              parentElement.innerHTML = '';
-              renderObject(getNestedValue(config, parentPath), parentPath, parentElement);
+            // NEW: Update current_api dropdowns if an API array was modified
+            if (path.endsWith('.apis')) {
+              updateCurrentApiDropdowns(path);
             }
           } else {
             // Re-render only the list of items for primitive arrays
@@ -426,7 +425,7 @@
         }
       }
     }
-
+    
     /**
      * Gets the available API IDs (options) for a given 'current_api' path.
      * @param {string} currentApiPath - The path to the current_api field (e.g., 'embedding.current_api').
@@ -443,6 +442,54 @@
       return [];
     }
 
+    /**
+     * Updates all 'current_api' select elements with the latest options from the config.
+     * @param {string} [modifiedApiArrayPath] - Optional path to the API array that was just modified (e.g., 'embedding.apis').
+     */
+    function updateCurrentApiDropdowns(modifiedApiArrayPath) {
+      document.querySelectorAll('#config-editor select[data-path$=".current_api"]').forEach(selectElement => {
+        const currentApiPath = selectElement.dataset.path; // e.g., 'embedding.current_api'
+        const apiListPath = currentApiPath.substring(0, currentApiPath.lastIndexOf('.')) + '.apis';
+        
+        // If a specific array path was provided, only update dropdowns related to it
+        if (modifiedApiArrayPath && apiListPath !== modifiedApiArrayPath) {
+          return;
+        }
+
+        const options = getApiOptions(currentApiPath);
+        const currentValue = getNestedValue(config, currentApiPath);
+
+        // Clear existing options
+        selectElement.innerHTML = '';
+        selectElement.disabled = false;
+
+        if (options.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No APIs defined';
+          selectElement.appendChild(option);
+          selectElement.disabled = true;
+        } else {
+          options.forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            if (id === currentValue) {
+              option.selected = true;
+            }
+            selectElement.appendChild(option);
+          });
+        }
+        
+        // Ensure the config's value is still valid; if not, default to the first option
+        if (options.length > 0 && !options.includes(currentValue)) {
+            const newDefault = options[0];
+            setNestedValue(config, currentApiPath, newDefault);
+            selectElement.value = newDefault;
+            updateOutput(); // Update JSON since config changed
+        }
+      });
+    }
 
     // --- Core Rendering Functions ---
 
@@ -466,6 +513,7 @@
         input.value = value;
         input.title = "Current API";
 
+        // We fill the options here on initial render
         const options = getApiOptions(path);
 
         if (options.length === 0) {
@@ -626,6 +674,12 @@
           arrayElement.innerHTML = ''; // Clear existing DOM
           const array = getNestedValue(config, arrayPath);
           renderArray(array, arrayPath, arrayElement); // Re-render from the updated config
+          
+          // NEW: Update current_api dropdowns if an API array was modified
+          if (arrayPath.endsWith('.apis')) {
+            updateCurrentApiDropdowns(arrayPath);
+          }
+
           attachEventListeners(); // Re-attach all listeners
           updateOutput(); // Update the JSON output
         }
@@ -650,6 +704,7 @@
         const title = document.createElement('h4');
         title.className = 'text-lg font-bold text-blue-600';
         title.textContent = `${path.split('.').at(-1).replace(/_/g, ' ').toUpperCase()} ${index + 1}: ${titleKey}`;
+        title.dataset.itemTitlePath = itemPath; // Added data attribute for targeted updates
         header.appendChild(title);
 
 
@@ -881,31 +936,33 @@
       }
 
       setNestedValue(config, path, value);
+      updateOutput(); // Update JSON after any change
 
-      // Special handling for array items where the name/id changes (e.g., api name)
-      if (/*path.includes('.name') || */path.includes('.id') || path.includes('.type')) {
-        // The structure may have changed, so we re-render the parent array to update titles/indices
+      // Special handling for array items where the id, name, or type changes (e.g., api id or name)
+      if (path.includes('.id') || path.includes('.name') || path.includes('.type')) {
         const parts = path.split('.');
-        // The parent array path is everything up to the index part (e.g., 'generation.apis')
-        const arrayPath = parts.slice(0, -2).join('.');
-        const parentElement = document.querySelector(`[data-path="${arrayPath}"]`);
+        const propertyKey = parts[parts.length - 1]; // 'id', 'name', or 'type'
+        const itemPath = parts.slice(0, -1).join('.'); // e.g., 'generation.apis.0'
+        const arrayPath = parts.slice(0, -2).join('.'); // e.g., 'generation.apis'
+        
+        // Convert the array path key (e.g., 'apis') to a display name (e.g., 'API')
+        const arrayKey = arrayPath.split('.').pop().slice(0, -1).replace(/_/g, ' ').toUpperCase(); 
+        const index = parseInt(parts[parts.length - 2]); // 0, 1, 2...
 
-        if (parentElement) {
-          // Re-render the array of objects (apis/paths)
-          parentElement.innerHTML = '';
-          const array = getNestedValue(config, arrayPath);
-          renderArray(array, arrayPath, parentElement);
-
-          // If APIs changed, also re-render the section (embedding/generation) to update 'current_api' dropdown
-          const sectionPath = arrayPath.substring(0, arrayPath.lastIndexOf('.'));
-          const sectionElement = document.querySelector(`[data-path="${sectionPath}"]`);
-          if (sectionElement) {
-            sectionElement.innerHTML = '';
-            renderObject(getNestedValue(config, sectionPath), sectionPath, sectionElement);
-          }
-
-          attachEventListeners();
+        // 1. Update the title of the array item card directly
+        const titleElement = document.querySelector(`[data-item-title-path="${itemPath}"]`);
+        if (titleElement) {
+          const item = getNestedValue(config, itemPath);
+          const titleKey = item.name || item.id || item.type || `Item ${index + 1}`;
+          titleElement.textContent = `${arrayKey} ${index + 1}: ${titleKey}`;
         }
+
+        // 2. If the 'id' of an API changes, we must update all 'current_api' dropdowns
+        if (path.endsWith('.id')) {
+          updateCurrentApiDropdowns(arrayPath);
+        }
+        
+        // NO MORE FULL PARENT ARRAY RE-RENDER!
       }
     }
 
@@ -913,9 +970,13 @@
       // 1. Input/Change Listeners for all fields (input and select) with a data-path attribute
       document.querySelectorAll('#config-editor input[data-path], #config-editor select[data-path]').forEach(input => {
         // Ensure event listener is only attached once
+        input.removeEventListener('change', handleInputChange);
         input.removeEventListener('input', handleInputChange);
-        input.addEventListener('input', handleInputChange);
-        // For select elements, 'change' is often better, but 'input' catches everything.
+
+        // Use 'input' for checkboxes for immediate reaction, 'change' for others (text, number, select)
+        const eventType = input.type === 'checkbox' ? 'input' : 'change';
+
+        input.addEventListener(eventType, handleInputChange);
       });
 
       // 2. Remove Button Listeners (must be re-attached after any array modification)
