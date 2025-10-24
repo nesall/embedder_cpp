@@ -309,6 +309,110 @@ namespace {
   };
   volatile std::sig_atomic_t SignalHandler::shutdownRequested = 0;
 
+
+  size_t countLines(const std::string &path) {
+    std::ifstream file(path);
+    return std::count(
+      std::istreambuf_iterator<char>(file),
+      std::istreambuf_iterator<char>(),
+      '\n'
+    );
+  }
+
+  std::string detectLanguage(const std::string &path) {
+    std::string ext = std::filesystem::path(path).extension().string();
+
+    static const std::map<std::string, std::string> ext_map = {
+        {".cpp", "C++"}, {".hpp", "C++"}, {".h", "C++"},
+        {".c", "C"},
+        {".py", "Python"},
+        {".js", "JavaScript"}, {".ts", "TypeScript"},
+        {".java", "Java"},
+        {".go", "Go"},
+        {".rs", "Rust"},
+        {".md", "Markdown"}, {".txt", "Text"}
+    };
+
+    auto it = ext_map.find(ext);
+    return it != ext_map.end() ? it->second : "Other";
+  }
+
+  json computeStats(VectorDatabase &db) {
+    auto trackedFiles = db.getTrackedFiles();
+
+    // Aggregate by language/directory
+    std::map<std::string, int> byLanguage;
+    std::map<std::string, int> byDirectory;
+    size_t totalLines = 0;
+    size_t totalSize = 0;
+
+    std::vector<json> fileDetails;
+
+    for (const auto &file : trackedFiles) {
+      if (!std::filesystem::exists(file.path)) continue;
+
+      // Count lines
+      size_t lines = countLines(file.path);
+      size_t size = std::filesystem::file_size(file.path);
+
+      // Get language
+      std::string lang = detectLanguage(file.path);
+      std::string dir = std::filesystem::path(file.path).parent_path().string();
+
+      byLanguage[lang]++;
+      byDirectory[dir]++;
+      totalLines += lines;
+      totalSize += size;
+
+      // Get chunk count for this file
+      size_t chunk_count = db.getChunkCountBySource(file.path);
+
+      fileDetails.push_back({
+          {"path", file.path},
+          {"lines", lines},
+          {"size_bytes", size},
+          {"language", lang},
+          {"chunks", chunk_count},
+          {"last_modified", file.lastModified}
+        });
+    }
+
+    // Sort by chunk count (most chunked files)
+    std::sort(fileDetails.begin(), fileDetails.end(),
+      [](const json &a, const json &b) {
+        return a["chunks"] > b["chunks"];
+      });
+
+    json ar = json::array();
+    for (auto it = fileDetails.begin(); it != fileDetails.begin() + (std::min)(size_t(10), fileDetails.size()); ++it) {
+      ar.push_back(*it);
+    }
+
+    return {
+        {"total_files", trackedFiles.size()},
+        {"total_lines", totalLines},
+        {"total_size_bytes", totalSize},
+        {"by_language", byLanguage},
+        {"by_directory", byDirectory},
+        {"top_files", ar}
+    };
+  }
+
+  class StatsCache {
+  private:
+    json cachedStats_;
+  public:
+    void clear() {
+      cachedStats_ = json{};
+    }
+    json getStats(VectorDatabase &db, bool forceRefresh = false) {
+      if (forceRefresh /*|| CACHE_TTL_SECONDS < elapsed*/ || cachedStats_.empty()) {
+        cachedStats_ = computeStats(db);
+      }
+      return cachedStats_;
+    }
+  };
+
 } // anonymous namespace
 
 
@@ -324,6 +428,8 @@ struct App::Impl {
 
   std::chrono::system_clock::time_point appStartTime_;
   std::chrono::system_clock::time_point lastUpdateTime_;
+
+  StatsCache statsCache_;
 };
 
 App::App() : imp(new Impl)
@@ -707,7 +813,7 @@ size_t App::update()
   LOG_MSG << "Update completed! " << updated << " files processed.";
 
   imp->lastUpdateTime_ = std::chrono::system_clock::now();
-
+  imp->statsCache_.clear();
   return updated;
 }
 
@@ -908,99 +1014,11 @@ namespace {
     return password;
   }
 
-  size_t countLines(const std::string &path) {
-    std::ifstream file(path);
-    return std::count(
-      std::istreambuf_iterator<char>(file),
-      std::istreambuf_iterator<char>(),
-      '\n'
-    );
-  }
-
-  std::string detectLanguage(const std::string &path) {
-    std::string ext = std::filesystem::path(path).extension().string();
-
-    static const std::map<std::string, std::string> ext_map = {
-        {".cpp", "C++"}, {".hpp", "C++"}, {".h", "C++"},
-        {".c", "C"},
-        {".py", "Python"},
-        {".js", "JavaScript"}, {".ts", "TypeScript"},
-        {".java", "Java"},
-        {".go", "Go"},
-        {".rs", "Rust"},
-        {".md", "Markdown"}, {".txt", "Text"}
-    };
-
-    auto it = ext_map.find(ext);
-    return it != ext_map.end() ? it->second : "Other";
-  }
-
-  json getSourceStats(VectorDatabase &db) {
-    auto trackedFiles = db.getTrackedFiles();
-
-    // Aggregate by language/directory
-    std::map<std::string, int> byLanguage;
-    std::map<std::string, int> byDirectory;
-    size_t totalLines = 0;
-    size_t totalSize = 0;
-
-    std::vector<json> fileDetails;
-
-    for (const auto &file : trackedFiles) {
-      if (!std::filesystem::exists(file.path)) continue;
-
-      // Count lines
-      size_t lines = countLines(file.path);
-      size_t size = std::filesystem::file_size(file.path);
-
-      // Get language
-      std::string lang = detectLanguage(file.path);
-      std::string dir = std::filesystem::path(file.path).parent_path().string();
-
-      byLanguage[lang]++;
-      byDirectory[dir]++;
-      totalLines += lines;
-      totalSize += size;
-
-      // Get chunk count for this file
-      size_t chunk_count = db.getChunkCountBySource(file.path);
-
-      fileDetails.push_back({
-          {"path", file.path},
-          {"lines", lines},
-          {"size_bytes", size},
-          {"language", lang},
-          {"chunks", chunk_count},
-          {"last_modified", file.lastModified}
-        });
-    }
-
-    // Sort by chunk count (most chunked files)
-    std::sort(fileDetails.begin(), fileDetails.end(),
-      [](const json &a, const json &b) {
-        return a["chunks"] > b["chunks"];
-      });
-
-    json ar = json::array();
-    for (auto it = fileDetails.begin(); it != fileDetails.begin() + (std::min)(size_t(10), fileDetails.size()); ++it) {
-      ar.push_back(*it);
-    }
-
-    return {
-        {"total_files", trackedFiles.size()},
-        {"total_lines", totalLines},
-        {"total_size_bytes", totalSize},
-        {"by_language", byLanguage},
-        {"by_directory", byDirectory},
-        {"top_files", ar}
-    };
-  }
-
 } // anonymous namespace
 
 json App::sourceStats() const
 {
-  return getSourceStats(*imp->db_);
+  return imp->statsCache_.getStats(*imp->db_);
 }
 
 std::string App::runSetupWizard(AdminAuth &auth)
