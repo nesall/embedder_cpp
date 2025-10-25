@@ -17,6 +17,7 @@ struct SearchResult {
   size_t start = 0;
   size_t end = 0;
   float similarityScore = 0;
+  float distance = 0;
 };
 
 

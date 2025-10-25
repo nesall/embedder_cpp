@@ -24,28 +24,27 @@
         "api_key": "",
         "api_url": "http://127.0.0.1:8583/embedding",
         "id": "local",
-        "model": "",
-        "name": "Local Server"
+        "model": "bge-base-v1.5",
+        "name": "Local Server",
+        "query_format": "Represent this sentence for searching relevant passages: {}"
       },
       {
         "api_key": "${MOLSOFT_API_KEY}",
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
         "id": "remote",
-        "model": "",
+        "model": "bge-large-v1.5",
         "name": "Remote Server"
       },
       {
         "api_key": "${MOLSOFT_API_KEY}",
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
-        "document_format": "<instruct>Represent the following code snippet for retrieval.\n<query>{}",
         "id": "remote-coder",
         "model": "",
-        "name": "Remote BGE-coder",
-        "query_format": "<instruct>Given a programming question, retrieve relevant code snippets.\n<query>{}"
+        "name": "Remote qwen-0.6B"
       }
     ],
     "batch_size": 4,
-    "current_api": "remote-local",
+    "current_api": "local",
     "retry_attempts": 3,
     "timeout_ms": 30000,
     "top_k": 5

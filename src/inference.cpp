@@ -167,24 +167,24 @@ float EmbeddingClient::calculateL2Norm(const std::vector<float> &vec)
 std::vector<std::string> EmbeddingClient::prepareContent(const std::vector<std::string> &texts, EmbeddingClient::EncodeType et) const
 {
   std::vector<std::string> res{ texts };
-  const auto &fmtDoc = imp->apiCfg_.documentFormat;
-  const auto &fmtQry = imp->apiCfg_.queryFormat;
-  switch (et) {
-  case EmbeddingClient::EncodeType::Index:
-    if (!fmtDoc.empty() && fmtDoc.find("{}") != std::string::npos) {
-      for (auto &t : res) {
-        t = std::vformat(fmtDoc, std::make_format_args(t));
-      }
-    }
-    break;
-  case EmbeddingClient::EncodeType::Query:
-    if (!fmtQry.empty() && fmtQry.find("{}") != std::string::npos) {
-      for (auto &t : res) {
-        t = std::vformat(fmtQry, std::make_format_args(t));
-      }
-    }
-    break;
-  }
+  //const auto &fmtDoc = imp->apiCfg_.documentFormat;
+  //const auto &fmtQry = imp->apiCfg_.queryFormat;
+  //switch (et) {
+  //case EmbeddingClient::EncodeType::Index:
+  //  if (!fmtDoc.empty() && fmtDoc.find("{}") != std::string::npos) {
+  //    for (auto &t : res) {
+  //      t = std::vformat(fmtDoc, std::make_format_args(t));
+  //    }
+  //  }
+  //  break;
+  //case EmbeddingClient::EncodeType::Query:
+  //  if (!fmtQry.empty() && fmtQry.find("{}") != std::string::npos) {
+  //    for (auto &t : res) {
+  //      t = std::vformat(fmtQry, std::make_format_args(t));
+  //    }
+  //  }
+  //  break;
+  //}
   return res;
 }
 

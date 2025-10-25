@@ -122,6 +122,7 @@ std::vector<SearchResult> HnswSqliteVectorDatabase::search(const std::vector<flo
       SearchResult sr = chunkData.value();
       sr.similarityScore = similarity;
       sr.chunkId = label;
+      sr.distance = distance;
       searchResults.push_back(sr);
     }
   }
