@@ -1127,6 +1127,8 @@ int App::run(int argc, char *argv[])
 {
   SignalHandler::setup();
 
+  LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
+
   try {
     if (argc < 2) {
       printUsage();
