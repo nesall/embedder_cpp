@@ -132,6 +132,10 @@ namespace {
   }
 
   bool requireAuth(AdminAuth &auth, const httplib::Request &req, httplib::Response &res, std::string *jwtToken) {
+    // Skip authentication if the request is from localhost
+    if (req.remote_addr == "127.0.0.1" || req.remote_addr == "::1") {
+      return true;
+    }
     auto password = extractPassword(req);
     std::string jwt;
     if (!password.has_value() || !auth.authenticate(password.value(), jwt)) {
@@ -700,6 +704,8 @@ bool HttpServer::startServer(int port)
 
     // Add to your HTTP server
     server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
+      LOG_MSG << "GET /api/metrics";
+
       auto &app = imp->app_;
       auto stats = app.db().getStats();
 
@@ -739,6 +745,8 @@ bool HttpServer::startServer(int port)
       });
 
     server.Get("/metrics", [this](const httplib::Request &, httplib::Response &res) {
+      LOG_MSG << "GET /metrics";
+
       std::stringstream prometheus;
 
       // Request counters

@@ -1010,7 +1010,7 @@
 
     async function saveOutput() {
       const token = localStorage.getItem("jwtToken");
-      if (!token) throw new Error("No JWT token available.");
+      //if (!token) throw new Error("No JWT token available.");
       const res = await fetch("/api/setup", {
         method: "POST",
         headers: {
@@ -1034,7 +1034,7 @@
     async function initializeEditor() {
       console.log("initializeEditor");
       const token = localStorage.getItem("jwtToken");
-      if (!token) throw new Error("No JWT token available.");
+      //if (!token) throw new Error("No JWT token available.");
 
       const res = await fetch("/api/setup", {
         method: "GET",
@@ -1087,9 +1087,7 @@
       } else {
         document.getElementById('auth-gate').classList.add('hidden');
         document.getElementById('config-editor').classList.remove('hidden');
-        renderObject(config);
-        attachEventListeners();
-        updateOutput(); // Display initial JSON on load
+        initializeEditor();
       }
     };
 
