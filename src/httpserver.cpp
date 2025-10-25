@@ -12,7 +12,7 @@
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
 #include <chrono>
-#include <thread>
+#include <cassert>
 #include <exception>
 #include <algorithm>
 #include <atomic>
@@ -54,6 +54,22 @@ namespace {
   void vecAddIfUnique(std::vector<T> &vec, const std::vector<T> &t) {
     for (const auto &item : t) {
       vecAddIfUnique(vec, item);
+    }
+  }
+
+  void addToSearchResult(std::vector<SearchResult> &v, const std::string &src, const std::string &content) {
+    assert(!content.empty());
+    if (!content.empty()) {
+      v.push_back({
+          content,
+          src,
+          "char",
+          Chunker::contentTypeToStr(Chunker::detectContentType(content, "")),
+          std::string::npos,
+          0,
+          content.length(),
+          1.0f
+        });
     }
   }
 
@@ -493,16 +509,7 @@ bool HttpServer::startServer(int port)
       std::vector<SearchResult> orderedResults; // Final ordered results
 
       for (const auto &att : attachments) {
-        attachmentResults.push_back({
-          att.content,
-          att.filename.empty() ? "attachment" : att.filename,
-          "char",
-          Chunker::contentTypeToStr(Chunker::detectContentType(att.content, "")),
-          std::string::npos, // chunkId
-          0,
-          att.content.size(),
-          1.0f
-          });
+        addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, att.content);
       }
 
       std::vector<std::string> sources;
@@ -548,41 +555,15 @@ bool HttpServer::startServer(int port)
       std::vector<std::string> relSources;
       for (const auto &src : sources) {
         auto relations = imp->app_.sourceProcessor().filterRelatedSources(trackedSources, src);
-        if (!vecContains(allFullSources, src)) {
-          vecAddIfUnique(relSources, relations);
-          vecAddIfUnique(allFullSources, relations);
-        }
+        vecAddIfUnique(relSources, relations);
+        vecAddIfUnique(allFullSources, relations);
       }
 
       for (const auto &src : sources) {
-        auto data = imp->app_.sourceProcessor().fetchSource(src, true);
-        if (!data.content.empty()) {
-          fullSourceResults.push_back({
-              data.content,
-              src,
-              "char",
-              Chunker::contentTypeToStr(Chunker::detectContentType(data.content, "")),
-              std::string::npos, // chunkId
-              0,
-              data.content.length(),
-              1.0f
-            });
-        }
+        addToSearchResult(fullSourceResults, src, imp->app_.sourceProcessor().fetchSource(src).content);
       }
       for (const auto &rel : relSources) {
-        auto data = imp->app_.sourceProcessor().fetchSource(rel, true);
-        if (!data.content.empty()) {
-          relatedSrcResults.push_back({
-              data.content,
-              rel,
-              "char",
-              Chunker::contentTypeToStr(Chunker::detectContentType(data.content, "")),
-              std::string::npos,
-              0,
-              data.content.length(),
-              1.0f,
-            });
-        }
+        addToSearchResult(relatedSrcResults, rel, imp->app_.sourceProcessor().fetchSource(rel).content);
       }
 
       filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),

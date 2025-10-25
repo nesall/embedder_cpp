@@ -22,45 +22,38 @@ namespace {
 std::vector<SourceProcessor::Data> SourceProcessor::collectSources(bool readContent)
 {
   LOG_START;
-  const bool oldReadContent = readContent_;
-  readContent_ = readContent;
   std::vector<SourceProcessor::Data> allContent;
   auto sources = settings_.sources();
   for (const auto &source : sources) {
     std::string type = source.type;
     if (type == "directory") {
-      processDirectory(source, allContent);
+      processDirectory(source, allContent, readContent);
     } else if (type == "file") {
-      processFile(source.path, allContent);
+      processFile(source.path, allContent, readContent);
     } else if (type == "url") {
-      processUrl(source, allContent);
+      processUrl(source, allContent, readContent);
     }
   }
   for (const auto &a : allContent) {
     sources_.insert(a.source);
   }
-  readContent_ = oldReadContent;
   return allContent;
 }
 
-SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri, bool readContent) const
+SourceProcessor::Data SourceProcessor::fetchSource(const std::string &uri) const
 {
   LOG_START;
-  const bool oldReadContent = readContent_;
-  readContent_ = readContent;
   std::vector<SourceProcessor::Data> res;
-  auto sources = settings_.sources();
-  for (const auto &source : sources) {
-    if (source.type == "file" && source.path == uri) {
-      processFile(source.path, res);
-    } else if (source.type == "url" && source.url == uri) {
-      processUrl(source, res);
-    } else if (source.type == "directory") {
-      processDirItem(source, uri, res);
-    }
-    if (!res.empty()) break;
-  }
-  readContent_ = oldReadContent;
+  bool isUrl = (uri.find("://") != std::string::npos);
+  if (isUrl) {
+    auto sources = settings_.sources();
+    for (const auto &sr: sources)
+      if (sr.url == uri) {
+        processUrl(sr, res, true);
+        break;
+      }
+  } else
+    processFile(uri, res, true);
   return res.empty() ? Data{} : res[0];
 }
 
@@ -91,7 +84,7 @@ bool SourceProcessor::readFile(const std::string &uri, std::string &data)
   return false;
 }
 
-void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::vector<SourceProcessor::Data> &content) const
+void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::vector<SourceProcessor::Data> &content, bool readContent) const
 {
   namespace fs = std::filesystem;
   std::string path = source.path;
@@ -105,9 +98,9 @@ void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::
       if (entry.is_directory() && source.recursive) {
         Settings::SourceItem subSource = source;
         subSource.path = entryPath;
-        processDirectory(subSource, content);
+        processDirectory(subSource, content, readContent);
       } else if (entry.is_regular_file()) {
-        processDirItem(source, entryPath, content);
+        processDirItem(source, entryPath, content, readContent);
       }
     }
   } catch (const std::exception &) {
@@ -115,15 +108,15 @@ void SourceProcessor::processDirectory(const Settings::SourceItem &source, std::
   }
 }
 
-bool SourceProcessor::processDirItem(const Settings::SourceItem &source, const std::string &filepath, std::vector<SourceProcessor::Data> &content) const
+bool SourceProcessor::processDirItem(const Settings::SourceItem &source, const std::string &filepath, std::vector<SourceProcessor::Data> &content, bool readContent) const
 {
   if (isExcluded(filepath, source.exclude)) return false;
   if (!source.extensions.empty() && !hasValidExtension(filepath, source.extensions)) return false;
-  processFile(filepath, content);
+  processFile(filepath, content, readContent);
   return true;
 }
 
-void SourceProcessor::processFile(const std::string &filepath, std::vector<SourceProcessor::Data> &content) const
+void SourceProcessor::processFile(const std::string &filepath, std::vector<SourceProcessor::Data> &content, bool readContent) const
 {
   if (auto maxSize = settings_.filesMaxFileSizeMb(); 0 < maxSize) {
     try {
@@ -138,15 +131,20 @@ void SourceProcessor::processFile(const std::string &filepath, std::vector<Sourc
     }
   }
   std::string text;
-  if (!readContent_ || SourceProcessor::readFile(filepath, text)) {
+  if (!readContent || SourceProcessor::readFile(filepath, text)) {
     content.push_back({ false, std::move(text), std::filesystem::path(filepath).lexically_normal().generic_string() });
   } else {
     LOG_MSG << "Unable to process resource " << filepath << ". Skipped.";
   }
 }
 
-void SourceProcessor::processUrl(const Settings::SourceItem &source, std::vector<SourceProcessor::Data> &content) const
+void SourceProcessor::processUrl(const Settings::SourceItem &source, std::vector<SourceProcessor::Data> &content, bool readContent) const
 {
+  if (!readContent) {
+    // Optionally handle the case where URL content shouldn't be read
+    content.push_back({ true, "", source.url });
+    return;
+  }
   std::string url = source.url;
   time_t timeout = static_cast<time_t>(source.urlTimeoutMs);
   try {
