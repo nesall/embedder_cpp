@@ -202,6 +202,21 @@
         }
       },
       {
+        "api_key": "${OPENAI_API_KEY}",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "id": "openai-5-mini",
+        "max_tokens_name": "max_completion_tokens",
+        "model": "gpt-5-mini",
+        "name": "OpenAI",
+        "pricing_tpm": {
+          "cached_input": 0.025,
+          "input": 0.25,
+          "output": 2.0
+        },
+        "stream": false,
+        "temperature_support": false
+      },
+      {
         "api_key": "${GEMINI_API_KEY}",
         "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "id": "gemini-2.5-flash",

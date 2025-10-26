@@ -281,62 +281,90 @@ std::string CompletionClient::generateCompletion(
   if (cfg().temperatureSupport)
     requestBody["temperature"] = temperature;
   requestBody[cfg().maxTokensName] = maxTokens;
-  requestBody["stream"] = true;
+  requestBody["stream"] = cfg().stream;
 
   httplib::Headers headers = {
-    {"Accept", "text/event-stream"},
     {"Authorization", "Bearer " + cfg().apiKey},
     {"Connection", "keep-alive"}
   };
 
   std::string fullResponse;
-  std::string buffer; // holds leftover partial data
+  httplib::Result res;
 
-  auto res = imp->httpClient_->Post(
-    path().c_str(),
-    headers,
-    requestBody.dump(),
-    "application/json",
-    [&fullResponse, &onStream, &buffer](const char *data, size_t len) {
-      // llama-server sends SSE format: "data: {...}\n\n"
-      buffer.append(data, len);
-      size_t pos;
-      while ((pos = buffer.find("\n\n")) != std::string::npos) {
-        std::string event = buffer.substr(0, pos); // one SSE event
-        buffer.erase(0, pos + 2);
-        if (event.find("data: ", 0) == 0) {
-          std::string jsonStr = event.substr(6);
-          if (jsonStr == "[DONE]") {
-            break;
-          }
-          try {
-            nlohmann::json chunkJson = nlohmann::json::parse(jsonStr);
-            if (chunkJson.contains("choices") && !chunkJson["choices"].empty()) {
-              const auto &choice = chunkJson["choices"][0];
-              if (choice.contains("delta") && choice["delta"].contains("content")) {
-                // Either choice["delta"]["content"] or choice["delta"]["reasoning_content"]
-                std::string content;
-                if (!choice["delta"]["content"].is_null())
-                  content = choice["delta"]["content"];
-                else if (choice["delta"].contains("reasoning_content") && !choice["delta"]["reasoning_content"].is_null())
-                  content = choice["delta"]["reasoning_content"];
-                fullResponse += content;
-                if (onStream) {
-                  onStream(content);
+  if (cfg().stream) {
+    headers.insert({ "Accept", "text/event-stream" });
+
+    std::string buffer; // holds leftover partial data
+
+    res = imp->httpClient_->Post(
+      path().c_str(),
+      headers,
+      requestBody.dump(),
+      "application/json",
+      [&fullResponse, &onStream, &buffer](const char *data, size_t len) {
+        // llama-server sends SSE format: "data: {...}\n\n"
+        buffer.append(data, len);
+        size_t pos;
+        while ((pos = buffer.find("\n\n")) != std::string::npos) {
+          std::string event = buffer.substr(0, pos); // one SSE event
+          buffer.erase(0, pos + 2);
+          if (event.find("data: ", 0) == 0) {
+            std::string jsonStr = event.substr(6);
+            if (jsonStr == "[DONE]") {
+              break;
+            }
+            try {
+              nlohmann::json chunkJson = nlohmann::json::parse(jsonStr);
+              if (chunkJson.contains("choices") && !chunkJson["choices"].empty()) {
+                const auto &choice = chunkJson["choices"][0];
+                if (choice.contains("delta") && choice["delta"].contains("content")) {
+                  // Either choice["delta"]["content"] or choice["delta"]["reasoning_content"]
+                  std::string content;
+                  if (!choice["delta"]["content"].is_null())
+                    content = choice["delta"]["content"];
+                  else if (choice["delta"].contains("reasoning_content") && !choice["delta"]["reasoning_content"].is_null())
+                    content = choice["delta"]["reasoning_content"];
+                  fullResponse += content;
+                  if (onStream) {
+                    onStream(content);
+                  }
                 }
               }
+            } catch (const std::exception &e) {
+              LOG_MSG << "Error parsing chunk: " << e.what() << " in: " << jsonStr;
             }
-          } catch (const std::exception &e) {
-            LOG_MSG << "Error parsing chunk: " << e.what() << " in: " << jsonStr;
           }
         }
+        if (buffer.find("Unauthorized") != std::string::npos) {
+          if (onStream) onStream(buffer);
+        }
+        return true; // Continue receiving
       }
-      if (buffer.find("Unauthorized") != std::string::npos) {
-        if (onStream) onStream(buffer);
-      }
-      return true; // Continue receiving
+    );
+
+  } else {
+    headers.insert({ "Accept", "application/json" });
+
+    res = imp->httpClient_->Post(
+      path().c_str(),
+      headers,
+      requestBody.dump(),
+      "application/json"
+    );
+
+    if (res && res->status == 200) {
+      try {
+        nlohmann::json jsonRes = nlohmann::json::parse(res->body);
+        if (!jsonRes["choices"].empty()) {
+          const auto &choice = jsonRes["choices"][0];
+          if (choice.contains("message") && choice["message"].contains("content")) {
+            fullResponse = choice["message"]["content"];
+            if (onStream) onStream(fullResponse); // optional callback for consistency
+          }
+        }
+      } catch (...) { /* ignore parse errors */ }
     }
-  );
+  }
 
   if (!res) {
     throw std::runtime_error("Failed to connect to completion server");

@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <mutex>
 
 
@@ -25,6 +26,7 @@ struct FileMetadata {
   std::string path;
   time_t lastModified = 0;
   size_t fileSize = 0;
+  size_t nofLines = 0;
   std::string hash; // Optional: content hash for change detection
 };
 
@@ -63,7 +65,7 @@ public:
   virtual bool fileExistsInMetadata(const std::string &path) = 0;
 
   virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
-  virtual size_t getChunkCountBySource(const std::string &sourceId) const = 0;
+  virtual std::unordered_map<std::string, size_t> getChunkCountsBySources() const = 0;
 
 
   virtual DatabaseStats getStats() const = 0;
@@ -74,7 +76,7 @@ public:
   virtual void commit() = 0;
   virtual void rollback() = 0;
 protected:
-  virtual void upsertFileMetadata(const std::string &path, std::time_t mtime, size_t size) = 0;
+  virtual void upsertFileMetadata(const std::string &path, std::time_t mtime, size_t size, size_t lines) = 0;
 };
 
 
@@ -103,7 +105,7 @@ public:
   bool fileExistsInMetadata(const std::string &path) override;
 
   std::vector<FileMetadata> getTrackedFiles() const override;
-  size_t getChunkCountBySource(const std::string &sourceId) const override;
+  std::unordered_map<std::string, size_t> getChunkCountsBySources() const override;
 
   void beginTransaction() override { executeSql("BEGIN TRANSACTION"); }
   void commit() override { executeSql("COMMIT"); }
@@ -113,7 +115,7 @@ public:
   void compact() override { compactIndex(); }
 
 protected:
-  void upsertFileMetadata(const std::string &sourceId, std::time_t mtime, size_t size) override;
+  void upsertFileMetadata(const std::string &sourceId, std::time_t mtime, size_t size, size_t lines) override;
 
 private:
   std::string dbPath() const;

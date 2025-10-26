@@ -25,6 +25,7 @@ namespace {
     cfg.documentFormat = item.value("document_format", "");
     cfg.queryFormat = item.value("query_format", "");
     cfg.temperatureSupport = item.value("temperature_support", true);
+    cfg.stream = item.value("stream", true);
     if (item.contains("pricing_tpm")) {
       auto pricing = item["pricing_tpm"];
       if (pricing.is_object()) {

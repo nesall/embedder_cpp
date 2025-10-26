@@ -25,7 +25,6 @@
 #include <cctype>
 #include <cassert>
 #include <csignal>
-#include <random>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
 
@@ -310,14 +309,14 @@ namespace {
   volatile std::sig_atomic_t SignalHandler::shutdownRequested = 0;
 
 
-  size_t countLines(const std::string &path) {
-    std::ifstream file(path);
-    return std::count(
-      std::istreambuf_iterator<char>(file),
-      std::istreambuf_iterator<char>(),
-      '\n'
-    );
-  }
+  //size_t countLines(const std::string &path) {
+  //  std::ifstream file(path);
+  //  return std::count(
+  //    std::istreambuf_iterator<char>(file),
+  //    std::istreambuf_iterator<char>(),
+  //    '\n'
+  //  );
+  //}
 
   std::string detectLanguage(const std::string &path) {
     std::string ext = std::filesystem::path(path).extension().string();
@@ -340,6 +339,9 @@ namespace {
   json computeStats(VectorDatabase &db) {
     auto trackedFiles = db.getTrackedFiles();
 
+    // Get chunk counts for all files in one query
+    auto chunkCounts = db.getChunkCountsBySources();
+
     // Aggregate by language/directory
     std::map<std::string, int> byLanguage;
     std::map<std::string, int> byDirectory;
@@ -352,8 +354,11 @@ namespace {
       if (!std::filesystem::exists(file.path)) continue;
 
       // Count lines
-      size_t lines = countLines(file.path);
-      size_t size = std::filesystem::file_size(file.path);
+      //size_t lines = countLines(file.path);
+      //size_t size = std::filesystem::file_size(file.path);
+
+      size_t lines = file.nofLines;
+      size_t size = file.fileSize;
 
       // Get language
       std::string lang = detectLanguage(file.path);
@@ -365,14 +370,14 @@ namespace {
       totalSize += size;
 
       // Get chunk count for this file
-      size_t chunk_count = db.getChunkCountBySource(file.path);
+      size_t chunkCount = chunkCounts.count(file.path) ? chunkCounts[file.path] : 0ull;
 
       fileDetails.push_back({
           {"path", file.path},
           {"lines", lines},
           {"size_bytes", size},
           {"language", lang},
-          {"chunks", chunk_count},
+          {"chunks", chunkCount},
           {"last_modified", file.lastModified}
         });
     }

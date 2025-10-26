@@ -18,6 +18,7 @@ struct ApiConfig {
   std::string documentFormat;
   std::string maxTokensName; // e.g. max_tokens or max_completion_tokens
   bool temperatureSupport = true;
+  bool stream = true;
   struct {
     float input = 0;
     float output = 0;
@@ -26,13 +27,15 @@ struct ApiConfig {
 
   // Compute an effective "combined" price per million tokens.
   // hitRatio = fraction of input tokens served from cache (0.0–1.0)
-  double combinedPrice(double hitRatio = 0.5) const {
-    double effectiveInput =
-      (0 < pricing.cachedInput)
-      ? (hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input)
-      : pricing.input;
+double combinedPrice(double hitRatio = 0.05) const {
+    // Only input can be cached; output is always fully billed
+    double effectiveInput = pricing.input;
+    if (0 < pricing.cachedInput) {
+        effectiveInput = hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input;
+    }
     return effectiveInput + pricing.output;
-  }
+}
+
 };
 
 class Settings {
