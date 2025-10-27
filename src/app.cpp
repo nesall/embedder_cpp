@@ -17,6 +17,7 @@
 #include <cmath>
 #include <iomanip>
 #include <unordered_map>
+#include <unordered_set>
 #include <thread>
 #include <stdexcept>
 #include <chrono>
@@ -111,6 +112,10 @@ namespace {
   private:
     VectorDatabase *db_;
     size_t batchSize_;
+    // Failure tracking
+    std::unordered_map<std::string, int> failureCounts_;
+    std::unordered_set<std::string> ignoredFiles_;
+
   public:
     IncrementalUpdater(VectorDatabase *db, size_t batchSize) : db_(db), batchSize_(batchSize) {
     }
@@ -133,6 +138,10 @@ namespace {
         trackedMap[meta.path] = meta;
       }
       for (const auto &filepath : currentFiles) {
+        if (shouldIgnore(filepath)) {
+          LOG_MSG << "Skipping ignored file: " << filepath;
+          continue;
+        }
         if (!fs::exists(filepath)) continue;
         auto currentModTime = utils::getFileModificationTime(filepath);
         auto currentSize = fs::file_size(filepath);
@@ -164,7 +173,6 @@ namespace {
     // Update database incrementally
     size_t updateDatabase(EmbeddingClient &client, Chunker &chunker, const UpdateInfo &info) {
       size_t totalUpdated = 0;
-
       if (!info.deletedFiles.empty()) {
         try {
           db_->beginTransaction();
@@ -183,13 +191,12 @@ namespace {
       }
 
       // Handle modifications (delete old, insert new)
-      for (const auto &filepath : info.modifiedFiles) {
+      for (const auto &filepath : info.modifiedFiles) {        
+        if (shouldIgnore(filepath)) continue; // Skip ignored files (shouldn't happen due to detectChanges, but safety check)
         LOG_MSG << "Updating:" << filepath;
-
         try {
           db_->beginTransaction();
           db_->deleteDocumentsBySource(filepath);
-
           std::string content;
           SourceProcessor::readFile(filepath, content);
           if (content.empty()) {
@@ -197,31 +204,26 @@ namespace {
             db_->rollback();
             continue;
           }
-
           auto chunks = chunker.chunkText(content, filepath);
-
           addEmbedChunks(chunks, batchSize_, client, *db_);
-
           totalUpdated++;
-
+          clearFailure(filepath);
           LOG_MSG << "  Updated with" << chunks.size() << " chunks";
-
           db_->commit();
           db_->persist();
-
         } catch (const std::exception &e) {
           db_->rollback();
           LOG_MSG << "  Error:" << e.what();
+          recordFailure(filepath);
         }
       }
 
       // Handle new files
       for (const auto &filepath : info.newFiles) {
+        if (shouldIgnore(filepath)) continue;
         LOG_MSG << "Adding new file:" << filepath;
-
         try {
           db_->beginTransaction();
-
           std::string content;
           SourceProcessor::readFile(filepath, content);
           if (content.empty()) {
@@ -229,27 +231,23 @@ namespace {
             db_->rollback();
             continue;
           }
-
           auto chunks = chunker.chunkText(content, filepath);
-
           addEmbedChunks(chunks, batchSize_, client, *db_);
-
           totalUpdated++;
-
+          clearFailure(filepath);
           LOG_MSG << "  Added with" << chunks.size() << " chunks";
           db_->commit();
           db_->persist();
         } catch (const std::exception &e) {
           LOG_MSG << "  Error:" << e.what();
           db_->rollback();
+          recordFailure(filepath);
         }
       }
 
-      // Save index after all updates
-      if (totalUpdated > 0) {
+      if (0 < totalUpdated) {
         db_->persist();
       }
-
       return totalUpdated;
     }
 
@@ -281,6 +279,22 @@ namespace {
           std::cout << "  - " << file << std::endl;
         }
       }
+    }
+
+    bool shouldIgnore(const std::string &filepath) const {
+      return ignoredFiles_.count(filepath) > 0;
+    }
+
+    void recordFailure(const std::string &filepath) {
+      failureCounts_[filepath]++;
+      if (failureCounts_[filepath] >= 3) {
+        ignoredFiles_.insert(filepath);
+        LOG_MSG << "Added to ignore list after 3 failures: " << filepath;
+      }
+    }
+
+    void clearFailure(const std::string &filepath) {
+      failureCounts_.erase(filepath);
     }
   };
 
@@ -815,7 +829,7 @@ size_t App::update()
   LOG_MSG << "Applying updates...";
   EmbeddingClient embeddingClient{ settings().embeddingCurrentApi(), settings().embeddingTimeoutMs() };
   size_t updated = imp->updater_->updateDatabase(embeddingClient, *imp->chunker_, info);
-  LOG_MSG << "Update completed! " << updated << " files processed.";
+  LOG_MSG << "Update completed! " << updated << " file(s) processed.";
 
   imp->lastUpdateTime_ = std::chrono::system_clock::now();
   imp->statsCache_.clear();

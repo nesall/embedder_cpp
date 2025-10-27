@@ -305,7 +305,7 @@
           ".h",
           ".hpp"
         ],
-        "path": "../../rag-code-assistant/clients/webview",
+        "path": "../../rag-code-assistant/clients/webview_",
         "recursive": true,
         "type": "directory"
       },
@@ -320,22 +320,12 @@
           ".js",
           ".html"
         ],
-        "path": "../../rag-code-assistant/clients/spa-svelte2",
+        "path": "../../rag-code-assistant/clients/spa-svelte_",
         "recursive": true,
         "type": "directory"
       },
       {
-        "exclude": [],
-        "extensions": [
-          ".md",
-          ".txt"
-        ],
-        "path": "./docs",
-        "recursive": false,
-        "type": "directory"
-      },
-      {
-        "path": "./README.md",
+        "path": "../settings.json",
         "type": "file"
       },
       {
