@@ -75,17 +75,6 @@
         }
       },
       {
-        "api_key": "${HF_TOKEN}",
-        "api_url": "https://router.huggingface.co/v1/chat/completions",
-        "id": "hfq",
-        "model": "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "name": "HF (Qwen2.5 32B)",
-        "pricing_tpm": {
-          "input": 0,
-          "output": 0
-        }
-      },
-      {
         "api_key": "${GEMINI_API_KEY}",
         "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "id": "gemma3",
@@ -94,6 +83,17 @@
         "pricing_tpm": {
           "input": 0,
           "output": 0
+        }
+      },
+      {
+        "api_key": "${HF_TOKEN}",
+        "api_url": "https://router.huggingface.co/v1/chat/completions",
+        "id": "hfq",
+        "model": "Qwen/Qwen2.5-Coder-32B-Instruct:nscale",
+        "name": "HF (Qwen2.5 32B)",
+        "pricing_tpm": {
+          "input": 0.06,
+          "output": 0.2
         }
       },
       {
