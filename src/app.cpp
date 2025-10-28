@@ -804,6 +804,57 @@ void App::serve(int port, bool watch, int interval)
 
 void App::providers(const std::string &testProvider)
 {
+  auto vc = settings().generationApis();
+
+  if (testProvider.empty()) {
+    size_t x = 0;
+    size_t y = 0;
+    for (const auto &a : vc) {
+      x = (std::max)(a.id.length(), x);
+      y = (std::max)(a.apiUrl.length(), y);
+    }
+    x += 4;
+    y += 4;
+
+    std::cout << std::left << std::setw(x) << "Id"
+      << std::left << std::setw(y) << "Url"
+      << std::left << std::setw(16) << "Enabled" << '\n';
+    auto cur = settings().generationCurrentApi();
+    for (const auto &a : vc) {
+      std::string scur;
+      if (cur.id == a.id) scur = " current";
+      std::cout << std::left << std::setw(x) << a.id
+        << std::left << std::setw(y) << a.apiUrl
+        << std::left << std::setw(16) << std::to_string((int)a.enabled) + scur
+        << '\n';
+    }
+
+  } else {
+    ApiConfig api;
+    for (const auto &a : vc) {
+      if (a.id == testProvider) {
+        api = a;
+      }
+    }
+    if (api.id.empty()) {
+      LOG_MSG << "Unable to find a provider by id =" << testProvider;
+      return;
+    }
+    LOG_MSG << "Testing completion client" << api.apiUrl;
+    CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
+    std::vector<json> messages;
+    messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+    messages.push_back({ {"role", "user"}, {"content", "What is the capital of France?"} });
+
+    std::string fullResponse = cl.generateCompletion(
+      messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
+      [](const std::string &chunk) {
+        //std::cout << chunk << std::flush;
+      }
+    );
+    LOG_MSG << "Question:" << messages[1]["content"];
+    LOG_MSG << "Answer:" << fullResponse;
+  }
 }
 
 size_t App::update()
