@@ -30,6 +30,7 @@ public:
   void clear();
   void chat();
   void serve(int port, bool watch = false, int interval = 60);
+  void providers(const std::string &testProvider);
 
   const Settings &settings() const;
   Settings &refSettings();
@@ -57,6 +58,8 @@ private:
   void initialize(const std::string &configPath);
   bool testSettings() const;
   static std::string runSetupWizard(AdminAuth &auth);
+  static int handleInteractivePasswordReset();
+  static int handlePasswordStatus();
 };
 
 namespace utils {

@@ -13,16 +13,24 @@
   "embedding": {
     "apis": [
       {
-        "id": "default",
-        "name": "Default",
+        "id": "custom",
+        "name": "Custom",
         "api_url": "_PL_EMB_API_URL_",
         "api_key": "_PL_EMB_API_KEY_",
         "model": "_PL_EMB_MODEL_NAME_",
         "document_format": "{}",
         "query_format": "{}"
+      },
+      {
+        "api_key": "",
+        "api_url": "http://127.0.0.1:8583/embedding",
+        "id": "local",
+        "model": "bge-base-v1.5",
+        "name": "llamacpp-server",
+        "query_format": "Represent this sentence for searching relevant passages: {}"
       }
     ],
-    "current_api": "default",
+    "current_api": "local",
     "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,
@@ -31,8 +39,8 @@
   "generation": {
     "apis": [
       {
-        "id": "default",
-        "name": "default",
+        "id": "custom",
+        "name": "Custom",
         "api_url": "_PL_CMPL_API_URL_",
         "api_key": "_PL_CMPL_API_KEY_",
         "model": "_PL_CMPL_MODEL_NAME_",
@@ -41,9 +49,67 @@
           "cached_input": 0.00,
           "output": 0.00
         }
-      }
+      },
+      {
+        "api_key": "${MISTRAL_API_KEY}",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "id": "mistral-devstral",
+        "model": "devstral-small-latest",
+        "name": "Mistral",
+        "pricing_tpm": {
+          "input": 0.1,
+          "output": 0.3
+        }
+      },
+      {
+        "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemini-2.0-flash",
+        "model": "gemini-2.0-flash",
+        "name": "Gemini",
+        "pricing_tpm": {
+          "input": 0.1,
+          "output": 0.4
+        }
+      },      
+      {
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "api_url": "https://api.deepseek.com/chat/completions",
+        "id": "deepseek",
+        "model": "deepseek-chat",
+        "name": "DeepSeek",
+        "pricing_tpm": {
+          "cached_input": 0.028,
+          "input": 0.28,
+          "output": 0.42
+        }
+      },      
+      {
+        "api_key": "${XAI_API_KEY}",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "id": "xai",
+        "model": "grok-4-fast-non-reasoning",
+        "name": "X AI",
+        "pricing_tpm": {
+          "cached_input": 0.05,
+          "input": 0.2,
+          "output": 0.5
+        }
+      },
+      {
+        "api_key": "${OPENAI_API_KEY}",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "id": "openai-4o-mini",
+        "model": "gpt-4o-mini",
+        "name": "OpenAI",
+        "pricing_tpm": {
+          "cached_input": 0.075,
+          "input": 0.15,
+          "output": 0.6
+        }
+      }      
     ],
-    "current_api": "default",
+    "current_api": "mistral-devstral",
     "timeout_ms": 120000,
     "max_chunks": 7,
     "max_full_sources": 2,
@@ -76,7 +142,7 @@
           "*/3rdparty/*"
         ],
         "extensions": [],
-        "path": "./src",
+        "path": "./",
         "recursive": true,
         "type": "directory"
       }

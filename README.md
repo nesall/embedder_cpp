@@ -94,35 +94,35 @@ Method 1:
 Edit file `settings.json` to configure settings manually.
 
 Method 2:  
-Open `http://localhost:8081/setup` to configure settings interactively.
+Open `http://localhost:8590/setup` to configure settings interactively.
 
 
 ### REST API endpoints
 
 ```
 # Health check
-curl http://localhost:8081/health
+curl http://localhost:8590/health
 
 # Search
-curl -X POST http://localhost:8081/search \
+curl -X POST http://localhost:8590/search \
   -H "Content-Type: application/json" \
   -d '{"query": "optimize performance", "top_k": 5}'
 
 # Embed text (without storing)
-curl -X POST http://localhost:8081/embed \
+curl -X POST http://localhost:8590/embed \
   -H "Content-Type: application/json" \
   -d '{"text": "your text here"}'
 
 # Add document
-curl -X POST http://localhost:8081/add \
+curl -X POST http://localhost:8590/add \
   -H "Content-Type: application/json" \
   -d '{"content": "document content", "source_id": "doc.txt"}'
 
 # Get stats
-curl http://localhost:8081/stats
+curl http://localhost:8590/stats
 
 # Chat completions
-curl -N -X POST http://localhost:8081/chat   -H "Content-Type: application/json"   -d '{
+curl -N -X POST http://localhost:8590/chat   -H "Content-Type: application/json"   -d '{
     "model": "",
     "messages": [
       {"role": "system", "content": "Keep it short."},

@@ -25,6 +25,7 @@ namespace {
     cfg.documentFormat = item.value("document_format", "");
     cfg.queryFormat = item.value("query_format", "");
     cfg.temperatureSupport = item.value("temperature_support", true);
+    cfg.enabled = item.value("enabled", true);
     cfg.stream = item.value("stream", true);
     if (item.contains("pricing_tpm")) {
       auto pricing = item["pricing_tpm"];
@@ -43,7 +44,8 @@ namespace {
       if (!item.is_object()) continue;
       ApiConfig cfg;
       fetchApiConfigFromItem(item, cfg, section);
-      v.push_back(cfg);
+      if (cfg.enabled)
+        v.push_back(cfg);
     }
     return v;
   }

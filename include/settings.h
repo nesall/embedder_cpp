@@ -18,6 +18,7 @@ struct ApiConfig {
   std::string documentFormat;
   std::string maxTokensName; // e.g. max_tokens or max_completion_tokens
   bool temperatureSupport = true;
+  bool enabled = true;
   bool stream = true;
   struct {
     float input = 0;

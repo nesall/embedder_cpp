@@ -25,7 +25,7 @@
         "api_url": "http://127.0.0.1:8583/embedding",
         "id": "local",
         "model": "bge-base-v1.5",
-        "name": "Local Server",
+        "name": "llamacpp-server",
         "query_format": "Represent this sentence for searching relevant passages: {}"
       },
       {
@@ -57,6 +57,7 @@
         "id": "local-qwen",
         "model": "qwen2.5-coder-1.5b",
         "name": "Local",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0,
           "output": 0
@@ -68,6 +69,7 @@
         "id": "remote-hosted",
         "model": "mistral-small-3.2-24B",
         "name": "Hosted",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0,
           "input": 0,
@@ -80,6 +82,7 @@
         "id": "gemma3",
         "model": "gemma-3-27b-it",
         "name": "Gemini",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0,
           "output": 0
@@ -91,6 +94,7 @@
         "id": "hfq",
         "model": "Qwen/Qwen2.5-Coder-32B-Instruct:nscale",
         "name": "HF (Qwen2.5 32B)",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0.06,
           "output": 0.2
@@ -102,6 +106,7 @@
         "id": "mistral-nemo",
         "model": "open-mistral-nemo",
         "name": "Mistral",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0.15,
           "output": 0.15
@@ -113,6 +118,7 @@
         "id": "mistral-devstral",
         "model": "devstral-small-latest",
         "name": "Mistral",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0.1,
           "output": 0.3
@@ -124,7 +130,9 @@
         "id": "gemini-2.0-flash",
         "model": "gemini-2.0-flash",
         "name": "Gemini",
+        "enabled": true,
         "pricing_tpm": {
+          "cached_input": 0.025,
           "input": 0.1,
           "output": 0.4
         }
@@ -135,6 +143,7 @@
         "id": "deepseek",
         "model": "deepseek-chat",
         "name": "DeepSeek",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.028,
           "input": 0.28,
@@ -147,6 +156,7 @@
         "id": "xai",
         "model": "grok-4-fast-non-reasoning",
         "name": "X AI",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.05,
           "input": 0.2,
@@ -159,6 +169,7 @@
         "id": "openai-4o-mini",
         "model": "gpt-4o-mini",
         "name": "OpenAI",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.075,
           "input": 0.15,
@@ -171,6 +182,7 @@
         "id": "mistral-codestral",
         "model": "codestral-latest",
         "name": "Mistral",
+        "enabled": true,
         "pricing_tpm": {
           "input": 0.3,
           "output": 0.9
@@ -182,6 +194,7 @@
         "id": "grok-4-coder",
         "model": "grok-code-fast-1",
         "name": "X AI",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.02,
           "input": 0.2,
@@ -195,6 +208,7 @@
         "max_tokens_name": "max_completion_tokens",
         "model": "gpt-4.1-mini",
         "name": "OpenAI",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.1,
           "input": 0.4,
@@ -208,6 +222,7 @@
         "max_tokens_name": "max_completion_tokens",
         "model": "gpt-5-mini",
         "name": "OpenAI",
+        "enabled": true,
         "pricing_tpm": {
           "cached_input": 0.025,
           "input": 0.25,
@@ -222,9 +237,24 @@
         "id": "gemini-2.5-flash",
         "model": "gemini-2.5-flash",
         "name": "Gemini",
+        "enabled": true,
         "pricing_tpm": {
+          "cached_input": 0.03,
           "input": 0.3,
           "output": 2.5
+        }
+      },
+      {
+        "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemini-2.5-pro",
+        "model": "gemini-2.5-pro",
+        "name": "Gemini",
+        "enabled": true,
+        "pricing_tpm": {
+          "cached_input": 0.125,
+          "input": 1.5,
+          "output": 10.0
         }
       }
     ],
@@ -305,7 +335,7 @@
           ".h",
           ".hpp"
         ],
-        "path": "../../rag-code-assistant/clients/webview_",
+        "path": "../../rag-code-assistant/clients/webview",
         "recursive": true,
         "type": "directory"
       },

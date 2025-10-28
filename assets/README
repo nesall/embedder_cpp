@@ -20,7 +20,7 @@ unzip embedder-v1.0.zip
 
 ### **Access Web Setup:**
 ```
-1. Open: http://localhost:8081/setup
+1. Open: http://localhost:8590/setup
 2. Browser prompts: Username: admin, Password: <your_password>
 3. Configure settings (no password field shown)
 4. Submit → settings.json created
@@ -40,6 +40,6 @@ Logs Location:
 
 Troubleshooting:
 - Check logs for errors
-- Ensure port 8081 is not in use
+- Ensure port 8590 is not in use
 - Run embeddings_cpp executable directly to see console output
 

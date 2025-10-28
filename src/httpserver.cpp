@@ -19,8 +19,55 @@
 
 using json = nlohmann::json;
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+using socket_t = SOCKET;
+#define CLOSE_SOCKET closesocket
+#define INVALID_SOCKET_VALUE INVALID_SOCKET
+#define WSA_STARTUP() \
+      WSADATA wsaData; \
+      if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
+#define WSA_CLEANUP() WSACleanup()
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <unistd.h>
+using socket_t = int;
+#define CLOSE_SOCKET close
+#define INVALID_SOCKET_VALUE (-1)
+#define WSA_STARTUP()
+#define WSA_CLEANUP()
+#endif
+
 
 namespace {
+
+  bool isPortAvailable(int port) {
+    WSA_STARTUP();
+
+    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET_VALUE) {
+      WSA_CLEANUP();
+      return false;
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
+
+    // No SO_REUSEADDR — ensures exclusive bind
+    bool available = (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
+
+    CLOSE_SOCKET(sock);
+    WSA_CLEANUP();
+
+    return available;
+  }
 
 #if 0
   auto testStreaming = [](std::function<void(const std::string &)> onChunk)
@@ -189,6 +236,16 @@ HttpServer::HttpServer(App &a)
   : imp(new Impl(a))
 {
   //imp->server_.new_task_queue = [] { return new httplib::ThreadPool(4); };
+
+  //imp->server_.set_error_logger([](const httplib::Error &err, const httplib::Request *req) {
+  //  std::cerr << httplib::to_string(err) << " while processing request";
+  //  if (req) {
+  //    std::cerr << ", client: " << req->get_header_value("X-Forwarded-For")
+  //      << ", request: '" << req->method << " " << req->path << " " << req->version << "'"
+  //      << ", host: " << req->get_header_value("Host");
+  //  }
+  //  std::cerr << std::endl;
+  //  });
 }
 
 HttpServer::~HttpServer()
@@ -830,7 +887,16 @@ bool HttpServer::startServer(int port)
       HttpServer::Impl::requestCounter_++;
       });
 
-    LOG_MSG << "Starting HTTP API server on port " << port << "...";
+    int nofTries = 20;
+    while (!isPortAvailable(port)) {
+      if (--nofTries == 0) {
+        LOG_MSG << "Unable to reserve a port.";
+        return false;
+      }
+      port ++;
+    }
+
+    LOG_MSG << "\nStarting HTTP API server on port " << port << "...";
     LOG_MSG << "\nEndpoints:";
     LOG_MSG << "  GET  /api";
     LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
