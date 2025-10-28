@@ -72,6 +72,7 @@ add_executable(${PROJECT_NAME}
   include/httpserver.h
   include/app.h
   include/auth.h
+  include/instregistry.h
   src/main.cpp
   src/tokenizer.cpp
   src/settings.cpp
@@ -82,6 +83,7 @@ add_executable(${PROJECT_NAME}
   src/httpserver.cpp
   src/app.cpp
   src/auth.cpp
+  src/instregistry.cpp
 )
 
 # Link libraries

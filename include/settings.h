@@ -106,6 +106,7 @@ public:
     return config_.contains("logging") ? config_["logging"].value("diagnostics_file", "diagnostics.log") : std::string("diagnostics.log");
   }
 
+  std::string getProjectTitle() const;
   std::vector<SourceItem> sources() const;
   std::string configDump() const { return config_.dump(2); }
 };

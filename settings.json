@@ -275,6 +275,7 @@
     "logging_file": "embedder.log"
   },
   "source": {
+    "project_title": "Embedding RAG System",
     "default_extensions": [
       ".cpp",
       ".h",

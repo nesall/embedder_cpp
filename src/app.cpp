@@ -7,6 +7,7 @@
 #include "sourceproc.h"
 #include "httpserver.h"
 #include "auth.h"
+#include "instregistry.h"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -449,7 +450,10 @@ struct App::Impl {
   std::chrono::system_clock::time_point appStartTime_;
   std::chrono::system_clock::time_point lastUpdateTime_;
 
+  std::unique_ptr<InstanceRegistry> registry_;
+
   StatsCache statsCache_;
+  std::string projectTitle_;
 };
 
 App::App() : imp(new Impl)
@@ -535,7 +539,7 @@ bool App::testSettings() const
   return ok;
 }
 
-void App::embed(bool ask)
+void App::embed(bool noPrompt)
 {
   LOG_MSG << "Starting embedding process...";
   auto sources = imp->processor_->collectSources(false);
@@ -571,7 +575,7 @@ void App::embed(bool ask)
 
   //LOG_MSG << "Sources with empty text: " << emptyTextCount;
 
-  if (ask) {
+  if (!noPrompt) {
     std::cout << "Proceed? [y/N]: ";
     std::string confirm;
     std::cin >> confirm;
@@ -675,31 +679,27 @@ void App::search(const std::string &query, size_t topK)
 
 void App::stats()
 {
-  //auto s = imp->db_->getStats();
   LOG_MSG << "\n=== Database Statistics ===";
-  //LOG_MSG << "Total chunks: " << s.totalChunks;
-  //LOG_MSG << "Vectors in index: " << s.vectorCount;
-  //LOG_MSG << "\nChunks by source:";
-  //for (const auto &[source, count] : s.sources) {
-  //  LOG_MSG << "  " << source << ": " << count;
-  //}
-
   auto j = sourceStats();
   auto s = j.dump(2);
   std::cout << s << "\n";
 }
 
-void App::clear()
+void App::clear(bool noPrompt)
 {
-  std::cout << "Are you sure you want to clear all data? [y/N]: ";
-  std::string confirm;
-  std::cin >> confirm;
-
-  if (confirm == "y") {
-    imp->db_->clear();
-    std::cout << "Database cleared." << std::endl;
+  if (noPrompt) {
+      imp->db_->clear();
+      LOG_MSG << "Database cleared.";
   } else {
-    std::cout << "Cancelled." << std::endl;
+    std::cout << "Are you sure you want to clear all data? [y/N]: ";
+    std::string confirm;
+    std::cin >> confirm;
+    if (confirm == "y") {
+      imp->db_->clear();
+      LOG_MSG << "Database cleared.";
+    } else {
+      std::cout << "Cancelled." << std::endl;
+    }
   }
 }
 
@@ -742,6 +742,11 @@ void App::chat()
 
 void App::serve(int port, bool watch, int interval)
 {
+  std::string projectName = describeProjectTitle();
+  imp->registry_ = std::make_unique<InstanceRegistry>();
+  imp->registry_->registerInstance(port, projectName);
+  imp->registry_->startHeartbeat();
+
   std::thread watchThread;
   std::thread serverThread;
 
@@ -953,6 +958,11 @@ AdminAuth &App::auth()
   return *imp->auth_;
 }
 
+const InstanceRegistry &App::registry() const
+{
+  return *imp->registry_;
+}
+
 float App::dbSizeMB() const
 {
   try {
@@ -1097,6 +1107,26 @@ json App::sourceStats() const
   return imp->statsCache_.getStats(*imp->db_);
 }
 
+std::string App::describeProjectTitle() const
+{
+  if (imp->projectTitle_.empty()) {
+    //auto api = settings().generationCurrentApi();
+    //CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
+    //std::vector<json> messages;
+    //messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+    //messages.push_back({ {"role", "user"}, {"content", "Give a 2 to 5 word description title based on sources being tracked."} });
+    //std::string fullResponse = cl.generateCompletion(
+    //  messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
+    //  [](const std::string &chunk) {
+    //    //std::cout << chunk << std::flush;
+    //  }
+    //);
+    //imp->projectTitle_ = fullResponse;
+    imp->projectTitle_ = settings().getProjectTitle();
+  }
+  return imp->projectTitle_;
+}
+
 std::string App::runSetupWizard(AdminAuth &auth)
 {
   std::cout << "\n";
@@ -1199,6 +1229,29 @@ std::string App::runSetupWizard(AdminAuth &auth)
   return path.string();
 }
 
+std::string App::findConfigFile(const std::string &filename)
+{
+  std::vector<std::string> searchPaths = {
+      filename,                          // Current dir
+      "../" + filename,                  // Parent
+      "../../" + filename,               // Grandparent
+      std::string(std::getenv("HOME") ? std::getenv("HOME") : ".") + "/.config/embedder/" + filename,  // User config
+      "/etc/embedder/" + filename        // System-wide (Linux)
+  };
+
+  for (const auto &path : searchPaths) {
+    if (std::filesystem::exists(path)) {
+      LOG_MSG << "Found config at:" << path;
+      return path;
+    }
+  }
+
+  // Not found, run wizard
+  LOG_MSG << "Config file not found, running setup wizard...";
+  AdminAuth auth;
+  return runSetupWizard(auth);
+}
+
 int App::handleInteractivePasswordReset()
 {
   std::cout << "===================================\n";
@@ -1257,172 +1310,137 @@ int App::run(int argc, char *argv[])
   SignalHandler::setup();
   LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
 
-#if 0
+  CLI::App app{ "Embedder RAG System" };
+  app.set_version_flag("--version,-v", "1.0.0");
+  app.require_subcommand(0, 1); // Allow 0 or 1 subcommand (0 shows help)
+
+  std::string configPath = "settings.json";
+  app.add_option("-c,--config", configPath, "Config file path")->envname("EMBEDDER_CONFIG")->check(CLI::ExistingFile);
+
+  // Password management commands
+  auto cmdResetPass = app.add_subcommand("reset-password", "Reset admin password");
+  std::string newPassword;
+  cmdResetPass->add_option("--pass", newPassword, "New password")
+    ->required()
+    ->check(CLI::IsMember({ "admin" }, CLI::ignore_case).description("Cannot be 'admin'"));  
+  auto cmdResetInteractive = app.add_subcommand("reset-password-interactive", "Reset password interactively");
+  auto cmdPasswordStatus = app.add_subcommand("password-status", "Check password status");
+
+  auto passwordGroup = app.add_option_group("password", "Password Management");
+  passwordGroup->add_subcommand(cmdResetPass);
+  passwordGroup->add_subcommand(cmdResetInteractive);
+  passwordGroup->add_subcommand(cmdPasswordStatus);
+  passwordGroup->require_option(0, 1); // Max one password command
+
+  // Main commands
+  auto cmdEmbed = app.add_subcommand("embed", "Process and embed all configured sources");
+  bool embedForce = false;
+  cmdEmbed->add_flag("--force", embedForce, "Force re-embed all files");
+
+  auto cmdUpdate = app.add_subcommand("update", "Incrementally update changed files only");
+
+  auto cmdWatch = app.add_subcommand("watch", "Continuously monitor and update");
+  int watchInterval = 60;
+  cmdWatch->add_option("--interval", watchInterval, "Update interval in seconds")->default_val(60);
+
+  auto cmdSearch = app.add_subcommand("search", "Search for similar chunks");
+  std::string searchQuery;
+  size_t searchTopk = 5;
+  cmdSearch->add_option("query", searchQuery, "Search query")->required();
+  cmdSearch->add_option("--top", searchTopk, "Number of results")->default_val(5);
+
+  auto cmdStats = app.add_subcommand("stats", "Show database statistics");
+
+  auto cmdClear = app.add_subcommand("clear", "Clear all data");
+  bool clearNoConfirm = false;
+  cmdClear->add_flag("--yes,-y", clearNoConfirm, "Skip confirmation prompt");
+
+  auto cmdCompact = app.add_subcommand("compact", "Reclaim deleted space");
+
+  auto cmdChat = app.add_subcommand("chat", "Chat mode");
+
+  auto cmdServe = app.add_subcommand("serve", "Start HTTP API server");
+  int servePort = 8590;
+  bool serveWatch = false;
+  int serveWatchInterval = 60;
+  cmdServe->add_option("-p,--port", servePort, "Server port")
+    ->default_val(8590)
+    ->envname("EMBEDDER_PORT")
+    ->check(CLI::Range(1, 65535));
+  cmdServe->add_flag("--watch", serveWatch, "Enable auto-update");
+  cmdServe->add_option("--interval", serveWatchInterval, "Watch interval in seconds")->default_val(60);
+
+  auto cmdProviders = app.add_subcommand("providers", "List embedding and completion providers");
+  std::string testProvider;
+  cmdProviders->add_option("--test", testProvider, "Test call to a given provider");
+
+  auto cmdVersion = app.add_subcommand("version", "Show version information");
 
   try {
-    if (argc < 2) {
-      printUsage();
-      return 1;
-    }
-    std::string command = argv[1];
+    app.parse(argc, argv);
 
-    App app;
-    auto &auth = app.auth();
-
-    // Password management commands (no server needed)
-    if (command == "reset-password" || command == "reset") {
-      if (argc < 3 || std::string(argv[2]) != "--pass") {
-        LOG_MSG << "Usage: embeddings_cpp reset-password --pass <new_password>";
-        return 1;
-      }
-
-      if (argc < 4) {
-        LOG_MSG << "Error: Password not provided";
-        return 1;
-      }
-
-      std::string newPassword = argv[3];
-
-      // Validate password
+    // Handle password commands first (no app initialization needed)
+    if (cmdResetPass->parsed()) {
+      AdminAuth auth;
       if (newPassword.length() < 8) {
         LOG_MSG << "Error: Password must be at least 8 characters";
         return 1;
       }
-
       if (newPassword == "admin") {
         LOG_MSG << "Error: Cannot use 'admin' as password";
         return 1;
       }
-
       auth.setPassword(newPassword);
-
-      LOG_MSG << "\nAdmin password has been reset";
-      LOG_MSG << "Use this password to access /setup and protected endpoints";
-
+      LOG_MSG << "Admin password has been reset";
       return 0;
     }
 
-    // Interactive password reset (no command line args needed)
-    if (command == "reset-password-interactive") {
-      std::cout << "===================================\n";
-      LOG_MSG << "   Reset Admin Password             ";
-      std::cout << "===================================\n\n";
-
-      int nofTries = 3;
-      std::string newPassword;
-      do {
-        newPassword = promptPassword("Enter new password (min 8 chars): ");
-        std::string confirm = promptPassword("Confirm password: ");
-        if (newPassword != confirm) {
-          LOG_MSG << "Error: Passwords do not match\n";
-          continue;
-        }
-        if (newPassword.length() < 8) {
-          LOG_MSG << "Error: Password must be at least 8 characters\n";
-          continue;
-        }
-        if (newPassword == "admin") {
-          LOG_MSG << "Error: Cannot use 'admin' as password\n";
-          continue;
-        }
-        break;
-      } while (--nofTries);
-      if (0 == nofTries) {
-        LOG_MSG << "Unable to reset admin password. Exitting.";
-        return 1;
-      }
-      auth.setPassword(newPassword);
-      LOG_MSG << "\nPassword updated successfully!";
-      return 0;
+    if (cmdResetInteractive->parsed()) {
+      return handleInteractivePasswordReset();
     }
 
-    // Show current password status
-    if (command == "password-status") {
-      std::cout << "Admin Password Status:\n";
-      std::cout << "-------------------------\n";
-      if (auth.isDefaultPassword()) {
-        LOG_MSG << "Status: Using default password 'admin'\n";
-        LOG_MSG << "  WARNING: Please change the default password!\n";
-        LOG_MSG << "Run: embeddings_cpp reset-password --pass <your_password>\n";
-      } else {
-        LOG_MSG << "Status: Custom password set \n";
-        LOG_MSG << "Last modified: " << auth.fileLastModifiedTime() << "\n";
-      }
-      return 0;
+    if (cmdPasswordStatus->parsed()) {
+      return handlePasswordStatus();
     }
 
-    std::string configPath = "settings.json";
-    for (int i = 2; i < argc; ++i) {
-      std::string arg = argv[i];
-      if (arg == "--config" && i + 1 < argc) {
-        configPath = argv[++i];
-      }
-    }
-
-    if (!std::filesystem::exists(configPath)) {
-      configPath = "../" + configPath;
-      if (!std::filesystem::exists(configPath)) {
-        configPath = "../" + configPath;
-        if (!std::filesystem::exists(configPath)) {
-          configPath = runSetupWizard(auth);
-        }
-      }
-    }
+    configPath = findConfigFile(configPath);
 
     LOG_MSG << "Reading config file" << std::filesystem::absolute(configPath);
-    app.initialize(configPath);
-    if (!app.testSettings()) {
+    App appInstance;
+    appInstance.initialize(configPath);
+
+    if (!appInstance.testSettings()) {
       LOG_MSG << "Wrong/incomplete settings. Exiting.";
       return 1;
     }
 
-    auto sources = app.imp->settings_->sources();
-    LOG_MSG << "Sources defined in the configuration:";
-    for (const auto src : sources) {
-      if (src.type == "directory")
-        LOG_MSG << " " << src.path << "[ recursive" << src.recursive << "]";
-      else if (src.type == "url")
-        LOG_MSG << " " << src.url;
-      else
-        LOG_MSG << " " << src.path;
-    }
-
-    if (false) {
-    } else if (command == "embed") {
-      app.embed();
-    } else if (command == "update") {
-      app.update();
-    } else if (command == "watch") {
-      int interval = 60;
-      if (argc > 2) {
-        interval = utils::safeStoI(argv[2], interval);
-        std::cout << "Using interval " << interval << "s\n";
-      }
-      app.watch(interval);
-    } else if (command == "search") {
-      if (argc < 3) {
-        LOG_MSG << "Error: search requires a query";
-        return 1;
-      }
-      std::string query = argv[2];
-      size_t topK = 5;
-      for (int i = 3; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--top" && i + 1 < argc) {
-          topK = utils::safeStoI(argv[++i]);
-        }
-      }
-      app.search(query, topK);
-    } else if (command == "stats") {
-      app.stats();
-    } else if (command == "clear") {
-      app.clear();
-    } else if (command == "compact") {
-      app.compact();
-    } else if (command == "chat") {
-      app.chat();
-    } else if (command == "serve") {
-      if (auth.isDefaultPassword()) {
+    // Handle main commands
+    if (cmdEmbed->parsed()) {
+      appInstance.embed(embedForce);
+    } else if (cmdUpdate->parsed()) {
+      appInstance.update();
+    } else if (cmdWatch->parsed()) {
+      appInstance.watch(watchInterval);
+    } else if (cmdSearch->parsed()) {
+      appInstance.search(searchQuery, searchTopk);
+    } else if (cmdStats->parsed()) {
+      appInstance.stats();
+    } else if (cmdClear->parsed()) {
+      appInstance.clear(clearNoConfirm);
+    } else if (cmdCompact->parsed()) {
+      appInstance.compact();
+    } else if (cmdChat->parsed()) {
+      appInstance.chat();
+    } else if (cmdProviders->parsed()) {
+      appInstance.providers(testProvider);
+    } else if (cmdVersion->parsed()) {
+      std::cout << "Embedder RAG System\n";
+      std::cout << "Author: Arman Sahakyan\n";
+      std::cout << "Version: 1.0.0\n";
+      std::cout << "Build: " << __DATE__ << " " << __TIME__ << "\n";
+      return 0;
+    } else if (cmdServe->parsed()) {
+      if (appInstance.auth().isDefaultPassword()) {
         std::cout << "\n  WARNING: You are using the default admin password!\n";
         std::cout << "This is a security risk. Please change it:\n";
         std::cout << "  embeddings_cpp reset-password --pass <new_password>\n\n";
@@ -1436,186 +1454,24 @@ int App::run(int argc, char *argv[])
           return 1;
         }
       }
-      int port = 8590;
-      bool enableWatch = false;
-      int watchInterval = 60;
-      for (int i = 2; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--port" && i + 1 < argc) {
-          port = utils::safeStoI(argv[++i], port);
-        } else if (arg == "--watch") {
-          enableWatch = true;
-          if (i + 1 < argc && argv[i + 1][0] != '-') {
-            watchInterval = utils::safeStoI(argv[++i], watchInterval);
-          }
-        }
-      }
-      app.serve(port, enableWatch, watchInterval);
-    } else if (command == "providers") {
-      // TODO:
+      appInstance.serve(servePort, serveWatch, serveWatchInterval);
     } else {
-      LOG_MSG << "Unknown command: " << command;
-      printUsage();
+      // No command specified, show help
+      std::cout << app.help() << std::endl;
       return 1;
     }
+
+  } catch (const CLI::ParseError &e) {
+    // CLI11 has built-in formatting
+    return app.exit(e);
+  } catch (const std::filesystem::filesystem_error &e) {
+    LOG_MSG << "Filesystem error: " << e.what();
+    LOG_MSG << "Path: " << e.path1();
+    return 1;
   } catch (const std::exception &e) {
-    LOG_MSG << "Error: " << e.what() << "\n";
-    printUsage();
+    LOG_MSG << "Error: " << e.what();
+    LOG_MSG << "Run with --help for usage information";
     return 1;
-  }
-
-#else
-
-CLI::App app{ "Embedder RAG System" };
-
-std::string configPath = "settings.json";
-app.add_option("--config", configPath, "Config file path")->check(CLI::ExistingFile);
-
-// Password management commands
-auto cmdResetPass = app.add_subcommand("reset-password", "Reset admin password");
-std::string newPassword;
-cmdResetPass->add_option("--pass", newPassword, "New password")->required();
-
-auto cmdResetInteractive = app.add_subcommand("reset-password-interactive", "Reset password interactively");
-
-auto cmdPasswordStatus = app.add_subcommand("password-status", "Check password status");
-
-// Main commands
-auto cmdEmbed = app.add_subcommand("embed", "Process and embed all configured sources");
-//bool embedAsk = false;
-//cmdEmbed->add_flag("-a,--ask", embedAsk, "Ask for confirmation before embedding");
-
-auto cmdUpdate = app.add_subcommand("update", "Incrementally update changed files only");
-
-auto cmdWatch = app.add_subcommand("watch", "Continuously monitor and update");
-int watchInterval = 60;
-cmdWatch->add_option("--interval", watchInterval, "Update interval in seconds")->default_val(60);
-
-auto cmdSearch = app.add_subcommand("search", "Search for similar chunks");
-std::string searchQuery;
-size_t searchTopk = 5;
-cmdSearch->add_option("query", searchQuery, "Search query")->required();
-cmdSearch->add_option("--top", searchTopk, "Number of results")->default_val(5);
-
-auto cmdStats = app.add_subcommand("stats", "Show database statistics");
-
-auto cmdClear = app.add_subcommand("clear", "Clear all data");
-
-auto cmdCompact = app.add_subcommand("compact", "Reclaim deleted space");
-
-auto cmdChat = app.add_subcommand("chat", "Chat mode");
-
-auto cmdServe = app.add_subcommand("serve", "Start HTTP API server");
-int servePort = 8590;
-bool serveWatch = false;
-int serveWatchInterval = 60;
-cmdServe->add_option("--port", servePort, "Server port")->default_val(8590);
-cmdServe->add_flag("--watch", serveWatch, "Enable auto-update");
-cmdServe->add_option("--interval", serveWatchInterval, "Watch interval in seconds")->default_val(60);
-
-auto cmdProviders = app.add_subcommand("providers", "List embedding and completion providers");
-std::string testProvider;
-cmdProviders->add_option("--test", testProvider, "Test call to a given provider");
-
-try {
-  app.parse(argc, argv);
-
-  // Handle password commands first (no app initialization needed)
-  if (cmdResetPass->parsed()) {
-    AdminAuth auth;
-    if (newPassword.length() < 8) {
-      LOG_MSG << "Error: Password must be at least 8 characters";
-      return 1;
-    }
-    if (newPassword == "admin") {
-      LOG_MSG << "Error: Cannot use 'admin' as password";
-      return 1;
-    }
-    auth.setPassword(newPassword);
-    LOG_MSG << "Admin password has been reset";
-    return 0;
-  }
-
-  if (cmdResetInteractive->parsed()) {
-    return handleInteractivePasswordReset();
-  }
-
-  if (cmdPasswordStatus->parsed()) {
-    return handlePasswordStatus();
-  }
-
-  // Find config file or run wizard
-  if (!std::filesystem::exists(configPath)) {
-    std::string altPath = "../" + configPath;
-    if (!std::filesystem::exists(altPath)) {
-      altPath = "../../" + configPath;
-      if (!std::filesystem::exists(altPath)) {
-        AdminAuth auth;
-        configPath = runSetupWizard(auth);
-      } else {
-        configPath = altPath;
-      }
-    } else {
-      configPath = altPath;
-    }
-  }
-
-  LOG_MSG << "Reading config file" << std::filesystem::absolute(configPath);
-  App appInstance;
-  appInstance.initialize(configPath);
-
-  if (!appInstance.testSettings()) {
-    LOG_MSG << "Wrong/incomplete settings. Exiting.";
-    return 1;
-  }
-
-  // Handle main commands
-  if (cmdEmbed->parsed()) {
-    appInstance.embed(true);
-  } else if (cmdUpdate->parsed()) {
-    appInstance.update();
-  } else if (cmdWatch->parsed()) {
-    appInstance.watch(watchInterval);
-  } else if (cmdSearch->parsed()) {
-    appInstance.search(searchQuery, searchTopk);
-  } else if (cmdStats->parsed()) {
-    appInstance.stats();
-  } else if (cmdClear->parsed()) {
-    appInstance.clear();
-  } else if (cmdCompact->parsed()) {
-    appInstance.compact();
-  } else if (cmdChat->parsed()) {
-    appInstance.chat();
-  } else if (cmdProviders->parsed()) {
-    appInstance.providers(testProvider);
-  } else if (cmdServe->parsed()) {
-    if (appInstance.auth().isDefaultPassword()) {
-      std::cout << "\n  WARNING: You are using the default admin password!\n";
-      std::cout << "This is a security risk. Please change it:\n";
-      std::cout << "  embeddings_cpp reset-password --pass <new_password>\n\n";
-      std::cout << "Continue anyway? [y/N]: ";
-
-      std::string response;
-      std::getline(std::cin, response);
-
-      if (response != "y" && response != "Y") {
-        LOG_MSG << "Server start cancelled. Please reset password first.";
-        return 1;
-      }
-    }
-    appInstance.serve(servePort, serveWatch, serveWatchInterval);
-  } else {
-    // No command specified, show help
-    std::cout << app.help() << std::endl;
-    return 1;
-  }
-
-} catch (const CLI::ParseError &e) {
-  return app.exit(e);
-} catch (const std::exception &e) {
-  LOG_MSG << "Error: " << e.what();
-  return 1;
-}
-#endif
+  } 
   return 0;
 }

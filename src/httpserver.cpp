@@ -5,7 +5,7 @@
 #include "database.h"
 #include "inference.h"
 #include "settings.h"
-#include "tokenizer.h"
+#include "instregistry.h"
 #include "auth.h"
 #include "3rdparty/base64.h"
 #include <httplib.h>
@@ -759,6 +759,27 @@ bool HttpServer::startServer(int port)
       HttpServer::Impl::requestCounter_++;
       });
 
+    server.Get("/api/instances", [this](const httplib::Request &, httplib::Response &res) {
+      try {
+        LOG_MSG << "GET /api/instances";
+        auto instances = imp->app_.registry().getActiveInstances();
+        json response = {
+            {"instances", instances},
+            {"current_instance", imp->app_.registry().getInstanceId()}
+        };
+        res.status = 200;
+        res.set_content(response.dump(2), "application/json");
+      } catch (const std::exception &e) {
+        nlohmann::json errorJson;
+        errorJson["error"] = "Failed to fetch instances";
+        errorJson["message"] = e.what();
+        res.status = 500;
+        res.set_content(errorJson.dump(2), "application/json");
+        Impl::errorCounter_++;
+      }
+      HttpServer::Impl::requestCounter_++;
+      });
+
     // Add to your HTTP server
     server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
       LOG_MSG << "GET /api/metrics";
@@ -873,6 +894,7 @@ bool HttpServer::startServer(int port)
               {"GET /api/documents", "Get documents"},
               {"GET /api/stats", "Database statistics"},
               {"GET /api/settings", "Available APIs"},
+              {"GET /api/instances", "List of running instances"},
               {"GET /api/metrics", "Service and database metrics"},
               {"GET /metrics", "Prometheus-compatible metrics"},
               {"POST /api/setup", "Setup configuration"},
@@ -901,6 +923,7 @@ bool HttpServer::startServer(int port)
     LOG_MSG << "  GET  /api";
     LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
     LOG_MSG << "  GET  /api/metrics";
+    LOG_MSG << "  GET  /api/instances - Returns currently running insances at 'serve' mode";
     LOG_MSG << "  GET  /api/setup";
     LOG_MSG << "  GET  /api/health";
     LOG_MSG << "  GET  /api/stats";

@@ -134,6 +134,7 @@
     "overlap_percentage": 0.1
   },
   "source": {
+    "project_title":"Default Project Title",
     "paths":[
       {
         "exclude": [

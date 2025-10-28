@@ -1,6 +1,7 @@
 #include "settings.h"
 #include <fstream>
 #include <stdexcept>
+#include <filesystem>
 #include <cstdlib>
 
 namespace {
@@ -115,6 +116,19 @@ std::vector<ApiConfig> Settings::generationApis() const
 {
   if (!config_.contains("generation")) return {};
   return getApiConfigList(config_["generation"]);
+}
+
+std::string Settings::getProjectTitle() const
+{
+  auto s = config_["source"].value("project_title", "");
+  if (s.empty()) {
+    auto sources = this->sources();
+    for (const auto &si : sources) {
+      s += std::filesystem::path(si.path).lexically_normal().stem().string();
+      if (12 < s.length()) break;
+    }
+  }
+  return s;
 }
 
 std::vector<Settings::SourceItem> Settings::sources() const
