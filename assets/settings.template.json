@@ -54,8 +54,8 @@
     "default_max_tokens_name": "max_tokens"
   },
   "database": {
-    "sqlite_path": "db_metadata.db",
-    "index_path": "db_embeddings.index",
+    "sqlite_path": "./db_metadata.db",
+    "index_path": "./db_embeddings.index",
     "vector_dim": 768,
     "max_elements": 100000,
     "distance_metric": "cosine",
@@ -67,11 +67,23 @@
     "nof_max_tokens": 450,
     "overlap_percentage": 0.1
   },
-  "sources": [],
-  "files": {
-    "default_extensions": [ ".cpp", ".h", ".py", ".js", ".md" ],
+  "source": {
+    "paths":[
+      {
+        "exclude": [
+          "*/dist/*",
+          "*/test/*",
+          "*/3rdparty/*"
+        ],
+        "extensions": [],
+        "path": "./src",
+        "recursive": true,
+        "type": "directory"
+      }
+    ],  
+    "default_extensions": [ ".c", ".cpp", ".h", ".hpp", ".py", ".js", ".ts", ".java", ".rs", ".cs", ".xaml", ".php", ".jsp", ".html", ".css", ".md" ],
         "global_exclude": [
-      "*/node_modules/*", "*.min.js", "*.log", 
+      "*/node_modules/*", "*.min.js", "*.log", "*/build/*",
       "*/.git/*", ".gitignore", "*/CVS/*",
       "*/debug/*", "*/release/*", "*/lib/*", "*/docker/*",
       "*/fonts/*", "*/images/*", "*/test/*","*/tests/*",
