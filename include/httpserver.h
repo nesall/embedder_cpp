@@ -12,7 +12,8 @@ class HttpServer {
 public:
   HttpServer(App &app);
   ~HttpServer();
-  bool startServer(int port);
+  int bindToPortIncremental(int port);
+  bool startServer();
   void stop();
 
 private:

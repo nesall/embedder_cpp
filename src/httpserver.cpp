@@ -48,24 +48,19 @@ namespace {
 
   bool isPortAvailable(int port) {
     WSA_STARTUP();
-
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == INVALID_SOCKET_VALUE) {
       WSA_CLEANUP();
       return false;
     }
-
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(port);
-
     // No SO_REUSEADDR — ensures exclusive bind
     bool available = (bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
-
     CLOSE_SOCKET(sock);
     WSA_CLEANUP();
-
     return available;
   }
 
@@ -252,7 +247,25 @@ HttpServer::~HttpServer()
 {
 }
 
-bool HttpServer::startServer(int port)
+int HttpServer::bindToPortIncremental(int port)
+{
+  int nofTries = 20;
+  while (!isPortAvailable(port)) {
+    if (--nofTries == 0) {
+      LOG_MSG << "Unable to reserve a port.";
+      return false;
+    }
+    port ++;
+  }
+  if (nofTries == 0)
+    port = imp->server_.bind_to_any_port("0.0.0.0");
+  else if (!imp->server_.bind_to_port("0.0.0.0", port)) {
+    port = 0; // failure.
+  }
+  return port;
+}
+
+bool HttpServer::startServer()
 {
   auto &server = imp->server_;
   auto &auth = imp->app_.auth();
@@ -909,21 +922,12 @@ bool HttpServer::startServer(int port)
       HttpServer::Impl::requestCounter_++;
       });
 
-    int nofTries = 20;
-    while (!isPortAvailable(port)) {
-      if (--nofTries == 0) {
-        LOG_MSG << "Unable to reserve a port.";
-        return false;
-      }
-      port ++;
-    }
-
-    LOG_MSG << "\nStarting HTTP API server on port " << port << "...";
+    //LOG_MSG << "\nStarting HTTP API server on port " << port << "...";
     LOG_MSG << "\nEndpoints:";
     LOG_MSG << "  GET  /api";
     LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
     LOG_MSG << "  GET  /api/metrics";
-    LOG_MSG << "  GET  /api/instances - Returns currently running insances at 'serve' mode";
+    LOG_MSG << "  GET  /api/instances - Returns currently running instances in 'serve' mode";
     LOG_MSG << "  GET  /api/setup";
     LOG_MSG << "  GET  /api/health";
     LOG_MSG << "  GET  /api/stats";
@@ -935,8 +939,7 @@ bool HttpServer::startServer(int port)
     LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";
     LOG_MSG << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}";
     LOG_MSG << "\nPress Ctrl+C to stop";
-
-    return server.listen("0.0.0.0", port);
+    return server.listen_after_bind();
 }
 
 void HttpServer::stop()

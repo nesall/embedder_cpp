@@ -53,7 +53,7 @@ struct InstanceRegistry::Impl {
   std::string registryPath_;
   std::string instanceId_;
   std::thread heartbeatThread_;
-  std::atomic<bool> running_{ false };
+  std::atomic_bool running_{ false };
 
   explicit Impl(const std::string &path)
     : registryPath_(path) {
@@ -83,16 +83,13 @@ struct InstanceRegistry::Impl {
     file << registry.dump(2);
   }
 
-  void updateHeartbeat() const {
-    std::lock_guard<std::mutex> lock(registryMutex());
-    json registry = fetchRegistry();
+  void updateHeartbeat(json &registry) const {
     for (auto &inst : registry["instances"]) {
       if (inst["id"] == instanceId_) {
         inst["last_heartbeat"] = std::time(nullptr);
         break;
       }
     }
-    saveRegistry(registry);
   }
 
   static void cleanStaleInstances(json &registry) {
@@ -151,15 +148,23 @@ struct InstanceRegistry::Impl {
     std::lock_guard<std::mutex> lock(registryMutex());
     json registry = fetchRegistry();
 
+    auto now = std::time(nullptr);
+    std::tm tm_now = *std::localtime(&now);
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y-%m-%d %H:%M:%S");
+    std::string nowStr = oss.str();
+
     json instance = {
         {"id", instanceId_},
         {"pid", getProcessId()},
         {"port", port},
         {"host", "localhost"},
         {"name", name.empty() ? detectProjectName() : name},
-        {"started_at", std::time(nullptr)},
-        {"last_heartbeat", std::time(nullptr)},
-        {"project_path", std::filesystem::current_path().string()},
+        {"started_at", now},
+        {"started_at_str", nowStr},
+        {"last_heartbeat", now},
+        {"last_heartbeat_str", nowStr},
+        {"cwd", std::filesystem::current_path().string()},
         {"status", "healthy"}
     };
 
@@ -196,7 +201,11 @@ struct InstanceRegistry::Impl {
     heartbeatThread_ = std::thread([this]() {
       while (running_) {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        if (running_) updateHeartbeat();
+        std::lock_guard<std::mutex> lock(registryMutex());
+        auto registry = fetchRegistry();
+        if (running_) updateHeartbeat(registry);
+        Impl::cleanStaleInstances(registry);
+        saveRegistry(registry);
       }
       });
   }
@@ -209,7 +218,7 @@ struct InstanceRegistry::Impl {
   std::vector<json> getActiveInstances() {
     std::lock_guard<std::mutex> lock(registryMutex());
     json registry = fetchRegistry();
-    cleanStaleInstances(registry);
+    Impl::cleanStaleInstances(registry);
     saveRegistry(registry);
     std::vector<json> active;
     auto now = std::time(nullptr);

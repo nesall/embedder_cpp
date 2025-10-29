@@ -740,13 +740,8 @@ void App::chat()
   std::cout << "Exiting chat mode." << std::endl;
 }
 
-void App::serve(int port, bool watch, int interval)
+void App::serve(int suggestedPort, bool watch, int interval)
 {
-  std::string projectName = describeProjectTitle();
-  imp->registry_ = std::make_unique<InstanceRegistry>();
-  imp->registry_->registerInstance(port, projectName);
-  imp->registry_->startHeartbeat();
-
   std::thread watchThread;
   std::thread serverThread;
 
@@ -790,9 +785,19 @@ void App::serve(int port, bool watch, int interval)
     } else {
       LOG_MSG << "  Auto-update: disabled";
     }
+    
 
-    serverThread = std::thread([this, port]() {
-      imp->httpServer_->startServer(port);
+    serverThread = std::thread([this, suggestedPort]() {
+      int newPort = imp->httpServer_->bindToPortIncremental(suggestedPort);
+      if (0 < newPort) {
+        imp->registry_ = std::make_unique<InstanceRegistry>();
+        imp->registry_->registerInstance(newPort, describeProjectTitle());
+        imp->registry_->startHeartbeat();
+        LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";
+        imp->httpServer_->startServer();
+      } else {
+        LOG_MSG << "\nHTTP server was unable to bind to ports in the range [" << suggestedPort << "to" << newPort << "]";
+      }
       });
 
     while (!SignalHandler::shouldShutdown()) {
