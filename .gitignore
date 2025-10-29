@@ -12,8 +12,8 @@ lib/
 tmp/
 temp/
 test/
-dist.zip
 dist.*
+*.zip
 *.so
 *.dll
 *.dylib
