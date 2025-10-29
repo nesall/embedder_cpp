@@ -9,6 +9,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <utility>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -25,6 +26,15 @@ namespace {
   std::mutex &registryMutex() {
     static std::mutex m;
     return m;
+  }
+
+  std::pair<time_t, std::string> curTimestamp() {
+    auto now = std::time(nullptr);
+    std::tm tm_now = *std::localtime(&now);
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y-%m-%d %H:%M:%S");
+    std::string nowStr = oss.str();
+    return { now, nowStr };
   }
 
   std::string getRegistryPath() {
@@ -86,7 +96,9 @@ struct InstanceRegistry::Impl {
   void updateHeartbeat(json &registry) const {
     for (auto &inst : registry["instances"]) {
       if (inst["id"] == instanceId_) {
-        inst["last_heartbeat"] = std::time(nullptr);
+        const auto [now, nowStr] = curTimestamp();
+        inst["last_heartbeat"] = now;
+        inst["last_heartbeat_str"] = nowStr;
         break;
       }
     }
@@ -148,12 +160,7 @@ struct InstanceRegistry::Impl {
     std::lock_guard<std::mutex> lock(registryMutex());
     json registry = fetchRegistry();
 
-    auto now = std::time(nullptr);
-    std::tm tm_now = *std::localtime(&now);
-    std::ostringstream oss;
-    oss << std::put_time(&tm_now, "%Y-%m-%d %H:%M:%S");
-    std::string nowStr = oss.str();
-
+    const auto [now, nowStr] = curTimestamp();
     json instance = {
         {"id", instanceId_},
         {"pid", getProcessId()},

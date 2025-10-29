@@ -1021,10 +1021,11 @@
       });
       if (!res.ok) {
         localStorage.removeItem("jwtToken"); // force re-login
-        console.log("saveOutput OK.", res);
+        console.log("saveOutput.", res);
         alert(`Failed to save config: ${res.statusText}`);
       } else {
         console.log("saveOutput OK.");
+        alert("Configuration Saved. Please restart the server.");
       }
     }
 

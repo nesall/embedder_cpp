@@ -1,10 +1,5 @@
 {
   "chunking": {
-    "code_boundaries": [
-      "function",
-      "class",
-      "method"
-    ],
     "nof_max_tokens": 450,
     "nof_min_tokens": 50,
     "overlap_percentage": 0.1,
