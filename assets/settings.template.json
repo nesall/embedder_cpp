@@ -115,7 +115,7 @@
     "max_full_sources": 2,
     "max_related_per_source": 3,
     "max_context_tokens": 20000,
-    "default_temperature": 0.5,
+    "default_temperature": 0.1,
     "default_max_tokens": 2048,
     "default_max_tokens_name": "max_tokens"
   },
@@ -131,7 +131,7 @@
     "semantic": true,
     "nof_min_tokens": 50,
     "nof_max_tokens": 450,
-    "overlap_percentage": 0.1
+    "overlap_percentage": 0.2
   },
   "source": {
     "project_title":"Default Project Title",

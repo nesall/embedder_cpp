@@ -24,22 +24,33 @@
         "query_format": "Represent this sentence for searching relevant passages: {}"
       },
       {
+        "api_key": "",
+        "api_url": "http://127.0.0.1:8584/embedding",
+        "id": "local-coder",
+        "model": "nomic-ai/CodeRankEmbed",
+        "name": "local coder",
+        "query_format": "Represent this query for searching relevant code: {}"
+      },
+      {
         "api_key": "${MOLSOFT_API_KEY}",
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
         "id": "remote",
-        "model": "bge-large-v1.5",
-        "name": "Remote Server"
+        "model": "bge-large-en-v1.5",
+        "name": "Remote Server",
+        "query_format": "Represent this sentence for searching relevant passages: {}"
       },
       {
         "api_key": "${MOLSOFT_API_KEY}",
         "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
         "id": "remote-coder",
-        "model": "",
-        "name": "Remote qwen-0.6B"
+        "model": "nomic-ai/CodeRankEmbed",
+        "name": "Remote coder",
+        "_document_format": "{}",
+        "query_format": "Represent this query for searching relevant code: {}"
       }
     ],
     "batch_size": 4,
-    "current_api": "local",
+    "current_api": "local-coder",
     "retry_attempts": 3,
     "timeout_ms": 30000,
     "top_k": 5

@@ -59,7 +59,7 @@ public:
   std::string describeProjectTitle() const;
 
 private:
-  void initialize(const std::string &configPath);
+  void initialize(/*const std::string &configPath*/);
   bool testSettings() const;
   static std::string runSetupWizard(AdminAuth &auth);
   static std::string findConfigFile(const std::string &filename);

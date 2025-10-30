@@ -438,7 +438,7 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
     std::istringstream iss(text);
     std::string line;
     while (std::getline(iss, line)) {
-      auto subLines = splitIntoLines(line);
+      auto subLines = splitIntoLines(line); // split into more lines if too wide
       lines.insert(lines.end(),
         std::make_move_iterator(subLines.begin()),
         std::make_move_iterator(subLines.end()));
@@ -488,6 +488,13 @@ std::vector<Chunk> Chunker::splitIntoLineChunks(const std::string &text, const s
       start = end;
     }
   }
+  return chunks;
+}
+
+std::vector<Chunk> Chunker::splitIntoSemanticChunks(const std::string &text, const std::string &docId) const
+{
+  std::vector<Chunk> chunks;
+
   return chunks;
 }
 

@@ -101,7 +101,7 @@ namespace {
         totalTokens += chunk.metadata.tokenCount;
       }
       std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
-      ec.generateEmbeddings(texts, embeddings, EmbeddingClient::EncodeType::Index);
+      ec.generateEmbeddings(texts, embeddings, EmbeddingClient::EncodeType::Document);
 
       db.addDocuments(batch, embeddings);
       std::cout << "  Processed all chunks.                     \r" << std::flush;
@@ -466,15 +466,13 @@ App::~App()
   if (imp->httpServer_) imp->httpServer_->stop();
 }
 
-void App::initialize(const std::string &configPath)
+void App::initialize(/*const std::string &configPath*/)
 {
-  imp->settings_ = std::make_unique<Settings>(configPath);
+  assert(imp->settings_);
+  //imp->settings_ = std::make_unique<Settings>(configPath);
   imp->appStartTime_ = std::chrono::system_clock::now();
 
   auto &ss = *imp->settings_;
-
-  SET_LOGGING_OUTPUT_FILE_PATH(ss.loggingLoggingFile());
-  SET_LOGGING_DIAGNOSTICS_FILE_PATH(ss.loggingDiagnosticsFile());
 
   std::string dbPath = ss.databaseSqlitePath();
   std::string indexPath = ss.databaseIndexPath();
@@ -502,13 +500,53 @@ bool App::testSettings() const
   bool ok = true;
   {
     auto api = settings().embeddingCurrentApi();
-    LOG_MSG << "Testing embedding client" << api.apiUrl;
+    LOG_MSG << "Testing embedding client" << api.model;
+    LOG_MSG << "  document format - '" << utils_log::LOGNOSPACE << api.documentFormat << "'";
+    LOG_MSG << "  query format - '" << utils_log::LOGNOSPACE << api.queryFormat << "'";
+    std::string textA0 = "int main() {}";
+    std::string textA1 = "int main() { return 0; }";
+    std::string textB0 = "double main() { return 0.0; }";
+    std::string textB1 = "float main() { reutrn 0.f; }";
+    std::string textC0 = "class Foo { void bar() { std::cout << \"hello\"; } };";
     EmbeddingClient cl{ api, settings().embeddingTimeoutMs() };
-    std::vector<float> v;
-    cl.generateEmbeddings("test!", v, EmbeddingClient::EncodeType::Query);
-    if (0 < v.size()) {
-      float l2Norm = EmbeddingClient::calculateL2Norm(v);
+    std::vector<float> vA0;
+    cl.generateEmbeddings(textA0, vA0, EmbeddingClient::EncodeType::Query);
+    if (0 < vA0.size()) {
+      float l2Norm = EmbeddingClient::calculateL2Norm(vA0);
       LOG_MSG << "  Embedding client works fine." << "[ l2norm" << l2Norm << "]";
+
+      std::vector<float> vA1, vB0, vB1, vC0;
+      cl.generateEmbeddings(textA1, vA1, EmbeddingClient::EncodeType::Query);
+      cl.generateEmbeddings(textB0, vB0, EmbeddingClient::EncodeType::Query);
+      cl.generateEmbeddings(textB1, vB1, EmbeddingClient::EncodeType::Query);
+      cl.generateEmbeddings(textC0, vC0, EmbeddingClient::EncodeType::Query);
+
+      std::vector<float> vA0_doc, vA0_query;
+      cl.generateEmbeddings(textA0, vA0_doc, EmbeddingClient::EncodeType::Document);
+      cl.generateEmbeddings(textA0, vA0_query, EmbeddingClient::EncodeType::Query);
+
+      // Calculate cosine similarities
+      auto cosine = [](const std::vector<float> &a, const std::vector<float> &b) {
+        float dot = 0.0f;
+        for (size_t i = 0; i < a.size(); ++i) dot += a[i] * b[i];
+        return dot; // Already normalized if l2norm=1
+        };
+
+      float simA0A1 = cosine(vA0, vA1); // Similar code - expect ~0.8-0.95
+      float simA0B0 = cosine(vA0, vB0); // Different return type - expect ~0.6-0.8
+      float simA0B1 = cosine(vA0, vB1); // Typo + different - expect ~0.5-0.7
+      float simB0B1 = cosine(vB0, vB1); // Similar but typo - expect ~0.7-0.9
+      float simA0C0 = cosine(vA0, vC0); // Different
+      float simSelf = cosine(vA0_doc, vA0_query); // Should be 0.7-0.9, not 1.0
+
+      LOG_MSG << "  Similarities:";
+      LOG_MSG << "    A0-A1 (similar):    " << simA0A1;
+      LOG_MSG << "    A0-B0 (different):  " << simA0B0;
+      LOG_MSG << "    A0-B1 (typo):       " << simA0B1;
+      LOG_MSG << "    B0-B1 (similar):    " << simB0B1;
+      LOG_MSG << "    A0-C0 (different):  " << simA0C0;
+      LOG_MSG << "    Doc-Query (Similar):" << simSelf;
+
     } else {
       LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";
       ok = false;
@@ -517,7 +555,7 @@ bool App::testSettings() const
 
   {
     auto api = settings().generationCurrentApi();
-    LOG_MSG << "Testing completion client" << api.apiUrl;
+    LOG_MSG << "\nTesting completion client" << api.model;
     CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
     std::vector<json> messages;
     messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
@@ -1246,7 +1284,7 @@ std::string App::findConfigFile(const std::string &filename)
 
   for (const auto &path : searchPaths) {
     if (std::filesystem::exists(path)) {
-      LOG_MSG << "Found config at:" << path;
+      //LOG_MSG << "Found config at:" << path;
       return path;
     }
   }
@@ -1313,7 +1351,6 @@ int App::handlePasswordStatus()
 int App::run(int argc, char *argv[])
 {
   SignalHandler::setup();
-  LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
 
   CLI::App app{ "Embedder RAG System" };
   app.set_version_flag("--version,-v", "1.0.0");
@@ -1384,6 +1421,19 @@ int App::run(int argc, char *argv[])
   try {
     app.parse(argc, argv);
 
+    configPath = findConfigFile(configPath);
+    std::unique_ptr<Settings> settings;
+    try {
+      settings = std::make_unique<Settings>(configPath);
+    } catch (const std::exception &ex) {
+      std::cerr << "Unable to read settings file " << configPath << "\n";
+      throw;
+    }
+    SET_LOGGING_OUTPUT_FILE_PATH(settings->loggingLoggingFile());
+    SET_LOGGING_DIAGNOSTICS_FILE_PATH(settings->loggingDiagnosticsFile());
+    LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
+    LOG_MSG << "Read settings file from" << std::filesystem::absolute(configPath);
+
     // Handle password commands first (no app initialization needed)
     if (cmdResetPass->parsed()) {
       AdminAuth auth;
@@ -1408,11 +1458,9 @@ int App::run(int argc, char *argv[])
       return handlePasswordStatus();
     }
 
-    configPath = findConfigFile(configPath);
-
-    LOG_MSG << "Reading config file" << std::filesystem::absolute(configPath);
     App appInstance;
-    appInstance.initialize(configPath);
+    appInstance.imp->settings_ = std::move(settings);
+    appInstance.initialize();
 
     if (!appInstance.testSettings()) {
       LOG_MSG << "Wrong/incomplete settings. Exiting.";
@@ -1477,6 +1525,6 @@ int App::run(int argc, char *argv[])
     LOG_MSG << "Error: " << e.what();
     LOG_MSG << "Run with --help for usage information";
     return 1;
-  } 
+  }
   return 0;
 }

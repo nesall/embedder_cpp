@@ -62,7 +62,7 @@ public:
   virtual void clear() = 0;
 
   virtual void removeFileMetadata(const std::string &path) = 0;
-  virtual bool fileExistsInMetadata(const std::string &path) = 0;
+  virtual bool fileExistsInMetadata(const std::string &path) const = 0;
 
   virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
   virtual std::unordered_map<std::string, size_t> getChunkCountsBySources() const = 0;
@@ -102,7 +102,7 @@ public:
 
   size_t deleteDocumentsBySource(const std::string &sourceId) override;
   void removeFileMetadata(const std::string &sourceId) override;
-  bool fileExistsInMetadata(const std::string &path) override;
+  bool fileExistsInMetadata(const std::string &path) const override;
 
   std::vector<FileMetadata> getTrackedFiles() const override;
   std::unordered_map<std::string, size_t> getChunkCountsBySources() const override;

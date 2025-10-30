@@ -447,7 +447,7 @@ bool HttpServer::startServer()
       size_t inserted = 0;
       for (const auto &chunk : chunks) {
         std::vector<float> embedding;
-        embeddingClient.generateEmbeddings(chunk.text, embedding, EmbeddingClient::EncodeType::Index);
+        embeddingClient.generateEmbeddings(chunk.text, embedding, EmbeddingClient::EncodeType::Document);
         imp->app_.db().addDocument(chunk, embedding);
         inserted++;
       }

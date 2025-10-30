@@ -29,7 +29,7 @@ protected:
 
 class EmbeddingClient : public InferenceClient {
 public:
-  enum class EncodeType { Index, Query };
+  enum class EncodeType { Document, Query };
   EmbeddingClient(const ApiConfig &cfg, size_t timeout);
   void generateEmbeddings(const std::vector<std::string> &texts, std::vector<std::vector<float>> &embeddingsList, EmbeddingClient::EncodeType et) const;
   void generateEmbeddings(const std::string &text, std::vector<float> &embeddings, EmbeddingClient::EncodeType et) const;

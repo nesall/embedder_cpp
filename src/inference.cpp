@@ -170,7 +170,7 @@ std::vector<std::string> EmbeddingClient::prepareContent(const std::vector<std::
   const auto &fmtDoc = imp->apiCfg_.documentFormat;
   const auto &fmtQry = imp->apiCfg_.queryFormat;
   switch (et) {
-  case EmbeddingClient::EncodeType::Index:
+  case EmbeddingClient::EncodeType::Document:
     if (!fmtDoc.empty() && fmtDoc.find("{}") != std::string::npos) {
       for (auto &t : res) {
         t = std::vformat(fmtDoc, std::make_format_args(t));

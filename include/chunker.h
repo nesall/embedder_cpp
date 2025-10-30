@@ -57,6 +57,7 @@ private:
   size_t tokenCount(const std::string &text) const;
   std::vector<Chunk> splitIntoTextChunks(std::string text, const std::string &docId) const;
   std::vector<Chunk> splitIntoLineChunks(const std::string &text, const std::string &docId) const;
+  std::vector<Chunk> splitIntoSemanticChunks(const std::string &text, const std::string &docId) const;
   std::vector<std::string> splitIntoLines(const std::string &text) const;
 
 public:
