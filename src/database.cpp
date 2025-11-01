@@ -82,6 +82,7 @@ size_t HnswSqliteVectorDatabase::addDocument(const Chunk &chunk, const std::vect
   }
   size_t chunkId = insertMetadata(chunk);
   try {
+    // TOFIX: nofLines should be of the whole file
     size_t nofLines = std::count(chunk.text.cbegin(), chunk.text.cend(), '\n');
     upsertFileMetadata(chunk.docUri, utils::getFileModificationTime(chunk.docUri), std::filesystem::file_size(chunk.docUri), nofLines);
   } catch (const std::exception &ex) {

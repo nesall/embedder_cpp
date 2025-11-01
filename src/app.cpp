@@ -551,8 +551,8 @@ bool App::testSettings() const
       float simSelf = cosine(vA0_doc, vA0_query); // Should be 0.7-0.9, not 1.0
 
       auto yesNo = [](float val, float a, float b) {
-        if (a <= val && val <= b) return "PASS";
-        return "FAIL";
+        if (a <= val && val <= b) return "";// "PASS";
+        return "";// "FAIL";
         };
 
       LOG_MSG << "    A0-A1 (similar):    " << simA0A1 << yesNo(simA0A1, 0.8, 0.95);

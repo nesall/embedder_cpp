@@ -101,7 +101,7 @@ namespace {
   size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens) {
     size_t neighbors = excerptBudget / avgChunkTokens;
     // Always include at least 3 chunks (before, match, after)
-    return std::clamp(neighbors, size_t(3), size_t(9));
+    return std::clamp(neighbors, size_t(3), size_t(15));
   }
 
   std::vector<size_t> getClosestNeighbors(const std::vector<size_t> &ids, size_t D, size_t M) {
@@ -165,8 +165,8 @@ namespace {
         }
       }
       content = stitchChunks(chunkhood); // Also removes overlaps
-      usedTokens += app.tokenizer().countTokensWithVocab(content);
     }
+    usedTokens += app.tokenizer().countTokensWithVocab(content);
     return true;
   }
 
@@ -336,6 +336,7 @@ namespace {
 
     const auto maxTokenBudget = apiConfig.contextLength;
     assert(0 < maxTokenBudget);
+    //onInfo(std::format("Context token budget:", ((maxTokenBudget % 1000) == 0) ? std::to_string(maxTokenBudget) + "k" : std::to_string(maxTokenBudget)));
     const size_t questionTokens = app.tokenizer().countTokensWithVocab(question);
     size_t usedTokens = questionTokens;
 
@@ -503,7 +504,8 @@ namespace {
     if (app.settings().generationMaxChunks() < orderedResults.size()) {
       orderedResults.resize(app.settings().generationMaxChunks());
     }
-    onInfo("Finished collecting context data");
+    //onInfo("Finished collecting context data");
+    onInfo(std::format("Context token budget used {}/{}", usedTokens, maxTokenBudget));
     return orderedResults;
   }
 

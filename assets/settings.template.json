@@ -34,6 +34,7 @@
     "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,
+    "embed_fileinfo": false,
     "top_k": 5
   },
   "generation": {
@@ -70,7 +71,8 @@
         "pricing_tpm": {
           "input": 0.1,
           "output": 0.4
-        }
+        },
+        "context_length": 100000
       },      
       {
         "api_key": "${DEEPSEEK_API_KEY}",
@@ -94,7 +96,7 @@
           "cached_input": 0.05,
           "input": 0.2,
           "output": 0.5
-        }
+        },
       },
       {
         "api_key": "${OPENAI_API_KEY}",
