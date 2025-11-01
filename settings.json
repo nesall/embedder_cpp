@@ -52,6 +52,7 @@
     "batch_size": 4,
     "current_api": "local-coder",
     "retry_attempts": 3,
+    "embed_fileinfo": false,
     "timeout_ms": 30000,
     "top_k": 5
   },
@@ -80,7 +81,8 @@
           "cached_input": 0,
           "input": 0,
           "output": 0
-        }
+        },
+        "context_length":  100000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -92,7 +94,8 @@
         "pricing_tpm": {
           "input": 0,
           "output": 0
-        }
+        },
+        "context_length": 60000
       },
       {
         "api_key": "${HF_TOKEN}",
@@ -107,6 +110,18 @@
         }
       },
       {
+        "api_key": "${HF_TOKEN}",
+        "api_url": "https://router.huggingface.co/v1/chat/completions",
+        "id": "hfgpt-oss",
+        "model": "openai/gpt-oss-120b:novita",
+        "name": "HF (openai/gpt-oss-120b)",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0.05,
+          "output": 0.25
+        }
+      },
+      {
         "api_key": "${MISTRAL_API_KEY}",
         "api_url": "https://api.mistral.ai/v1/chat/completions",
         "id": "mistral-nemo",
@@ -116,7 +131,8 @@
         "pricing_tpm": {
           "input": 0.15,
           "output": 0.15
-        }
+        },
+        "context_length": 90000
       },
       {
         "api_key": "${MISTRAL_API_KEY}",
@@ -128,7 +144,8 @@
         "pricing_tpm": {
           "input": 0.1,
           "output": 0.3
-        }
+        },
+        "context_length": 90000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -141,7 +158,8 @@
           "cached_input": 0.025,
           "input": 0.1,
           "output": 0.4
-        }
+        },
+        "context_length": 90000
       },
       {
         "api_key": "${DEEPSEEK_API_KEY}",
@@ -180,7 +198,8 @@
           "cached_input": 0.075,
           "input": 0.15,
           "output": 0.6
-        }
+        },
+        "context_length": 90000
       },
       {
         "api_key": "${CODESTRAL_API_KEY}",
@@ -192,6 +211,19 @@
         "pricing_tpm": {
           "input": 0.3,
           "output": 0.9
+        },
+        "context_length": 200000
+      },
+      {
+        "api_key": "${HF_TOKEN}",
+        "api_url": "https://router.huggingface.co/v1/chat/completions",
+        "id": "hf-minimax-m2",
+        "model": "MiniMaxAI/MiniMax-M2",
+        "name": "HF (MiniMax-M2)",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0.3,
+          "output": 1.0
         }
       },
       {
@@ -269,7 +301,7 @@
     "default_max_tokens_name": "max_tokens",
     "default_temperature": 0.5,
     "max_chunks": 7,
-    "max_context_tokens": 20000,
+    "max_context_tokens": 40000,
     "max_full_sources": 2,
     "max_related_per_source": 3,
     "timeout_ms": 120000
@@ -362,7 +394,7 @@
         "type": "directory"
       },
       {
-        "path": "../settings.json",
+        "path": "../settings.json_",
         "type": "file"
       },
       {

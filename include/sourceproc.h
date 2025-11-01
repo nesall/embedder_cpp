@@ -15,10 +15,11 @@ public:
     std::string source;
   };
 private:
-  Settings &settings_;
+  Settings settings_;
   std::set<std::string> sources_; // last parsed files/urls
 public:
-  SourceProcessor(Settings &s) : settings_(s) {}
+  SourceProcessor(const Settings &s) : settings_(s) {}
+  void setSettings(const Settings &s) { settings_ = s; }
   std::vector<SourceProcessor::Data> collectSources(bool readContent);
   SourceProcessor::Data fetchSource(const std::string &uri) const;
   std::vector<std::string> filterRelatedSources(const std::vector<std::string> &sources, const std::string &src) const;

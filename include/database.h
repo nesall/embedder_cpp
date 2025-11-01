@@ -58,7 +58,7 @@ public:
     const std::string &typeFilter = "",
     size_t top_k = 10) const = 0;
 
-  virtual size_t deleteDocumentsBySource(const std::string &source_id) = 0;
+  virtual size_t deleteDocumentsBySource(const std::string &sourceId) = 0;
   virtual void clear() = 0;
 
   virtual void removeFileMetadata(const std::string &path) = 0;
@@ -66,7 +66,9 @@ public:
 
   virtual std::vector<FileMetadata> getTrackedFiles() const = 0;
   virtual std::unordered_map<std::string, size_t> getChunkCountsBySources() const = 0;
-
+  virtual std::optional<SearchResult> getChunkData(size_t chunkId) const = 0;
+  virtual std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const = 0;
+  virtual std::vector<float> getEmbeddingVector(size_t chunkId) const = 0;
 
   virtual DatabaseStats getStats() const = 0;
   virtual void persist() = 0;
@@ -106,6 +108,7 @@ public:
 
   std::vector<FileMetadata> getTrackedFiles() const override;
   std::unordered_map<std::string, size_t> getChunkCountsBySources() const override;
+  std::vector<float> getEmbeddingVector(size_t chunkId) const override;
 
   void beginTransaction() override { executeSql("BEGIN TRANSACTION"); }
   void commit() override { executeSql("COMMIT"); }
@@ -129,7 +132,7 @@ private:
   void initializeVectorIndex();
   void executeSql(const std::string &sql);
   size_t insertMetadata(const Chunk &chunk);
-  std::optional<SearchResult> getChunkMetadata(size_t chunkId) const;
+  std::optional<SearchResult> getChunkData(size_t chunkId) const;
   std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const;
   void compactIndex();
 };

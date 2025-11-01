@@ -130,7 +130,7 @@ std::vector<SearchResult> HnswSqliteVectorDatabase::search(const std::vector<flo
       similarity = 1.0f / (1.0f + distance);
     }
 
-    auto chunkData = getChunkMetadata(label);
+    auto chunkData = getChunkData(label);
     if (chunkData.has_value()) {
       SearchResult sr = chunkData.value();
       sr.similarityScore = similarity;
@@ -290,7 +290,7 @@ size_t HnswSqliteVectorDatabase::insertMetadata(const Chunk &chunk)
   return chunkId;
 }
 
-std::optional<SearchResult> HnswSqliteVectorDatabase::getChunkMetadata(size_t chunkId) const
+std::optional<SearchResult> HnswSqliteVectorDatabase::getChunkData(size_t chunkId) const
 {
   const char *selectSql = R"(
         SELECT content, source_id, unit, type, start_pos, end_pos
@@ -401,6 +401,11 @@ std::unordered_map<std::string, size_t> HnswSqliteVectorDatabase::getChunkCounts
       counts.emplace(reinterpret_cast<const char *>(src), cnt);
   }
   return counts;
+}
+
+std::vector<float> HnswSqliteVectorDatabase::getEmbeddingVector(size_t chunkId) const
+{
+  return imp->index_->getDataByLabel<float>(chunkId);
 }
 
 

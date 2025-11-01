@@ -5,17 +5,24 @@
 #include "database.h"
 #include "inference.h"
 #include "settings.h"
+#include "tokenizer.h"
 #include "instregistry.h"
 #include "auth.h"
 #include "3rdparty/base64.h"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
+#include <hnswlib/hnswlib.h>
 #include <chrono>
 #include <cassert>
 #include <exception>
 #include <algorithm>
+#include <vector>
+#include <string>
 #include <atomic>
+#include <functional>
+#include <string_view>
+#include <format>
 
 using json = nlohmann::json;
 
@@ -45,6 +52,123 @@ using socket_t = int;
 
 
 namespace {
+
+  std::string truncateToTokens(const SimpleTokenizer &t, const std::string &s, size_t maxTokens) {
+    std::string res{ s };
+
+    auto tokens = t.countTokensWithVocab(res);
+    if (tokens <= maxTokens) return res;
+
+    Chunker chunker(t, 1, 50, 0.f);
+
+    auto chunks = chunker.chunkText(res, {}, false);
+
+    size_t end = 0;
+    size_t tokensSoFar = 0;
+    for (const auto &chunk : chunks) {
+      if (maxTokens < chunk.metadata.tokenCount + tokensSoFar) {
+        assert(chunk.metadata.unit == "char");
+        end = chunk.metadata.end;
+        break;
+      }
+      tokensSoFar += chunk.metadata.tokenCount;
+    }
+    res = res.substr(0, end);
+    return res;
+  }
+
+  size_t suffixPrefixMatch(const std::string &a, const std::string &b) {
+    size_t maxLen = std::min(a.size(), b.size());
+    for (size_t len = maxLen; len > 0; --len)
+      if (a.compare(a.size() - len, len, b, 0, len) == 0)
+        return len;
+    return 0;
+  }
+
+  std::string stitchChunks(const std::vector<std::string> &chunks) {
+    if (chunks.empty()) return {};
+    std::string result = chunks.front();
+    size_t totalEstimate = 0;
+    for (auto &c : chunks) totalEstimate += c.size();
+    result.reserve(totalEstimate);
+    for (size_t i = 1; i < chunks.size(); ++i) {
+      size_t overlap = suffixPrefixMatch(result, chunks[i]);
+      result += chunks[i].substr(overlap);
+    }
+    return result;
+  }
+
+  size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens) {
+    size_t neighbors = excerptBudget / avgChunkTokens;
+    // Always include at least 3 chunks (before, match, after)
+    return std::clamp(neighbors, size_t(3), size_t(9));
+  }
+
+  std::vector<size_t> getClosestNeighbors(const std::vector<size_t> &ids, size_t D, size_t M) {
+    if (ids.empty() || M == 0) return {};
+
+    auto it = std::lower_bound(ids.begin(), ids.end(), D);
+    size_t idx = std::distance(ids.begin(), it);
+
+    // Always include D (insert if not present)
+    bool hasD = (it != ids.end() && *it == D);
+    size_t half = M / 2;
+
+    size_t start = (idx > half) ? idx - half : 0;
+    size_t end = std::min(start + M, ids.size());
+
+    // Adjust window near the end
+    if (end - start < M && end == ids.size())
+      start = (end > M) ? end - M : 0;
+
+    std::vector<size_t> result(ids.begin() + start, ids.begin() + end);
+
+    // Insert D if not already inside the vector
+    if (!hasD) {
+      result.insert(std::lower_bound(result.begin(), result.end(), D), D);
+      if (result.size() > M) {
+        // Trim symmetrically
+        if (idx < ids.size() / 2) result.pop_back();
+        else result.erase(result.begin());
+      }
+    }
+    return result;
+  }
+
+  bool isWithinThreshold(const App &app, const std::string &content, size_t maxTokenBudget, size_t usedTokens) {
+    const auto excerptBudget = maxTokenBudget - usedTokens;
+    if (excerptBudget <= 0) return false;
+    const auto avgChunkTokens = app.settings().chunkingMaxTokens();
+    const auto tokens = app.tokenizer().countTokensWithVocab(content);
+    auto threshold = (std::max)(excerptBudget / 2, avgChunkTokens);
+    return tokens <= threshold;
+  }
+
+  bool processContent(const App &app, std::string &content, const std::string &src, size_t chunkId, size_t maxTokenBudget, size_t &usedTokens) {
+    const auto excerptBudget = maxTokenBudget - usedTokens;
+    if (excerptBudget <= 0) return false;
+    // If the source file of the best chunk is too large then we fetch an excerpt of it instead.
+    const auto avgChunkTokens = app.settings().chunkingMaxTokens();
+    if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
+      const auto ids = app.db().getChunkIdsBySource(src);
+      assert(!ids.empty());
+      if (chunkId == -1) {
+        chunkId = ids[ids.size() / 2];
+      }
+      const auto nofNb = calculateNeighborCount(static_cast<size_t>(excerptBudget * 0.7), avgChunkTokens);
+      const auto betterIds = getClosestNeighbors(ids, chunkId, nofNb);
+      std::vector<std::string> chunkhood;
+      for (auto i : betterIds) {
+        auto opt = app.db().getChunkData(i);
+        if (opt.has_value()) {
+          chunkhood.push_back(std::move(opt->content));
+        }
+      }
+      content = stitchChunks(chunkhood); // Also removes overlaps
+      usedTokens += app.tokenizer().countTokensWithVocab(content);
+    }
+    return true;
+  }
 
   bool isPortAvailable(int port) {
     WSA_STARTUP();
@@ -86,17 +210,21 @@ namespace {
   }
 
   template <class T>
-  void vecAddIfUnique(std::vector<T> &vec, const T &t) {
+  bool vecAddIfUnique(std::vector<T> &vec, const T &t) {
     if (!vecContains(vec, t)) {
       vec.push_back(t);
+      return true;
     }
+    return false;
   }
 
   template <class T>
-  void vecAddIfUnique(std::vector<T> &vec, const std::vector<T> &t) {
+  bool vecAddIfUnique(std::vector<T> &vec, const std::vector<T> &t) {
+    bool a = false;
     for (const auto &item : t) {
-      vecAddIfUnique(vec, item);
+      if (vecAddIfUnique(vec, item)) a = true;
     }
+    return a;
   }
 
   void addToSearchResult(std::vector<SearchResult> &v, const std::string &src, const std::string &content) {
@@ -189,6 +317,196 @@ namespace {
     if (jwtToken) *jwtToken = jwt;
     return true;
   }
+
+  std::vector<SearchResult> processInputResults(
+    const App &app, 
+    const ApiConfig &apiConfig,
+    const std::string &question, 
+    std::vector<Attachment> attachments, 
+    std::vector<std::string> sources,
+    std::function<void(std::string_view)> onInfo
+  ) {
+    assert(onInfo);
+    // Preferred order
+    std::vector<SearchResult> attachmentResults;
+    std::vector<SearchResult> fullSourceResults;
+    std::vector<SearchResult> relatedSrcResults;
+    std::vector<SearchResult> filteredChunkResults;
+    std::vector<SearchResult> orderedResults; // Final ordered results
+
+    const auto maxTokenBudget = apiConfig.contextLength;
+    assert(0 < maxTokenBudget);
+    const size_t questionTokens = app.tokenizer().countTokensWithVocab(question);
+    size_t usedTokens = questionTokens;
+
+    LOG_MSG << "Total context budget:" << maxTokenBudget;
+
+    LOG_MSG << "Budget used for question:" << questionTokens;
+
+    {
+      if (!attachments.empty()) {
+        onInfo("Processing attachment(s)");
+      }
+      const auto maxAttBudget = static_cast<size_t>(maxTokenBudget * 0.8);
+      for (size_t j = 0; j < attachments.size(); j ++) {
+        const auto &att{ attachments[j] };
+        auto content{ att.content };
+        size_t tokens = app.tokenizer().countTokensWithVocab(content);
+        if (tokens < maxAttBudget * 0.2 && usedTokens + tokens < maxAttBudget) {
+          usedTokens += tokens;
+          onInfo(std::format("Adding attachment {}", att.filename));
+          addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, std::move(content));
+          attachments.erase(attachments.begin() + j);
+          j --;
+        }
+      }
+      for (const auto &att : attachments) {
+        if (maxAttBudget <= usedTokens) break;
+        onInfo(std::format("Adding attachment {}", att.filename));
+        auto content{ att.content };
+        size_t tokens = app.tokenizer().countTokensWithVocab(content);
+        if (usedTokens + tokens < maxAttBudget) {
+          usedTokens += tokens;
+        } else {
+          auto m = content.length();
+          content = truncateToTokens(app.tokenizer(), content, maxAttBudget - usedTokens);
+          usedTokens = maxAttBudget;
+          auto percent = int((content.length() / double(m)) * 100);
+          auto info = std::format("Warning: Attachment too large, truncated to {}% of {}", percent, att.filename);
+          LOG_MSG << info;
+          onInfo(std::format("{} truncated to {}% ", att.filename, percent));
+        }
+        addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, std::move(content));
+      }
+    }
+
+    LOG_MSG << "Budget used for attachments:" << usedTokens - questionTokens;
+
+    std::vector<std::vector<float>> questionEmbeddingVectors;
+    EmbeddingClient embeddingClient(app.settings().embeddingCurrentApi(), app.settings().embeddingTimeoutMs());
+    std::unordered_map<std::string, float> sourcesRank;
+    const auto questionChunks = app.chunker().chunkText(question, "", false);
+    for (const auto &qc : questionChunks) {
+      std::vector<float> embedding;
+      embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
+      questionEmbeddingVectors.push_back(embedding);
+      auto res = app.db().search(embedding, app.settings().embeddingTopK());
+      filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
+      for (const auto &r : res) {
+        sourcesRank[r.sourceId] += r.similarityScore;
+      }
+    }
+
+    std::sort(filteredChunkResults.begin(), filteredChunkResults.end(), [&sourcesRank](const SearchResult &a, const SearchResult &b) {
+      return sourcesRank[a.sourceId] > sourcesRank[b.sourceId];
+      });
+
+    std::unordered_map<std::string, SearchResult> sourceToChunk;
+    const auto maxFullSources = app.settings().generationMaxFullSources();
+    for (const auto &r : filteredChunkResults) {
+      if (maxFullSources <= sources.size()) break;
+      if (vecAddIfUnique(sources, r.sourceId)) {}
+      sourceToChunk[r.sourceId] = r;
+    }
+
+    const auto trackedFiles = app.db().getTrackedFiles();
+    std::vector<std::string> trackedSources;
+    for (const auto &tf : trackedFiles) {
+      trackedSources.push_back(tf.path);
+    }
+
+    std::vector<std::string> allFullSources{ sources };
+    std::vector<std::string> relSources;
+    for (const auto &src : sources) {
+      auto relations = app.sourceProcessor().filterRelatedSources(trackedSources, src);
+      vecAddIfUnique(relSources, relations);
+      vecAddIfUnique(allFullSources, relations);
+    }
+
+    for (const auto &rel : relSources) {
+      onInfo(std::format("Adding related file {}", std::filesystem::path(rel).filename().string()));
+    }
+
+    for (const auto &src : sources) {
+      // src is either a user-set context file, or a chunk's base file (sourceToChunk).
+      auto content = app.sourceProcessor().fetchSource(src).content;
+      if (maxTokenBudget <= usedTokens) break;
+      if (sourceToChunk.contains(src)) {
+        if (!processContent(app, content, src, sourceToChunk[src].chunkId, maxTokenBudget, usedTokens)) {
+          break;
+        }
+      } else {
+        if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
+          auto info = std::format("Processing large file {}", std::filesystem::path(src).filename().string());
+          onInfo(info);
+          auto ids = app.db().getChunkIdsBySource(src);
+          if (!ids.empty()) {
+            const auto remaining = maxTokenBudget - usedTokens;
+            const auto avgChunkTokens = app.settings().chunkingMaxTokens();
+            const auto nofMaxChunks = remaining / avgChunkTokens;
+            hnswlib::InnerProductSpace space{ app.settings().databaseVectorDim() };
+            hnswlib::HierarchicalNSW<float> hnswDB(&space, 1000, 16, 200, 42, true);
+            ids.reserve(999);
+            std::unordered_map<size_t, std::string> idToContent;
+            for (auto id : ids) {
+              if (auto opt = app.db().getChunkData(id)) {
+                auto vec = app.db().getEmbeddingVector(id);
+                hnswDB.addPoint(vec.data(), id);
+                idToContent[id] = std::move(opt->content);
+              }
+            }
+            content.clear();
+            const auto topK = static_cast<size_t>(nofMaxChunks * 0.8);
+            if (0 < topK) {
+              content.reserve(questionEmbeddingVectors.size() * topK);
+              int nofFetched = 0;
+              for (const auto &v : questionEmbeddingVectors) {
+                auto result = hnswDB.searchKnn(v.data(), topK);
+                nofFetched = result.size();
+                std::vector<SearchResult> searchResults;
+                while (!result.empty()) {
+                  const auto [distance, label] = result.top();
+                  result.pop();
+                  float similarity = 1.0f - distance; // Higher = more similar
+                  auto chunk = idToContent[label];
+                  content += chunk;
+                }
+              }
+              onInfo(std::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
+              usedTokens += app.tokenizer().countTokensWithVocab(content);
+            }
+          }
+        }
+      }
+      if (!content.empty()) {
+        addToSearchResult(fullSourceResults, src, std::move(content));
+      }
+    }
+
+    for (const auto &rel : relSources) {
+      auto content = app.sourceProcessor().fetchSource(rel).content;
+      if (processContent(app, content, rel, -1, maxTokenBudget, usedTokens)) {
+        addToSearchResult(relatedSrcResults, rel, std::move(content));
+      }
+    }
+
+    filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
+      [&allFullSources](const SearchResult &r) {
+        return vecContains(allFullSources, r.sourceId) && r.chunkId != std::string::npos;
+      }), filteredChunkResults.end());
+
+    // Assemble final ordered results
+    orderedResults.insert(orderedResults.end(), attachmentResults.begin(), attachmentResults.end());
+    orderedResults.insert(orderedResults.end(), fullSourceResults.begin(), fullSourceResults.end());
+    orderedResults.insert(orderedResults.end(), relatedSrcResults.begin(), relatedSrcResults.end());
+    orderedResults.insert(orderedResults.end(), filteredChunkResults.begin(), filteredChunkResults.end());
+    if (app.settings().generationMaxChunks() < orderedResults.size()) {
+      orderedResults.resize(app.settings().generationMaxChunks());
+    }
+    onInfo("Finished collecting context data");
+    return orderedResults;
+  }
+
 } // anonymous namespace
 
 
@@ -230,17 +548,17 @@ std::atomic<double> HttpServer::Impl::avgEmbedTimeMs_{ 0.0 };
 HttpServer::HttpServer(App &a)
   : imp(new Impl(a))
 {
-  //imp->server_.new_task_queue = [] { return new httplib::ThreadPool(4); };
+  imp->server_.new_task_queue = [] { return new httplib::ThreadPool(4); };
 
-  //imp->server_.set_error_logger([](const httplib::Error &err, const httplib::Request *req) {
-  //  std::cerr << httplib::to_string(err) << " while processing request";
-  //  if (req) {
-  //    std::cerr << ", client: " << req->get_header_value("X-Forwarded-For")
-  //      << ", request: '" << req->method << " " << req->path << " " << req->version << "'"
-  //      << ", host: " << req->get_header_value("Host");
-  //  }
-  //  std::cerr << std::endl;
-  //  });
+  imp->server_.set_error_logger([](const httplib::Error &err, const httplib::Request *req) {
+    std::cerr << httplib::to_string(err) << " while processing request";
+    if (req) {
+      std::cerr << ", client: " << req->get_header_value("X-Forwarded-For")
+        << ", request: '" << req->method << " " << req->path << " " << req->version << "'"
+        << ", host: " << req->get_header_value("Host");
+    }
+    std::cerr << std::endl;
+    });
 }
 
 HttpServer::~HttpServer()
@@ -265,7 +583,7 @@ int HttpServer::bindToPortIncremental(int port)
   return port;
 }
 
-bool HttpServer::startServer()
+bool HttpServer::startServer() 
 {
   auto &server = imp->server_;
   auto &auth = imp->app_.auth();
@@ -295,7 +613,7 @@ bool HttpServer::startServer()
     LOG_MSG << "POST /api/authenticate";
     std::string jwt;
     if (!requireAuth(auth, req, res, &jwt)) return; // Validate password
-    json response = { 
+    json response = {
       {"status", "OK"},
       {"token", jwt}
     };
@@ -495,10 +813,6 @@ bool HttpServer::startServer()
     try {
       LOG_MSG << "GET /api/stats";
       auto stats = imp->app_.db().getStats();
-      json sources_obj = json::object();
-      //for (const auto &[source, count] : stats.sources) {
-      //  sources_obj[source] = count;
-      //}
       json response = {
           {"total_chunks", stats.totalChunks},
           {"vector_count", stats.vectorCount},
@@ -550,7 +864,7 @@ bool HttpServer::startServer()
         "temperature": 0.2,
         "max_tokens": 800,
         "targetapi": "xai"
-      }  
+      }
       */
       json request = json::parse(req.body);
       if (!request.contains("messages") || !request["messages"].is_array() || request["messages"].empty()) {
@@ -568,23 +882,10 @@ bool HttpServer::startServer()
       if (role != "user") {
         throw std::invalid_argument("Last message role must be 'user', got: " + role);
       }
-      const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
-      const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
       std::string question = messagesJson.back()["content"].get<std::string>();
 
       auto attachmentsJson = request["attachments"];
       auto attachments = parseAttachments(attachmentsJson);
-
-      // Preferred order
-      std::vector<SearchResult> attachmentResults;
-      std::vector<SearchResult> fullSourceResults;
-      std::vector<SearchResult> relatedSrcResults;
-      std::vector<SearchResult> filteredChunkResults;
-      std::vector<SearchResult> orderedResults; // Final ordered results
-
-      for (const auto &att : attachments) {
-        addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, att.content);
-      }
 
       std::vector<std::string> sources;
       if (request.contains("sourceids")) {
@@ -596,74 +897,20 @@ bool HttpServer::startServer()
         }
       }
 
-      EmbeddingClient embeddingClient(imp->app_.settings().embeddingCurrentApi(), imp->app_.settings().embeddingTimeoutMs());
-      std::unordered_map<std::string, float> sourcesRank;
-      const auto questionChunks = imp->app_.chunker().chunkText(question, "", false);
-      for (const auto &qc : questionChunks) {
-        std::vector<float> embedding;
-        embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
-        auto res = imp->app_.db().search(embedding, imp->app_.settings().embeddingTopK());
-        filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
-        for (const auto &r : res) {
-          sourcesRank[r.sourceId] += r.similarityScore;
-        }
-      }
-
-      std::sort(filteredChunkResults.begin(), filteredChunkResults.end(), [&sourcesRank](const SearchResult &a, const SearchResult &b) {
-        return sourcesRank[a.sourceId] > sourcesRank[b.sourceId];
-        });
-
-      const auto maxFullSources = imp->app_.settings().generationMaxFullSources();
-      for (const auto r : filteredChunkResults) {
-        vecAddIfUnique(sources, r.sourceId);
-        if (sources.size() == maxFullSources) break;
-      }
-
-      const auto trackedFiles = imp->app_.db().getTrackedFiles();
-      std::vector<std::string> trackedSources;
-      for (const auto &tf : trackedFiles) {
-        trackedSources.push_back(tf.path);
-      }
-
-      std::vector<std::string> allFullSources{ sources };
-      std::vector<std::string> relSources;
-      for (const auto &src : sources) {
-        auto relations = imp->app_.sourceProcessor().filterRelatedSources(trackedSources, src);
-        vecAddIfUnique(relSources, relations);
-        vecAddIfUnique(allFullSources, relations);
-      }
-
-      for (const auto &src : sources) {
-        addToSearchResult(fullSourceResults, src, imp->app_.sourceProcessor().fetchSource(src).content);
-      }
-      for (const auto &rel : relSources) {
-        addToSearchResult(relatedSrcResults, rel, imp->app_.sourceProcessor().fetchSource(rel).content);
-      }
-
-      filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
-        [&allFullSources](const SearchResult &r) {
-          //return allFullSources.find(r.sourceId) != allFullSources.end() && r.chunkId != std::string::npos;
-          return vecContains(allFullSources, r.sourceId) && r.chunkId != std::string::npos;
-        }), filteredChunkResults.end());
-
-      // Assemble final ordered results
-      orderedResults.insert(orderedResults.end(), attachmentResults.begin(), attachmentResults.end());
-      orderedResults.insert(orderedResults.end(), fullSourceResults.begin(), fullSourceResults.end());
-      orderedResults.insert(orderedResults.end(), relatedSrcResults.begin(), relatedSrcResults.end());
-      orderedResults.insert(orderedResults.end(), filteredChunkResults.begin(), filteredChunkResults.end());
-      if (imp->app_.settings().generationMaxChunks() < orderedResults.size()) {
-        orderedResults.resize(imp->app_.settings().generationMaxChunks());
-      }
-
       ApiConfig apiConfig = imp->app_.settings().generationCurrentApi();
       if (request.contains("targetapi")) {
         std::string targetApi = request["targetapi"];
-        auto apis = imp->app_.settings().generationApis();
-        auto it = std::find_if(apis.begin(), apis.end(), [&targetApi](const ApiConfig &a) { return a.id == targetApi; });
-        if (it != apis.end()) {
-          apiConfig = *it;
+        if (targetApi != apiConfig.id) {
+          auto apis = imp->app_.settings().generationApis();
+          auto it = std::find_if(apis.begin(), apis.end(), [&targetApi](const ApiConfig &a) { return a.id == targetApi; });
+          if (it != apis.end()) {
+            apiConfig = *it;
+          }
         }
       }
+
+      const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
+      const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
 
       res.set_header("Content-Type", "text/event-stream");
       res.set_header("Cache-Control", "no-cache");
@@ -671,19 +918,34 @@ bool HttpServer::startServer()
 
       res.set_chunked_content_provider(
         "text/event-stream",
-        [this, messagesJson, orderedResults, temperature, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
-          //LOG_MSG << "set_chunked_content_provider: in callback ...";
+        [this, messagesJson, question, temperature, attachments, sources, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
+
+          auto packPayload = [](std::string data) {
+            // SSE format requires "data: <payload>\n\n"
+            nlohmann::json payload = { {"content", std::move(data)} };
+            return "data: " + payload.dump() + "\n\n";
+            };
+
+          auto initialInfo = packPayload("[meta]Searching for relevant content");
+          sink.write(initialInfo.data(), initialInfo.size());
+
+          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources,
+            [packPayload, &sink](std::string_view info)
+            {
+              auto s = packPayload(std::string{ "[meta]" } + std::string{ info.data(), info.size() });
+              sink.write(s.data(), s.size());
+            }
+          );
+
           CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
             std::string context = completionClient.generateCompletion(
               messagesJson, orderedResults, temperature, maxTokens,
-              [&sink](const std::string &chunk) {
+              [&sink, packPayload](const std::string &chunk) {
 #ifdef _DEBUG2
                 LOG_MSG << chunk;
 #endif
-                // SSE format requires "data: <payload>\n\n"
-                nlohmann::json payload = { {"content", chunk} };
-                std::string sse = "data: " + payload.dump() + "\n\n";
+                std::string sse = packPayload(chunk);
                 bool success = sink.write(sse.data(), sse.size());
                 if (!success) {
                   return; // Client disconnected
@@ -729,217 +991,217 @@ bool HttpServer::startServer()
         }
       );
 
-      } catch (const std::exception &e) {
-        json error = { {"error", e.what()} };
-        res.status = 400;
-        res.set_content(error.dump(), "application/json");
-        Impl::errorCounter_++;
-      }
-      Impl::requestCounter_++;
-      Impl::chatCounter_++;
-      recordDuration(start, Impl::avgChatTimeMs_);
+    } catch (const std::exception &e) {
+      json error = { {"error", e.what()} };
+      res.status = 400;
+      res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
+    }
+    Impl::requestCounter_++;
+    Impl::chatCounter_++;
+    recordDuration(start, Impl::avgChatTimeMs_);
     });
 
-    server.Get("/api/settings", [this](const httplib::Request &, httplib::Response &res) {
-      try {
-        LOG_MSG << "GET /api/settings";
-        nlohmann::json apisJson;
-        const auto &cur = imp->app_.settings().generationCurrentApi();
-        const auto &apis = imp->app_.settings().generationApis();
-        for (const auto &api : apis) {
-          nlohmann::json apiObj;
-          apiObj["id"] = api.id;
-          apiObj["name"] = api.name;
-          apiObj["url"] = api.apiUrl;
-          apiObj["model"] = api.model;
-          apiObj["current"] = (api.id == cur.id);
-          apiObj["combinedPrice"] = api.combinedPrice();
-          apisJson.push_back(apiObj);
-        }
-        nlohmann::json responseJson;
-        responseJson["completionApis"] = apisJson;
-        responseJson["currentApi"] = cur.id;
-        res.status = 200;
-        res.set_content(responseJson.dump(2), "application/json");
-      } catch (const std::exception &e) {
-        nlohmann::json errorJson;
-        errorJson["error"] = "Failed to load settings";
-        errorJson["message"] = e.what();
-        res.status = 500;
-        res.set_content(errorJson.dump(2), "application/json");
-        Impl::errorCounter_++;
+  server.Get("/api/settings", [this](const httplib::Request &, httplib::Response &res) {
+    try {
+      LOG_MSG << "GET /api/settings";
+      nlohmann::json apisJson;
+      const auto &cur = imp->app_.settings().generationCurrentApi();
+      const auto &apis = imp->app_.settings().generationApis();
+      for (const auto &api : apis) {
+        nlohmann::json apiObj;
+        apiObj["id"] = api.id;
+        apiObj["name"] = api.name;
+        apiObj["url"] = api.apiUrl;
+        apiObj["model"] = api.model;
+        apiObj["current"] = (api.id == cur.id);
+        apiObj["combinedPrice"] = api.combinedPrice();
+        apisJson.push_back(apiObj);
       }
-      HttpServer::Impl::requestCounter_++;
-      });
+      nlohmann::json responseJson;
+      responseJson["completionApis"] = apisJson;
+      responseJson["currentApi"] = cur.id;
+      res.status = 200;
+      res.set_content(responseJson.dump(2), "application/json");
+    } catch (const std::exception &e) {
+      nlohmann::json errorJson;
+      errorJson["error"] = "Failed to load settings";
+      errorJson["message"] = e.what();
+      res.status = 500;
+      res.set_content(errorJson.dump(2), "application/json");
+      Impl::errorCounter_++;
+    }
+    HttpServer::Impl::requestCounter_++;
+    });
 
-    server.Get("/api/instances", [this](const httplib::Request &, httplib::Response &res) {
-      try {
-        LOG_MSG << "GET /api/instances";
-        auto instances = imp->app_.registry().getActiveInstances();
-        json response = {
-            {"instances", instances},
-            {"current_instance", imp->app_.registry().getInstanceId()}
-        };
-        res.status = 200;
-        res.set_content(response.dump(2), "application/json");
-      } catch (const std::exception &e) {
-        nlohmann::json errorJson;
-        errorJson["error"] = "Failed to fetch instances";
-        errorJson["message"] = e.what();
-        res.status = 500;
-        res.set_content(errorJson.dump(2), "application/json");
-        Impl::errorCounter_++;
-      }
-      HttpServer::Impl::requestCounter_++;
-      });
-
-    // Add to your HTTP server
-    server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
-      LOG_MSG << "GET /api/metrics";
-
-      auto &app = imp->app_;
-      auto stats = app.db().getStats();
-
-      json metrics = {
-          {"service", {
-              {"version", "1.0.0"},
-              {"uptime_seconds", app.uptimeSeconds()},
-              {"started_at", app.startTimestamp()}
-          }},
-          {"database", {
-              {"total_chunks", stats.totalChunks},
-              {"vector_count", stats.vectorCount},
-              {"deleted_count", stats.deletedCount},
-              {"active_count", stats.activeCount},
-              {"db_size_mb", app.dbSizeMB()},
-              {"index_size_mb", app.indSizeMB()}
-          }},
-          {"requests", {
-              {"total", Impl::requestCounter_.load()},
-              {"search", Impl::searchCounter_.load()},
-              {"chat", Impl::chatCounter_.load()},
-              {"embed", Impl::embedCounter_.load()},
-              {"errors", Impl::errorCounter_.load()}
-          }},
-          {"performance", {
-              {"avg_search_ms", Impl::avgSearchTimeMs_.load()},
-              {"avg_embedding_ms", Impl::avgEmbedTimeMs_.load()},
-              {"avg_chat_ms", Impl::avgChatTimeMs_.load()}
-          }},
-          {"system", {
-              {"last_update", app.lastUpdateTimestamp()},
-              {"sources_indexed", stats.sources.size()}
-          }}
+  server.Get("/api/instances", [this](const httplib::Request &, httplib::Response &res) {
+    try {
+      LOG_MSG << "GET /api/instances";
+      auto instances = imp->app_.registry().getActiveInstances();
+      json response = {
+          {"instances", instances},
+          {"current_instance", imp->app_.registry().getInstanceId()}
       };
-      res.set_content(metrics.dump(2), "application/json");
-      Impl::requestCounter_++;
-      });
+      res.status = 200;
+      res.set_content(response.dump(2), "application/json");
+    } catch (const std::exception &e) {
+      nlohmann::json errorJson;
+      errorJson["error"] = "Failed to fetch instances";
+      errorJson["message"] = e.what();
+      res.status = 500;
+      res.set_content(errorJson.dump(2), "application/json");
+      Impl::errorCounter_++;
+    }
+    HttpServer::Impl::requestCounter_++;
+    });
 
-    server.Get("/metrics", [this](const httplib::Request &, httplib::Response &res) {
-      LOG_MSG << "GET /metrics";
+  // Add to your HTTP server
+  server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
+    LOG_MSG << "GET /api/metrics";
 
-      std::stringstream prometheus;
+    auto &app = imp->app_;
+    auto stats = app.db().getStats();
 
-      // Request counters
-      prometheus << "# HELP embedder_requests_total Total requests\n";
-      prometheus << "# TYPE embedder_requests_total counter\n";
-      prometheus << "embedder_requests_total " << Impl::requestCounter_ << "\n\n";
+    json metrics = {
+        {"service", {
+            {"version", "1.0.0"},
+            {"uptime_seconds", app.uptimeSeconds()},
+            {"started_at", app.startTimestamp()}
+        }},
+        {"database", {
+            {"total_chunks", stats.totalChunks},
+            {"vector_count", stats.vectorCount},
+            {"deleted_count", stats.deletedCount},
+            {"active_count", stats.activeCount},
+            {"db_size_mb", app.dbSizeMB()},
+            {"index_size_mb", app.indSizeMB()}
+        }},
+        {"requests", {
+            {"total", Impl::requestCounter_.load()},
+            {"search", Impl::searchCounter_.load()},
+            {"chat", Impl::chatCounter_.load()},
+            {"embed", Impl::embedCounter_.load()},
+            {"errors", Impl::errorCounter_.load()}
+        }},
+        {"performance", {
+            {"avg_search_ms", Impl::avgSearchTimeMs_.load()},
+            {"avg_embedding_ms", Impl::avgEmbedTimeMs_.load()},
+            {"avg_chat_ms", Impl::avgChatTimeMs_.load()}
+        }},
+        {"system", {
+            {"last_update", app.lastUpdateTimestamp()},
+            {"sources_indexed", stats.sources.size()}
+        }}
+    };
+    res.set_content(metrics.dump(2), "application/json");
+    Impl::requestCounter_++;
+    });
 
-      prometheus << "# HELP embedder_search_requests_total Total search requests\n";
-      prometheus << "# TYPE embedder_search_requests_total counter\n";
-      prometheus << "embedder_search_requests_total " << Impl::searchCounter_ << "\n\n";
+  server.Get("/metrics", [this](const httplib::Request &, httplib::Response &res) {
+    LOG_MSG << "GET /metrics";
 
-      prometheus << "# HELP embedder_chat_requests_total Total chat requests\n";
-      prometheus << "# TYPE embedder_chat_requests_total counter\n";
-      prometheus << "embedder_chat_requests_total " << Impl::chatCounter_ << "\n\n";
+    std::stringstream prometheus;
 
-      prometheus << "# HELP embedder_embed_requests_total Total embedding requests\n";
-      prometheus << "# TYPE embedder_embed_requests_total counter\n";
-      prometheus << "embedder_embed_requests_total " << Impl::embedCounter_ << "\n\n";
+    // Request counters
+    prometheus << "# HELP embedder_requests_total Total requests\n";
+    prometheus << "# TYPE embedder_requests_total counter\n";
+    prometheus << "embedder_requests_total " << Impl::requestCounter_ << "\n\n";
 
-      prometheus << "# HELP embedder_error_requests_total Total error requests\n";
-      prometheus << "# TYPE embedder_error_requests_total counter\n";
-      prometheus << "embedder_error_requests_total " << Impl::errorCounter_ << "\n\n";
+    prometheus << "# HELP embedder_search_requests_total Total search requests\n";
+    prometheus << "# TYPE embedder_search_requests_total counter\n";
+    prometheus << "embedder_search_requests_total " << Impl::searchCounter_ << "\n\n";
 
-      // Performance metrics (moving averages)
-      prometheus << "# HELP embedder_avg_search_time_ms Average search time in milliseconds\n";
-      prometheus << "# TYPE embedder_avg_search_time_ms gauge\n";
-      prometheus << "embedder_avg_search_time_ms " << Impl::avgSearchTimeMs_.load() << "\n\n";
+    prometheus << "# HELP embedder_chat_requests_total Total chat requests\n";
+    prometheus << "# TYPE embedder_chat_requests_total counter\n";
+    prometheus << "embedder_chat_requests_total " << Impl::chatCounter_ << "\n\n";
 
-      prometheus << "# HELP embedder_avg_chat_time_ms Average chat time in milliseconds\n";
-      prometheus << "# TYPE embedder_avg_chat_time_ms gauge\n";
-      prometheus << "embedder_avg_chat_time_ms " << Impl::avgChatTimeMs_.load() << "\n\n";
+    prometheus << "# HELP embedder_embed_requests_total Total embedding requests\n";
+    prometheus << "# TYPE embedder_embed_requests_total counter\n";
+    prometheus << "embedder_embed_requests_total " << Impl::embedCounter_ << "\n\n";
 
-      prometheus << "# HELP embedder_avg_embed_time_ms Average embedding time in milliseconds\n";
-      prometheus << "# TYPE embedder_avg_embed_time_ms gauge\n";
-      prometheus << "embedder_avg_embed_time_ms " << Impl::avgEmbedTimeMs_.load() << "\n\n";
+    prometheus << "# HELP embedder_error_requests_total Total error requests\n";
+    prometheus << "# TYPE embedder_error_requests_total counter\n";
+    prometheus << "embedder_error_requests_total " << Impl::errorCounter_ << "\n\n";
 
-      // Database metrics
-      try {
-        auto stats = imp->app_.db().getStats();
-        prometheus << "# HELP embedder_database_chunks_total Total chunks in database\n";
-        prometheus << "# TYPE embedder_database_chunks_total gauge\n";
-        prometheus << "embedder_database_chunks_total " << stats.totalChunks << "\n\n";
+    // Performance metrics (moving averages)
+    prometheus << "# HELP embedder_avg_search_time_ms Average search time in milliseconds\n";
+    prometheus << "# TYPE embedder_avg_search_time_ms gauge\n";
+    prometheus << "embedder_avg_search_time_ms " << Impl::avgSearchTimeMs_.load() << "\n\n";
 
-        prometheus << "# HELP embedder_database_vectors_total Total vectors in database\n";
-        prometheus << "# TYPE embedder_database_vectors_total gauge\n";
-        prometheus << "embedder_database_vectors_total " << stats.vectorCount << "\n\n";
+    prometheus << "# HELP embedder_avg_chat_time_ms Average chat time in milliseconds\n";
+    prometheus << "# TYPE embedder_avg_chat_time_ms gauge\n";
+    prometheus << "embedder_avg_chat_time_ms " << Impl::avgChatTimeMs_.load() << "\n\n";
 
-        prometheus << "# HELP embedder_database_sources_total Total sources in database\n";
-        prometheus << "# TYPE embedder_database_sources_total gauge\n";
-        prometheus << "embedder_database_sources_total " << stats.sources.size() << "\n\n";
-      } catch (const std::exception &e) {
-        prometheus << "# Database metrics unavailable: " << e.what() << "\n\n";
-      }
+    prometheus << "# HELP embedder_avg_embed_time_ms Average embedding time in milliseconds\n";
+    prometheus << "# TYPE embedder_avg_embed_time_ms gauge\n";
+    prometheus << "embedder_avg_embed_time_ms " << Impl::avgEmbedTimeMs_.load() << "\n\n";
 
-      res.set_content(prometheus.str(), "text/plain");
-      Impl::requestCounter_++;
-      });
+    // Database metrics
+    try {
+      auto stats = imp->app_.db().getStats();
+      prometheus << "# HELP embedder_database_chunks_total Total chunks in database\n";
+      prometheus << "# TYPE embedder_database_chunks_total gauge\n";
+      prometheus << "embedder_database_chunks_total " << stats.totalChunks << "\n\n";
 
-    server.Get("/api", [](const httplib::Request &, httplib::Response &res) {
-      LOG_MSG << "GET /api";
-      json info = {
-          {"name", "Embeddings RAG API"},
-          {"version", "1.0.0"},
-          {"endpoints", {
-              {"GET /api/setup", "Fetch setup configuration"},
-              {"GET /api/health", "Health check"},
-              {"GET /api/documents", "Get documents"},
-              {"GET /api/stats", "Database statistics"},
-              {"GET /api/settings", "Available APIs"},
-              {"GET /api/instances", "List of running instances"},
-              {"GET /api/metrics", "Service and database metrics"},
-              {"GET /metrics", "Prometheus-compatible metrics"},
-              {"POST /api/setup", "Setup configuration"},
-              {"POST /api/search", "Semantic search"},
-              {"POST /api/chat", "Chat with context (streaming)"},
-              {"POST /api/embed", "Generate embeddings"},
-              {"POST /api/documents", "Add documents"},
-              {"POST /api/update", "Trigger manual update"},
-          }}
-      };
-      res.set_content(info.dump(2), "application/json");
-      HttpServer::Impl::requestCounter_++;
-      });
+      prometheus << "# HELP embedder_database_vectors_total Total vectors in database\n";
+      prometheus << "# TYPE embedder_database_vectors_total gauge\n";
+      prometheus << "embedder_database_vectors_total " << stats.vectorCount << "\n\n";
 
-    //LOG_MSG << "\nStarting HTTP API server on port " << port << "...";
-    LOG_MSG << "\nEndpoints:";
-    LOG_MSG << "  GET  /api";
-    LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
-    LOG_MSG << "  GET  /api/metrics";
-    LOG_MSG << "  GET  /api/instances - Returns currently running instances in 'serve' mode";
-    LOG_MSG << "  GET  /api/setup";
-    LOG_MSG << "  GET  /api/health";
-    LOG_MSG << "  GET  /api/stats";
-    LOG_MSG << "  GET  /api/settings";
-    LOG_MSG << "  GET  /api/documents";
-    LOG_MSG << "  POST /api/setup     - {\"...\"}";
-    LOG_MSG << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}";
-    LOG_MSG << "  POST /api/embed     - {\"text\": \"...\"}";
-    LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";
-    LOG_MSG << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}";
-    LOG_MSG << "\nPress Ctrl+C to stop";
-    return server.listen_after_bind();
+      prometheus << "# HELP embedder_database_sources_total Total sources in database\n";
+      prometheus << "# TYPE embedder_database_sources_total gauge\n";
+      prometheus << "embedder_database_sources_total " << stats.sources.size() << "\n\n";
+    } catch (const std::exception &e) {
+      prometheus << "# Database metrics unavailable: " << e.what() << "\n\n";
+    }
+
+    res.set_content(prometheus.str(), "text/plain");
+    Impl::requestCounter_++;
+    });
+
+  server.Get("/api", [](const httplib::Request &, httplib::Response &res) {
+    LOG_MSG << "GET /api";
+    json info = {
+        {"name", "Embeddings RAG API"},
+        {"version", "1.0.0"},
+        {"endpoints", {
+            {"GET /api/setup", "Fetch setup configuration"},
+            {"GET /api/health", "Health check"},
+            {"GET /api/documents", "Get documents"},
+            {"GET /api/stats", "Database statistics"},
+            {"GET /api/settings", "Available APIs"},
+            {"GET /api/instances", "List of running instances"},
+            {"GET /api/metrics", "Service and database metrics"},
+            {"GET /metrics", "Prometheus-compatible metrics"},
+            {"POST /api/setup", "Setup configuration"},
+            {"POST /api/search", "Semantic search"},
+            {"POST /api/chat", "Chat with context (streaming)"},
+            {"POST /api/embed", "Generate embeddings"},
+            {"POST /api/documents", "Add documents"},
+            {"POST /api/update", "Trigger manual update"},
+        }}
+    };
+    res.set_content(info.dump(2), "application/json");
+    HttpServer::Impl::requestCounter_++;
+    });
+
+  //LOG_MSG << "\nStarting HTTP API server on port " << port << "...";
+  LOG_MSG << "\nEndpoints:";
+  LOG_MSG << "  GET  /api";
+  LOG_MSG << "  GET  /metrics       - Prometheus-compatible format";
+  LOG_MSG << "  GET  /api/metrics";
+  LOG_MSG << "  GET  /api/instances - Returns currently running instances in 'serve' mode";
+  LOG_MSG << "  GET  /api/setup";
+  LOG_MSG << "  GET  /api/health";
+  LOG_MSG << "  GET  /api/stats";
+  LOG_MSG << "  GET  /api/settings";
+  LOG_MSG << "  GET  /api/documents";
+  LOG_MSG << "  POST /api/setup     - {\"...\"}";
+  LOG_MSG << "  POST /api/search    - {\"query\": \"...\", \"top_k\": 5}";
+  LOG_MSG << "  POST /api/embed     - {\"text\": \"...\"}";
+  LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";
+  LOG_MSG << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}";
+  LOG_MSG << "\nPress Ctrl+C to stop";
+  return server.listen_after_bind();
 }
 
 void HttpServer::stop()

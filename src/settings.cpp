@@ -28,6 +28,7 @@ namespace {
     cfg.temperatureSupport = item.value("temperature_support", true);
     cfg.enabled = item.value("enabled", true);
     cfg.stream = item.value("stream", true);
+    cfg.contextLength = item.value("context_length", section.value("max_context_tokens", 32000));
     if (item.contains("pricing_tpm")) {
       auto pricing = item["pricing_tpm"];
       if (pricing.is_object()) {
@@ -73,17 +74,22 @@ namespace {
 
 Settings::Settings(const std::string &path)
 {
+  updateFromPath(path);
+}
+
+void Settings::updateFromConfig(const nlohmann::json &config)
+{
+  config_ = config; // Or merge specific fields
+}
+
+void Settings::updateFromPath(const std::string &path)
+{
   std::ifstream file(path);
   if (!file.is_open()) {
     throw std::runtime_error("Cannot open settings file: " + path);
   }
   file >> config_;
   path_ = path;
-}
-
-void Settings::updateFromConfig(const nlohmann::json &config)
-{
-  config_ = config; // Or merge specific fields
 }
 
 void Settings::save()
@@ -124,6 +130,7 @@ std::string Settings::getProjectTitle() const
   if (s.empty()) {
     auto sources = this->sources();
     for (const auto &si : sources) {
+      if (!s.empty()) s += "/";
       s += std::filesystem::path(si.path).lexically_normal().stem().string();
       if (12 < s.length()) break;
     }

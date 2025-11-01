@@ -3,6 +3,7 @@
 #include "database.h"
 #include "settings.h"
 #include "tokenizer.h"
+#include "chunker.h"
 #include <stdexcept>
 #include <cassert>
 #include <format>
@@ -201,6 +202,8 @@ namespace {
 
   Question:
   __QUESTION__
+
+  Answer:
   )" };
 } // anonymous namespace
 
@@ -238,6 +241,10 @@ std::string CompletionClient::generateCompletion(
     "temperature": 0.7
    }
   */
+
+  if (onStream) {
+    onStream("[meta]Working on the response");
+  }
 
   size_t nofTokens = app_.tokenizer().countTokensWithVocab(_queryTemplate);
 

@@ -87,7 +87,7 @@ namespace {
     return url.substr(0, pos);
   }
 
-  size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db) {
+  size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db, bool embedFileinfo) {
     size_t totalTokens = 0;
     size_t iBatch = 1;
     const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
@@ -97,12 +97,21 @@ namespace {
       std::vector<std::vector<float>> embeddings;
       std::vector<std::string> texts;
       for (const auto &chunk : batch) {
-        texts.push_back(chunk.text);
+        auto text = chunk.text;
+        if (embedFileinfo) {
+          std::string info;
+          try {
+            info = std::filesystem::path(chunk.docUri).filename().string();
+          } catch (...) {
+            info = chunk.docUri;
+          }
+          text = "Source: " + info + "\n" + text;
+        }
+        texts.push_back(std::move(text));
         totalTokens += chunk.metadata.tokenCount;
       }
       std::cout << "GENERATING embeddings for batch " << iBatch++ << "/" << nofBatches << "\r" << std::flush;
       ec.generateEmbeddings(texts, embeddings, EmbeddingClient::EncodeType::Document);
-
       db.addDocuments(batch, embeddings);
       std::cout << "  Processed all chunks.                     \r" << std::flush;
     }
@@ -112,6 +121,7 @@ namespace {
 
   class IncrementalUpdater {
   private:
+    App &app_;
     VectorDatabase *db_;
     size_t batchSize_;
     // Failure tracking
@@ -119,7 +129,7 @@ namespace {
     std::unordered_set<std::string> ignoredFiles_;
 
   public:
-    IncrementalUpdater(VectorDatabase *db, size_t batchSize) : db_(db), batchSize_(batchSize) {
+    IncrementalUpdater(App *app, size_t batchSize) : app_(*app), db_(&app->db()), batchSize_(batchSize) {
     }
 
     ~IncrementalUpdater() {
@@ -207,7 +217,7 @@ namespace {
             continue;
           }
           auto chunks = chunker.chunkText(content, filepath);
-          addEmbedChunks(chunks, batchSize_, client, *db_);
+          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingEmbedFileinfo());
           totalUpdated++;
           clearFailure(filepath);
           LOG_MSG << "  Updated with" << chunks.size() << " chunks";
@@ -234,7 +244,7 @@ namespace {
             continue;
           }
           auto chunks = chunker.chunkText(content, filepath);
-          addEmbedChunks(chunks, batchSize_, client, *db_);
+          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingEmbedFileinfo());
           totalUpdated++;
           clearFailure(filepath);
           LOG_MSG << "  Added with" << chunks.size() << " chunks";
@@ -490,7 +500,7 @@ void App::initialize(/*const std::string &configPath*/)
 
   imp->chunker_ = std::make_unique<Chunker>(*imp->tokenizer_, minTokens, maxTokens, overlap);
   imp->processor_ = std::make_unique<SourceProcessor>(*imp->settings_);
-  imp->updater_ = std::make_unique<IncrementalUpdater>(imp->db_.get(), imp->settings_->embeddingBatchSize());
+  imp->updater_ = std::make_unique<IncrementalUpdater>(this, imp->settings_->embeddingBatchSize());
 
   imp->httpServer_ = std::make_unique<HttpServer>(*this);
 }
@@ -514,6 +524,7 @@ bool App::testSettings() const
     if (0 < vA0.size()) {
       float l2Norm = EmbeddingClient::calculateL2Norm(vA0);
       LOG_MSG << "  Embedding client works fine." << "[ l2norm" << l2Norm << "]";
+      LOG_MSG << "  Testing similarities:";
 
       std::vector<float> vA1, vB0, vB1, vC0;
       cl.generateEmbeddings(textA1, vA1, EmbeddingClient::EncodeType::Query);
@@ -539,13 +550,17 @@ bool App::testSettings() const
       float simA0C0 = cosine(vA0, vC0); // Different
       float simSelf = cosine(vA0_doc, vA0_query); // Should be 0.7-0.9, not 1.0
 
-      LOG_MSG << "  Similarities:";
-      LOG_MSG << "    A0-A1 (similar):    " << simA0A1;
-      LOG_MSG << "    A0-B0 (different):  " << simA0B0;
-      LOG_MSG << "    A0-B1 (typo):       " << simA0B1;
-      LOG_MSG << "    B0-B1 (similar):    " << simB0B1;
-      LOG_MSG << "    A0-C0 (different):  " << simA0C0;
-      LOG_MSG << "    Doc-Query (Similar):" << simSelf;
+      auto yesNo = [](float val, float a, float b) {
+        if (a <= val && val <= b) return "PASS";
+        return "FAIL";
+        };
+
+      LOG_MSG << "    A0-A1 (similar):    " << simA0A1 << yesNo(simA0A1, 0.8, 0.95);
+      LOG_MSG << "    A0-B0 (different):  " << simA0B0 << yesNo(simA0B0, 0.3, 0.7);
+      LOG_MSG << "    A0-B1 (typo):       " << simA0B1 << yesNo(simA0B1, 0.3, 0.7);
+      LOG_MSG << "    B0-B1 (similar):    " << simB0B1 << yesNo(simB0B1, 0.6, 0.9);
+      LOG_MSG << "    A0-C0 (different):  " << simA0C0 << yesNo(simA0C0, 0.1, 0.5);
+      LOG_MSG << "    Doc-Query (Similar):" << simSelf << yesNo(simSelf, 0.75, 0.95);
 
     } else {
       LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";
@@ -664,7 +679,7 @@ void App::embed(bool noPrompt)
 
       LOG_MSG << "  Generated" << chunks.size() << "chunks";
       const size_t batchSize = imp->settings_->embeddingBatchSize();
-      totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_);
+      totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_, settings().embeddingEmbedFileinfo());
       std::cout << std::endl;
       totalChunks += chunks.size();
       totalFiles++;
@@ -919,6 +934,14 @@ size_t App::update()
     return dbStats.totalChunks; // After embed, totalChunks will be updated
   }
 
+  try {
+    Settings settingsNew{ imp->settings_->configPath() };
+    imp->processor_->setSettings(settingsNew);
+    LOG_MSG << "Read settings from" << settingsNew.configPath();
+  } catch (const std::exception &ex) {
+    LOG_MSG << ex.what();
+    LOG_MSG << "Unable to re-read settings. Skipped.";
+  }
   auto sources = imp->processor_->collectSources(false);
   std::vector<std::string> currentFiles;
   for (const auto &source : sources) {
@@ -1426,6 +1449,7 @@ int App::run(int argc, char *argv[])
     try {
       settings = std::make_unique<Settings>(configPath);
     } catch (const std::exception &ex) {
+      LOG_MSG << ex.what();
       std::cerr << "Unable to read settings file " << configPath << "\n";
       throw;
     }

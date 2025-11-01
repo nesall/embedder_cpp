@@ -20,6 +20,7 @@ struct ApiConfig {
   bool temperatureSupport = true;
   bool enabled = true;
   bool stream = true;
+  size_t contextLength = 0;
   struct {
     float input = 0;
     float output = 0;
@@ -60,6 +61,7 @@ public:
   Settings(const std::string &path = "settings.json");
 
   void updateFromConfig(const nlohmann::json &config);
+  void updateFromPath(const std::string &path);
   void save();
   std::string configPath() const { return path_; }
 
@@ -67,8 +69,8 @@ public:
     return config_["tokenizer"].value("config_path", "tokenizer.json");
   }
 
-  int chunkingMaxTokens() const { return config_["chunking"].value("nof_max_tokens", 500); }
-  int chunkingMinTokens() const { return config_["chunking"].value("nof_min_tokens", 50); }
+  size_t chunkingMaxTokens() const { return config_["chunking"].value("nof_max_tokens", size_t(500)); }
+  size_t chunkingMinTokens() const { return config_["chunking"].value("nof_min_tokens", size_t(50)); }
   float chunkingOverlap() const { return config_["chunking"].value("overlap_percentage", 0.1f); }
   bool chunkingSemantic() const { return config_["chunking"].value("semantic", false); }
 
@@ -77,6 +79,7 @@ public:
   size_t embeddingTimeoutMs() const { return config_["embedding"].value("timeout_ms", size_t(10'000)); }
   size_t embeddingBatchSize() const { return config_["embedding"].value("batch_size", size_t(4)); }
   size_t embeddingTopK() const { return config_["embedding"].value("top_k", size_t(5)); }
+  size_t embeddingEmbedFileinfo() const { return config_["embedding"].value("embed_fileinfo", false); }
 
   ApiConfig generationCurrentApi() const;
   std::vector<ApiConfig> generationApis() const;

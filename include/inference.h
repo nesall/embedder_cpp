@@ -52,5 +52,4 @@ public:
     std::function<void(const std::string &)> onStream) const;
 
 private:
-
 };

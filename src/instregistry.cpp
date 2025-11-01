@@ -79,13 +79,18 @@ struct InstanceRegistry::Impl {
   }
 
   json fetchRegistry() const {
-    if (!std::filesystem::exists(registryPath_)) {
+    try {
+      if (!std::filesystem::exists(registryPath_)) {
+        return json{ {"instances", json::array()} };
+      }
+      std::ifstream file(registryPath_);
+      json registry;
+      file >> registry;
+      return registry;
+    } catch (const std::exception &ex) {
+      LOG_MSG << ex.what();
       return json{ {"instances", json::array()} };
     }
-    std::ifstream file(registryPath_);
-    json registry;
-    file >> registry;
-    return registry;
   }
 
   void saveRegistry(const json &registry) const {

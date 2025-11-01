@@ -298,7 +298,7 @@ namespace {
 } // anonymous namespace
 
 
-Chunker::Chunker(SimpleTokenizer &tok, size_t min_tok, size_t max_tok, float overlap)
+Chunker::Chunker(const SimpleTokenizer &tok, size_t min_tok, size_t max_tok, float overlap)
   : tokenizer_(tok), minTokens_(min_tok), maxTokens_(max_tok), overlapTokens_(static_cast<size_t>(max_tok * overlap))
 {
 }
@@ -306,16 +306,20 @@ Chunker::Chunker(SimpleTokenizer &tok, size_t min_tok, size_t max_tok, float ove
 std::vector<Chunk> Chunker::chunkText(const std::string &text, const std::string &uri, bool semantic) const
 {
   std::vector<Chunk> chunks;
-  switch (detectContentType(text, uri)) {
-  case ContentType::Text:
+  if (semantic) {
+    switch (detectContentType(text, uri)) {
+    case ContentType::Text:
+      chunks = postProcessChunks(splitIntoTextChunks(text, uri), ContentType::Text);
+      break;
+    case ContentType::Code:
+      chunks = postProcessChunks(splitIntoLineChunks(text, uri), ContentType::Code);
+      break;
+    default:
+      LOG_MSG << "Unsupported content type for URI: " << uri << ". Skipped.";
+      break;
+    }
+  } else {
     chunks = postProcessChunks(splitIntoTextChunks(text, uri), ContentType::Text);
-    break;
-  case ContentType::Code:
-    chunks = postProcessChunks(splitIntoLineChunks(text, uri), ContentType::Code);
-    break;
-  default:
-    LOG_MSG << "Unsupported content type for URI: " << uri << ". Skipped.";
-    break;
   }
   return chunks;
 }
@@ -414,8 +418,8 @@ std::vector<Chunk> Chunker::splitIntoTextChunks(std::string text, const std::str
           {tokenCnt, startChar, endChar, "char"}
         });
     }
-    if (end >= units.size()) break;
-    if (overlap > 0) {
+    if (units.size() <= end) break;
+    if (0 < overlap) {
       size_t overlapTokens = 0;
       size_t overlapUnits = 0;
       while (start + overlapUnits < end && overlapTokens < overlap) {
