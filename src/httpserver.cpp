@@ -590,7 +590,7 @@ bool HttpServer::startServer()
   auto &server = imp->server_;
   auto &auth = imp->app_.auth();
 
-  server.set_mount_point("/", "./public/");
+  server.set_mount_point("/setup", "./public/setup/");
 
   server.Get("/", [this](const httplib::Request &, httplib::Response &res) {
     LOG_MSG << "GET /";

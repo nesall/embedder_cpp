@@ -374,7 +374,7 @@
           ".h",
           ".hpp"
         ],
-        "path": "../../rag-code-assistant/clients/webview",
+        "path": "../../rag-code-assistant/clients/webview_",
         "recursive": true,
         "type": "directory"
       },
