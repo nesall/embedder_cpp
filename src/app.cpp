@@ -334,16 +334,6 @@ namespace {
   };
   volatile std::sig_atomic_t SignalHandler::shutdownRequested = 0;
 
-
-  //size_t countLines(const std::string &path) {
-  //  std::ifstream file(path);
-  //  return std::count(
-  //    std::istreambuf_iterator<char>(file),
-  //    std::istreambuf_iterator<char>(),
-  //    '\n'
-  //  );
-  //}
-
   std::string detectLanguage(const std::string &path) {
     std::string ext = std::filesystem::path(path).extension().string();
 
@@ -378,10 +368,6 @@ namespace {
 
     for (const auto &file : trackedFiles) {
       if (!std::filesystem::exists(file.path)) continue;
-
-      // Count lines
-      //size_t lines = countLines(file.path);
-      //size_t size = std::filesystem::file_size(file.path);
 
       size_t lines = file.nofLines;
       size_t size = file.fileSize;

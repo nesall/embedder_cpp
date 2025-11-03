@@ -6,11 +6,22 @@
 #include <filesystem>
 #include <format>
 #include <mutex>
+#include <fstream>
+#include <iterator>
 #include "app.h"
 #include "utils_log/logger.hpp"
 
 
 namespace {
+
+  size_t countLines(const std::string &path) {
+    std::ifstream file(path);
+    return std::count(
+      std::istreambuf_iterator<char>(file),
+      std::istreambuf_iterator<char>(),
+      '\n'
+    );
+  }
 
   struct SqliteErrorChecker {
     sqlite3 *sq_ = nullptr;
@@ -82,8 +93,7 @@ size_t HnswSqliteVectorDatabase::addDocument(const Chunk &chunk, const std::vect
   }
   size_t chunkId = insertMetadata(chunk);
   try {
-    // TOFIX: nofLines should be of the whole file
-    size_t nofLines = std::count(chunk.text.cbegin(), chunk.text.cend(), '\n');
+    size_t nofLines = countLines(chunk.docUri);
     upsertFileMetadata(chunk.docUri, utils::getFileModificationTime(chunk.docUri), std::filesystem::file_size(chunk.docUri), nofLines);
   } catch (const std::exception &ex) {
     LOG_MSG << "Error during upserting a chunk:" << ex.what();
