@@ -210,7 +210,6 @@ namespace {
 CompletionClient::CompletionClient(const ApiConfig &cfg, size_t timeout, const App &a)
   : InferenceClient(cfg, timeout)
   , app_(a)
-  , maxContextTokens_(a.settings().generationMaxContextTokens())
 {
 }
 
@@ -246,13 +245,15 @@ std::string CompletionClient::generateCompletion(
     onStream("[meta]Working on the response");
   }
 
+  const auto maxContextTokens = cfg().contextLength;
+
   size_t nofTokens = app_.tokenizer().countTokensWithVocab(_queryTemplate);
 
   std::string context;
   for (const auto &r : searchRes) {
     auto nt = app_.tokenizer().countTokensWithVocab(r.content);
-    if (maxContextTokens_ < nofTokens + nt) {
-      size_t remaining = maxContextTokens_ - nofTokens;
+    if (maxContextTokens < nofTokens + nt) {
+      size_t remaining = maxContextTokens - nofTokens;
       if (0 < remaining) {
         size_t approxCharCount = r.content.length() * remaining / nt;
         context += r.content.substr(0, approxCharCount) + "\n\n";

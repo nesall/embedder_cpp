@@ -324,6 +324,7 @@ namespace {
     const std::string &question, 
     std::vector<Attachment> attachments, 
     std::vector<std::string> sources,
+    float contextSizeRatio,
     std::function<void(std::string_view)> onInfo
   ) {
     assert(onInfo);
@@ -334,7 +335,7 @@ namespace {
     std::vector<SearchResult> filteredChunkResults;
     std::vector<SearchResult> orderedResults; // Final ordered results
 
-    const auto maxTokenBudget = apiConfig.contextLength;
+    const auto maxTokenBudget = apiConfig.contextLength * std::clamp(contextSizeRatio, 0.1f, 1.0f);
     assert(0 < maxTokenBudget);
     //onInfo(std::format("Context token budget:", ((maxTokenBudget % 1000) == 0) ? std::to_string(maxTokenBudget) + "k" : std::to_string(maxTokenBudget)));
     const size_t questionTokens = app.tokenizer().countTokensWithVocab(question);
@@ -913,6 +914,7 @@ bool HttpServer::startServer()
 
       const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
       const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
+      const float contextSizeRatio = request.value("ctxratio", 0.9);
 
       res.set_header("Content-Type", "text/event-stream");
       res.set_header("Cache-Control", "no-cache");
@@ -920,7 +922,7 @@ bool HttpServer::startServer()
 
       res.set_chunked_content_provider(
         "text/event-stream",
-        [this, messagesJson, question, temperature, attachments, sources, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
+        [this, messagesJson, question, temperature, contextSizeRatio, attachments, sources, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
 
           auto packPayload = [](std::string data) {
             // SSE format requires "data: <payload>\n\n"
@@ -931,7 +933,7 @@ bool HttpServer::startServer()
           auto initialInfo = packPayload("[meta]Searching for relevant content");
           sink.write(initialInfo.data(), initialInfo.size());
 
-          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources,
+          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources, contextSizeRatio,
             [packPayload, &sink](std::string_view info)
             {
               auto s = packPayload(std::string{ "[meta]" } + std::string{ info.data(), info.size() });

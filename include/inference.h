@@ -41,7 +41,6 @@ private:
 
 class CompletionClient : public InferenceClient {
   const App &app_;
-  const size_t maxContextTokens_;
 public:
   CompletionClient(const ApiConfig &cfg, size_t timeout, const App &a);
   std::string generateCompletion(
