@@ -101,7 +101,7 @@ Open `http://localhost:8590/setup` to configure settings interactively.
 
 ```
 # Get list of API endpoints
-curl http://localhost:8590/apihealth
+curl http://localhost:8590/api
 
 # Health check
 curl http://localhost:8590/api/health
