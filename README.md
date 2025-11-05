@@ -100,29 +100,50 @@ Open `http://localhost:8590/setup` to configure settings interactively.
 ### REST API endpoints
 
 ```
+# Get list of API endpoints
+curl http://localhost:8590/apihealth
+
 # Health check
-curl http://localhost:8590/health
+curl http://localhost:8590/api/health
+
+# Get documents
+curl http://localhost:8590/api/documents
+
+# Get configuration parameters (full config)
+curl http://localhost:8590/api/setup
+
+# Get configuration parameters (completion endpoints)
+curl http://localhost:8590/api/settings
+
+# Get list of running instances (usually one instance per project codebase)
+curl http://localhost:8590/api/instances
 
 # Search
-curl -X POST http://localhost:8590/search \
+curl -X POST http://localhost:8590/api/search \
   -H "Content-Type: application/json" \
   -d '{"query": "optimize performance", "top_k": 5}'
 
 # Embed text (without storing)
-curl -X POST http://localhost:8590/embed \
+curl -X POST http://localhost:8590/api/embed \
   -H "Content-Type: application/json" \
   -d '{"text": "your text here"}'
 
 # Add document
-curl -X POST http://localhost:8590/add \
+curl -X POST http://localhost:8590/api/add \
   -H "Content-Type: application/json" \
   -d '{"content": "document content", "source_id": "doc.txt"}'
 
 # Get stats
-curl http://localhost:8590/stats
+curl http://localhost:8590/api/stats
+
+# Get metrics
+curl http://localhost:8590/api/metrics
+
+# Get Prometheus formatted metrics
+curl http://localhost:8590/metrics
 
 # Chat completions
-curl -N -X POST http://localhost:8590/chat   -H "Content-Type: application/json"   -d '{
+curl -N -X POST http://localhost:8590/api/chat   -H "Content-Type: application/json"   -d '{
     "model": "",
     "messages": [
       {"role": "system", "content": "Keep it short."},
