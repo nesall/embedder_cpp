@@ -2,8 +2,8 @@
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET PID_FILE=process.pid
-SET BINARY=rag_embedder_service.exe
-SET ARGS=serve --port 8081 --watch 60
+SET BINARY=embeddings_cpp.exe
+SET ARGS=serve --port 8590 --watch 60
 
 REM Check if PID file exists and process is running
 IF EXIST %PID_FILE% (
@@ -17,7 +17,7 @@ IF EXIST %PID_FILE% (
 )
 
 REM Start the process in background
-echo Starting Embedder RAG manually...
+echo Starting PhenixCode RAG manually...
 start "" /B %BINARY% %ARGS%
 REM Give it a moment to start and get PID
 timeout /t 1 >nul

@@ -12,8 +12,8 @@ if not exist "nssm.exe" (
 )
 
 REM Stop and remove the service
-nssm stop EmbedderCoreRAG
-nssm remove EmbedderCoreRAG confirm
+nssm stop PhenixCodeRAG
+nssm remove PhenixCodeRAG confirm
 
 echo Service uninstalled successfully.
 pause

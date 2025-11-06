@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ### CONFIG - keep consistent with install script
-SERVICE_NAME="embedder-rag-core"
+SERVICE_NAME="phenixcode-rag-core"
 SERVICE_USER="embedder"
 INSTALL_DIR="/opt/${SERVICE_NAME}"
 UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"

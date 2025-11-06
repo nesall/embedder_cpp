@@ -12,17 +12,17 @@ if not exist "nssm.exe" (
 )
 
 REM Install service
-nssm install EmbedderCoreRAG "%CD%\rag_embedder_svc.exe" serve --port 8081 --watch 60
-nssm set EmbedderCoreRAG AppDirectory "%CD%"
-nssm set EmbedderCoreRAG DisplayName "Embedder RAG Service"
-nssm set EmbedderCoreRAG Description "Local RAG embeddings and search service"
-nssm set EmbedderCoreRAG Start SERVICE_AUTO_START
+nssm install PhenixCodeRAG "%CD%\rag_embedder_svc.exe" serve --port 8081 --watch 60
+nssm set PhenixCodeRAG AppDirectory "%CD%"
+nssm set PhenixCodeRAG DisplayName "Embedder RAG Service"
+nssm set PhenixCodeRAG Description "Local RAG embeddings and search service"
+nssm set PhenixCodeRAG Start SERVICE_AUTO_START
 
 REM Start service
-nssm start EmbedderCoreRAG
+nssm start PhenixCodeRAG
 
 echo Service installed and started!
-echo View status: nssm status EmbedderCoreRAG
-echo Stop service: nssm stop EmbedderCoreRAG
-echo Uninstall: nssm remove EmbedderCoreRAG confirm
+echo View status: nssm status PhenixCodeRAG
+echo Stop service: nssm stop PhenixCodeRAG
+echo Uninstall: nssm remove PhenixCodeRAG confirm
 pause

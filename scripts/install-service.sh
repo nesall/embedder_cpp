@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ### CONFIG - edit as needed
-SERVICE_NAME="embedder-rag-core" # systemd unit name (without .service)
+SERVICE_NAME="phenixcode-rag-core" # systemd unit name (without .service)
 SERVICE_USER="embedder" # system user that will run the service
 INSTALL_DIR="/opt/${SERVICE_NAME}" # where binary and assets will be installed
 LOG_DIR="/var/log/${SERVICE_NAME}"

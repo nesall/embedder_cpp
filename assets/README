@@ -1,9 +1,9 @@
-Embedder RAG - Installation Guide
+PhenixCode RAG - Installation Guide
 ==================================
 
 Quick Start:
 # 1. Download and extract
-unzip embedder-v1.0.zip
+unzip phenixcode-v1.0.zip
 
 # 2. Run setup wizard (optional password change)
 ./embeddings_cpp setup
@@ -14,8 +14,11 @@ unzip embedder-v1.0.zip
 # 4. Check password status
 ./embeddings_cpp password-status
 
+# 5. Embed full code (if running first time )
+./embeddings_cpp embed
+
 # 5. Start server
-./embeddings_cpp serve
+./embeddings_cpp serve --watch
 ```
 
 ### **Access Web Setup:**
@@ -32,7 +35,7 @@ Manual Start:
 Service Management:
 - Install: install-service.bat or install-service.sh
 - Uninstall: uninstall-service.bat or uninstall-service.sh
-- Status: nssm status EmbedderCoreRAG (Windows)
+- Status: nssm status PhenixCodeRAG (Windows)
 - Status: systemctl status embedder-rag-core
 
 Logs Location:
