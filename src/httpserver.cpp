@@ -943,7 +943,7 @@ bool HttpServer::startServer()
 
           CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
-            std::string context = completionClient.generateCompletion(
+            /*std::string context = */completionClient.generateCompletion(
               messagesJson, orderedResults, temperature, maxTokens,
               [&sink, packPayload](const std::string &chunk) {
 #ifdef _DEBUG2

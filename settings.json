@@ -29,7 +29,7 @@
         "id": "local-coder",
         "model": "nomic-ai/CodeRankEmbed",
         "name": "local coder",
-        "query_format": "Represent this query for searching relevant code: {}"
+        "query_format": "{}"
       },
       {
         "api_key": "${MOLSOFT_API_KEY}",
@@ -45,8 +45,8 @@
         "id": "remote-coder",
         "model": "nomic-ai/CodeRankEmbed",
         "name": "Remote coder",
-        "_document_format": "{}",
-        "query_format": "Represent this query for searching relevant code: {}"
+        "document_format": "{}",
+        "query_format": "{}"
       }
     ],
     "batch_size": 4,
@@ -96,6 +96,45 @@
           "output": 0
         },
         "context_length": 60000
+      },
+      {
+        "api_key": "${OPENROUTER_API_KEY}",
+        "api_url": "https://openrouter.ai/api/v1/chat/completions",
+        "id": "minimax-m2-free",
+        "model": "minimax/minimax-m2:free",
+        "name": "MiniMax",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0,
+          "output": 0
+        },
+        "context_length": 196000
+      },
+      {
+        "api_key": "${OPENROUTER_API_KEY}",
+        "api_url": "https://openrouter.ai/api/v1/chat/completions",
+        "id": "qwen3-coder-free",
+        "model": "qwen/qwen3-coder:free",
+        "name": "Qwen",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0,
+          "output": 0
+        },
+        "context_length": 262000
+      },
+      {
+        "api_key": "${OPENROUTER_API_KEY}",
+        "api_url": "https://openrouter.ai/api/v1/chat/completions",
+        "id": "llama-3.3-70b-instruct",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Meta",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0,
+          "output": 0
+        },
+        "context_length": 130000
       },
       {
         "api_key": "${HF_TOKEN}",
@@ -185,7 +224,8 @@
           "cached_input": 0.05,
           "input": 0.2,
           "output": 0.5
-        }
+        },
+        "context_length": 350000
       },
       {
         "api_key": "${OPENAI_API_KEY}",
@@ -215,18 +255,6 @@
         "context_length": 200000
       },
       {
-        "api_key": "${HF_TOKEN}",
-        "api_url": "https://router.huggingface.co/v1/chat/completions",
-        "id": "hf-minimax-m2",
-        "model": "MiniMaxAI/MiniMax-M2",
-        "name": "HF (MiniMax-M2)",
-        "enabled": true,
-        "pricing_tpm": {
-          "input": 0.3,
-          "output": 1.0
-        }
-      },
-      {
         "api_key": "${XAI_API_KEY}",
         "api_url": "https://api.x.ai/v1/chat/completions",
         "id": "grok-4-coder",
@@ -237,7 +265,8 @@
           "cached_input": 0.02,
           "input": 0.2,
           "output": 1.5
-        }
+        },
+        "context_length": 150000
       },
       {
         "api_key": "${OPENAI_API_KEY}",

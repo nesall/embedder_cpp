@@ -379,7 +379,9 @@ std::string CompletionClient::generateCompletion(
   }
 
   if (res->status != 200) {
-    throw std::runtime_error("Server returned error: " + std::to_string(res->status) + " " + res->reason + " - " + res->body);
+    std::string msg = std::format("Server returned error: {} - {}", res->status, res->body);
+    if (onStream) onStream(msg);
+    throw std::runtime_error(msg);
   }
 
   return fullResponse;
