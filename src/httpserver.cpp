@@ -325,6 +325,7 @@ namespace {
     std::vector<Attachment> attachments, 
     std::vector<std::string> sources,
     float contextSizeRatio,
+    bool attachedOnly,
     std::function<void(std::string_view)> onInfo
   ) {
     assert(onInfo);
@@ -337,6 +338,14 @@ namespace {
 
     const auto maxTokenBudget = apiConfig.contextLength * std::clamp(contextSizeRatio, 0.1f, 1.0f);
     assert(0 < maxTokenBudget);
+
+    if (attachedOnly && attachments.empty() && sources.empty()) {
+      assert(!"Should not happen");
+      attachedOnly = false;
+      LOG_MSG << "Warning: 'attachedOnly' is set but no attachments or sources provided. Ignored.";
+      onInfo("'attachedOnly' is set but no attachments or sources provided; ignoring.");
+    }
+
     //onInfo(std::format("Context token budget:", ((maxTokenBudget % 1000) == 0) ? std::to_string(maxTokenBudget) + "k" : std::to_string(maxTokenBudget)));
     const size_t questionTokens = app.tokenizer().countTokensWithVocab(question);
     size_t usedTokens = questionTokens;
@@ -385,50 +394,59 @@ namespace {
     LOG_MSG << "Budget used for attachments:" << usedTokens - questionTokens;
 
     std::vector<std::vector<float>> questionEmbeddingVectors;
-    EmbeddingClient embeddingClient(app.settings().embeddingCurrentApi(), app.settings().embeddingTimeoutMs());
-    std::unordered_map<std::string, float> sourcesRank;
-    const auto questionChunks = app.chunker().chunkText(question, "", false);
-    for (const auto &qc : questionChunks) {
-      std::vector<float> embedding;
-      embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
-      questionEmbeddingVectors.push_back(embedding);
-      auto res = app.db().search(embedding, app.settings().embeddingTopK());
-      filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
-      for (const auto &r : res) {
-        sourcesRank[r.sourceId] += r.similarityScore;
-      }
-    }
-
-    std::sort(filteredChunkResults.begin(), filteredChunkResults.end(), [&sourcesRank](const SearchResult &a, const SearchResult &b) {
-      return sourcesRank[a.sourceId] > sourcesRank[b.sourceId];
-      });
-
     std::unordered_map<std::string, SearchResult> sourceToChunk;
-    const auto maxFullSources = app.settings().generationMaxFullSources();
-    for (const auto &r : filteredChunkResults) {
-      if (maxFullSources <= sources.size()) break;
-      if (vecAddIfUnique(sources, r.sourceId)) {}
-      sourceToChunk[r.sourceId] = r;
-    }
-
-    const auto trackedFiles = app.db().getTrackedFiles();
-    std::vector<std::string> trackedSources;
-    for (const auto &tf : trackedFiles) {
-      trackedSources.push_back(tf.path);
-    }
-
-    std::vector<std::string> allFullSources{ sources };
+    std::vector<std::string> allFullSources;
     std::vector<std::string> relSources;
-    for (const auto &src : sources) {
-      auto relations = app.sourceProcessor().filterRelatedSources(trackedSources, src);
-      vecAddIfUnique(relSources, relations);
-      vecAddIfUnique(allFullSources, relations);
+
+    if (!attachedOnly) {
+      EmbeddingClient embeddingClient(app.settings().embeddingCurrentApi(), app.settings().embeddingTimeoutMs());
+      std::unordered_map<std::string, float> sourcesRank;
+      const auto questionChunks = app.chunker().chunkText(question, "", false);
+      for (const auto &qc : questionChunks) {
+        std::vector<float> embedding;
+        embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
+        questionEmbeddingVectors.push_back(embedding);
+        auto res = app.db().search(embedding, app.settings().embeddingTopK());
+        filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
+        for (const auto &r : res) {
+          sourcesRank[r.sourceId] += r.similarityScore;
+        }
+      }
+      std::sort(filteredChunkResults.begin(), filteredChunkResults.end(), [&sourcesRank](const SearchResult &a, const SearchResult &b) {
+        return sourcesRank[a.sourceId] > sourcesRank[b.sourceId];
+        });
+
+      const auto maxFullSources = app.settings().generationMaxFullSources();
+      for (const auto &r : filteredChunkResults) {
+        if (maxFullSources <= sources.size()) break;
+        if (vecAddIfUnique(sources, r.sourceId)) {}
+        sourceToChunk[r.sourceId] = r;
+      }
+
+      const auto trackedFiles = app.db().getTrackedFiles();
+      std::vector<std::string> trackedSources;
+      for (const auto &tf : trackedFiles) {
+        trackedSources.push_back(tf.path);
+      }
+
+      allFullSources = sources;
+      for (const auto &src : sources) {
+        auto relations = app.sourceProcessor().filterRelatedSources(trackedSources, src);
+        vecAddIfUnique(relSources, relations);
+        vecAddIfUnique(allFullSources, relations);
+      }
+
+      for (const auto &rel : relSources) {
+        onInfo(std::format("Adding related file {}", std::filesystem::path(rel).filename().string()));
+      }
+    } else {
+      allFullSources = sources;
+      assert(sourceToChunk.empty());
+      assert(filteredChunkResults.empty());
+      assert(relSources.empty());
     }
 
-    for (const auto &rel : relSources) {
-      onInfo(std::format("Adding related file {}", std::filesystem::path(rel).filename().string()));
-    }
-
+    size_t srcTokens = 0;
     for (const auto &src : sources) {
       // src is either a user-set context file, or a chunk's base file (sourceToChunk).
       auto content = app.sourceProcessor().fetchSource(src).content;
@@ -475,27 +493,35 @@ namespace {
                 }
               }
               onInfo(std::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
-              usedTokens += app.tokenizer().countTokensWithVocab(content);
             }
           }
         }
       }
       if (!content.empty()) {
+        srcTokens += app.tokenizer().countTokensWithVocab(content);
         addToSearchResult(fullSourceResults, src, std::move(content));
       }
     }
+    usedTokens += srcTokens;
+    LOG_MSG << "Budget used for full sources:" << srcTokens;
 
-    for (const auto &rel : relSources) {
-      auto content = app.sourceProcessor().fetchSource(rel).content;
-      if (processContent(app, content, rel, -1, maxTokenBudget, usedTokens)) {
-        addToSearchResult(relatedSrcResults, rel, std::move(content));
+    if (!attachedOnly) {
+      size_t relTokens = 0;
+      for (const auto &rel : relSources) {
+        auto content = app.sourceProcessor().fetchSource(rel).content;
+        if (processContent(app, content, rel, -1, maxTokenBudget, usedTokens)) {
+          relTokens += app.tokenizer().countTokensWithVocab(content);
+          addToSearchResult(relatedSrcResults, rel, std::move(content));
+        }
       }
-    }
+      LOG_MSG << "Budget used for related sources:" << relTokens;
+      usedTokens += relTokens;
 
-    filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
-      [&allFullSources](const SearchResult &r) {
-        return vecContains(allFullSources, r.sourceId) && r.chunkId != std::string::npos;
-      }), filteredChunkResults.end());
+      filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
+        [&allFullSources](const SearchResult &r) {
+          return vecContains(allFullSources, r.sourceId) && r.chunkId != std::string::npos;
+        }), filteredChunkResults.end());
+    }
 
     // Assemble final ordered results
     orderedResults.insert(orderedResults.end(), attachmentResults.begin(), attachmentResults.end());
@@ -866,7 +892,9 @@ bool HttpServer::startServer()
         ],
         "temperature": 0.2,
         "max_tokens": 800,
-        "targetapi": "xai"
+        "targetapi": "xai",
+        "ctxratio": 0.5,
+        "attachedonly": false
       }
       */
       json request = json::parse(req.body);
@@ -915,6 +943,7 @@ bool HttpServer::startServer()
       const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
       const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
       const float contextSizeRatio = request.value("ctxratio", 0.9);
+      const bool attachedOnly = request.value("attachedonly", false);
 
       res.set_header("Content-Type", "text/event-stream");
       res.set_header("Cache-Control", "no-cache");
@@ -922,7 +951,8 @@ bool HttpServer::startServer()
 
       res.set_chunked_content_provider(
         "text/event-stream",
-        [this, messagesJson, question, temperature, contextSizeRatio, attachments, sources, maxTokens, apiConfig](size_t offset, httplib::DataSink &sink) {
+        [this, messagesJson, question, temperature, contextSizeRatio, attachedOnly, attachments, sources, maxTokens, apiConfig]
+        (size_t offset, httplib::DataSink &sink) {
 
           auto packPayload = [](std::string data) {
             // SSE format requires "data: <payload>\n\n"
@@ -933,7 +963,7 @@ bool HttpServer::startServer()
           auto initialInfo = packPayload("[meta]Searching for relevant content");
           sink.write(initialInfo.data(), initialInfo.size());
 
-          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources, contextSizeRatio,
+          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources, contextSizeRatio, attachedOnly,
             [packPayload, &sink](std::string_view info)
             {
               auto s = packPayload(std::string{ "[meta]" } + std::string{ info.data(), info.size() });

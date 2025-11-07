@@ -50,7 +50,7 @@
       }
     ],
     "batch_size": 4,
-    "current_api": "local-coder",
+    "current_api": "remote-coder",
     "retry_attempts": 3,
     "embed_fileinfo": false,
     "timeout_ms": 30000,
@@ -338,6 +338,7 @@
   "logging": {
     "diagnostics_file": "embedder_diag.log",
     "level": "info",
+    "log_to_console": true,
     "log_to_file": true,
     "logging_file": "embedder.log"
   },

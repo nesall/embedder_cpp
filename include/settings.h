@@ -108,6 +108,12 @@ public:
   std::string loggingDiagnosticsFile() const { 
     return config_.contains("logging") ? config_["logging"].value("diagnostics_file", "diagnostics.log") : std::string("diagnostics.log");
   }
+  bool loggingLogToFile() const {
+    return config_.contains("logging") ? config_["logging"].value("log_to_file", true) : true;
+  }
+  bool loggingLogToConsole() const {
+    return config_.contains("logging") ? config_["logging"].value("log_to_console", true) : true;
+  }
 
   std::string getProjectTitle() const;
   std::vector<SourceItem> sources() const;

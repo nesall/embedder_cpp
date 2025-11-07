@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <mutex>
 #include "nlohmann/json.hpp"
@@ -14,7 +15,7 @@ private:
   size_t simulateWordpiece(const std::string &word, bool addSpecialTokens) const;
 public:
   explicit SimpleTokenizer(const std::string &configPath);
-  size_t estimateTokenCount(const std::string &text, bool addSpecialTokens = false) const;
-  size_t countTokensWithVocab(const std::string &text, bool addSpecialTokens = false) const;
+  size_t estimateTokenCount(std::string_view text, bool addSpecialTokens = false) const;
+  size_t countTokensWithVocab(std::string_view text, bool addSpecialTokens = false) const;
 };
 

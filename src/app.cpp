@@ -1439,8 +1439,10 @@ int App::run(int argc, char *argv[])
       std::cerr << "Unable to read settings file " << configPath << "\n";
       throw;
     }
-    SET_LOGGING_OUTPUT_FILE_PATH(settings->loggingLoggingFile());
-    SET_LOGGING_DIAGNOSTICS_FILE_PATH(settings->loggingDiagnosticsFile());
+    SET_LOG_OUTPUT_FILE_PATH(settings->loggingLoggingFile());
+    SET_LOG_DIAGNOSTICS_FILE_PATH(settings->loggingDiagnosticsFile());
+    SET_LOG_TO_FILE(settings->loggingLogToFile());
+    SET_LOG_TO_CONSOLE(settings->loggingLogToConsole());
     LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
     LOG_MSG << "Read settings file from" << std::filesystem::absolute(configPath);
 

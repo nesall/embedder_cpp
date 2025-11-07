@@ -160,5 +160,11 @@
     ],
     "encoding": "utf-8",
     "max_file_size_mb": 10
-  }
+  },
+  "logging": {
+    "log_to_console": true,
+    "log_to_file": true,
+    "logging_file": "embedder.log",
+    "diagnostics_file": "embedder_d.log"
+  },
 }

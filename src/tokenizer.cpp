@@ -2,6 +2,7 @@
 #include <utils_log/logger.hpp>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <fstream>
 #include <sstream>
 
@@ -17,7 +18,7 @@ namespace {
     return (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF) || (c >= 0xF900 && c <= 0xFAFF);
   }
 
-  std::vector<uint32_t> utf8ToUtf32(const std::string &str) {
+  std::vector<uint32_t> utf8ToUtf32(std::string_view str) {
     std::vector<uint32_t> result;
     for (size_t i = 0; i < str.size();) {
       uint32_t codepoint = 0;
@@ -68,7 +69,7 @@ namespace {
     return res;
   }
 
-  std::string padChineseChars(const std::string &text) {
+  std::string padChineseChars(std::string_view text) {
     auto utf32Chars = utf8ToUtf32(text);
     std::string result;
     for (auto c : utf32Chars) {
@@ -129,7 +130,7 @@ SimpleTokenizer::SimpleTokenizer(const std::string &configPath)
   }
 }
 
-size_t SimpleTokenizer::estimateTokenCount(const std::string &text, bool addSpecialTokens) const
+size_t SimpleTokenizer::estimateTokenCount(std::string_view text, bool addSpecialTokens) const
 {
   std::string padded = padChineseChars(text);
   std::vector<std::string> words = splitSimple(padded);
@@ -152,7 +153,7 @@ size_t SimpleTokenizer::estimateTokenCount(const std::string &text, bool addSpec
   return totalTokens;
 }
 
-size_t SimpleTokenizer::countTokensWithVocab(const std::string &text, bool addSpecialTokens) const
+size_t SimpleTokenizer::countTokensWithVocab(std::string_view text, bool addSpecialTokens) const
 {
   if (vocab_.empty()) {
     return estimateTokenCount(text);
