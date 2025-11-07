@@ -3,7 +3,7 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET PID_FILE=process.pid
 SET BINARY=embeddings_cpp.exe
-SET ARGS=serve --port 8590 --watch 60
+SET ARGS=serve --port 8590 --watch --interval 60
 
 REM Check if PID file exists and process is running
 IF EXIST %PID_FILE% (
