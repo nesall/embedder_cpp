@@ -253,8 +253,8 @@ void HnswSqliteVectorDatabase::initializeVectorIndex()
     try {
       imp->index_ = std::make_unique<hnswlib::HierarchicalNSW<float>>(imp->space_.get(), imp->indexPath_, false, imp->maxElements_, true);
       LOG_MSG << "Loaded index with"
-        << (imp->metric_ == DistanceMetric::Cosine ? "Cosine" : "L2") << "distance, "
-        << imp->index_->getCurrentElementCount() << "total vectors, "
+        << (imp->metric_ == DistanceMetric::Cosine ? "Cosine" : "L2") << "distance,"
+        << imp->index_->getCurrentElementCount() << "total vectors,"
         << imp->index_->getDeletedCount() << "deleted";
       return;
     } catch (const std::exception &e) {

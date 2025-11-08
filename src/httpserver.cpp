@@ -452,9 +452,11 @@ namespace {
       auto content = app.sourceProcessor().fetchSource(src).content;
       if (maxTokenBudget <= usedTokens) break;
       if (sourceToChunk.contains(src)) {
+        auto nUsed = usedTokens;
         if (!processContent(app, content, src, sourceToChunk[src].chunkId, maxTokenBudget, usedTokens)) {
           break;
         }
+        srcTokens += usedTokens - nUsed;
       } else {
         if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
           auto info = std::format("Processing large file {}", std::filesystem::path(src).filename().string());
@@ -493,29 +495,30 @@ namespace {
                 }
               }
               onInfo(std::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
+              auto tokens = app.tokenizer().countTokensWithVocab(content);
+              usedTokens += tokens;
+              srcTokens += tokens;
             }
           }
         }
       }
       if (!content.empty()) {
-        srcTokens += app.tokenizer().countTokensWithVocab(content);
         addToSearchResult(fullSourceResults, src, std::move(content));
       }
     }
-    usedTokens += srcTokens;
     LOG_MSG << "Budget used for full sources:" << srcTokens;
 
     if (!attachedOnly) {
       size_t relTokens = 0;
       for (const auto &rel : relSources) {
         auto content = app.sourceProcessor().fetchSource(rel).content;
+        auto nUsed = usedTokens;
         if (processContent(app, content, rel, -1, maxTokenBudget, usedTokens)) {
-          relTokens += app.tokenizer().countTokensWithVocab(content);
+          relTokens += usedTokens - nUsed;
           addToSearchResult(relatedSrcResults, rel, std::move(content));
         }
       }
       LOG_MSG << "Budget used for related sources:" << relTokens;
-      usedTokens += relTokens;
 
       filteredChunkResults.erase(std::remove_if(filteredChunkResults.begin(), filteredChunkResults.end(),
         [&allFullSources](const SearchResult &r) {
@@ -533,6 +536,15 @@ namespace {
     }
     //onInfo("Finished collecting context data");
     onInfo(std::format("Context token budget used {}/{}", usedTokens, maxTokenBudget));
+
+//#ifdef _DEBUG
+//    size_t nn = 0;
+//    for (const auto &tt : orderedResults) {
+//      nn += app.tokenizer().countTokensWithVocab(tt.content);
+//    }
+//    LOG_MSG << "Total context tokens used:" << nn;
+//#endif
+
     return orderedResults;
   }
 

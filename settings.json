@@ -105,8 +105,8 @@
         "name": "MiniMax",
         "enabled": true,
         "pricing_tpm": {
-          "input": 0,
-          "output": 0
+          "input": 0.15,
+          "output": 0.45
         },
         "context_length": 196000
       },
@@ -118,8 +118,8 @@
         "name": "Qwen",
         "enabled": true,
         "pricing_tpm": {
-          "input": 0,
-          "output": 0
+          "input": 0.22,
+          "output": 0.95
         },
         "context_length": 262000
       },
@@ -131,10 +131,23 @@
         "name": "Meta",
         "enabled": true,
         "pricing_tpm": {
-          "input": 0,
-          "output": 0
+          "input": 0.13,
+          "output": 0.38
         },
-        "context_length": 130000
+        "context_length": 131000
+      },
+      {
+        "api_key": "${OPENROUTER_API_KEY}",
+        "api_url": "https://openrouter.ai/api/v1/chat/completions",
+        "id": "llama-3.3-70b-instruct",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Meta",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0.08,
+          "output": 0.30
+        },
+        "context_length": 128000
       },
       {
         "api_key": "${HF_TOKEN}",
