@@ -79,7 +79,9 @@ public:
   size_t embeddingTimeoutMs() const { return config_["embedding"].value("timeout_ms", size_t(10'000)); }
   size_t embeddingBatchSize() const { return config_["embedding"].value("batch_size", size_t(4)); }
   size_t embeddingTopK() const { return config_["embedding"].value("top_k", size_t(5)); }
-  size_t embeddingEmbedFileinfo() const { return config_["embedding"].value("embed_fileinfo", false); }
+  std::string embeddingPrependLabelFormat() const {
+    return config_["embedding"].value("prepend_label_format", std::string(""));
+  }
 
   ApiConfig generationCurrentApi() const;
   std::vector<ApiConfig> generationApis() const;
@@ -90,6 +92,9 @@ public:
   size_t generationMaxChunks() const { return config_["generation"].value("max_chunks", size_t(5)); }
   float generationDefaultTemperature() const { return config_["generation"].value("default_temperature", 0.5f); }
   size_t generationDefaultMaxTokens() const { return config_["generation"].value("default_max_tokens", size_t(2048)); }
+  std::string generationPrependLabelFormat() const {
+    return config_["generation"].value("prepend_label_format", std::string(""));
+  }
 
   std::string databaseSqlitePath() const { return config_["database"].value("sqlite_path", "db.sqlite"); }
   std::string databaseIndexPath() const { return config_["database"].value("index_path", "index"); }

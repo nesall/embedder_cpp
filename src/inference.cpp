@@ -3,10 +3,10 @@
 #include "database.h"
 #include "settings.h"
 #include "tokenizer.h"
-#include "chunker.h"
 #include <stdexcept>
 #include <cassert>
 #include <format>
+#include <filesystem>
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 #include <utils_log/logger.hpp>
@@ -17,7 +17,7 @@ struct InferenceClient::Impl {
   std::string schemaHostPort_;
   std::string path_;
   size_t timeoutMs_;
-  
+
   std::unique_ptr<httplib::Client> httpClient_;
 
   void parseUrl();
@@ -214,8 +214,8 @@ CompletionClient::CompletionClient(const ApiConfig &cfg, size_t timeout, const A
 }
 
 std::string CompletionClient::generateCompletion(
-  const nlohmann::json &messagesJson, 
-  const std::vector<SearchResult> &searchRes, 
+  const nlohmann::json &messagesJson,
+  const std::vector<SearchResult> &searchRes,
   float temperature,
   size_t maxTokens,
   std::function<void(const std::string &)> onStream) const
@@ -245,24 +245,48 @@ std::string CompletionClient::generateCompletion(
     onStream("[meta]Working on the response");
   }
 
+
+  const auto labelFmt = app_.settings().generationPrependLabelFormat();
   const auto maxContextTokens = cfg().contextLength;
-
   size_t nofTokens = app_.tokenizer().countTokensWithVocab(_queryTemplate);
-
   std::string context;
   for (const auto &r : searchRes) {
-    auto nt = app_.tokenizer().countTokensWithVocab(r.content);
-    if (maxContextTokens < nofTokens + nt) {
-      size_t remaining = maxContextTokens - nofTokens;
-      if (0 < remaining) {
-        size_t approxCharCount = r.content.length() * remaining / nt;
-        context += r.content.substr(0, approxCharCount) + "\n\n";
-        nofTokens += app_.tokenizer().countTokensWithVocab(r.content.substr(0, approxCharCount));
+    std::string filename = std::filesystem::path(r.sourceId).filename().string();
+    if (filename.empty()) filename = r.sourceId.empty() ? "source" : r.sourceId;
+    // format label (std::vformat requires C++20)
+    std::string label = std::vformat(labelFmt, std::make_format_args(filename));
+    // avoid double-labeling
+    bool alreadyLabeled = (r.content.rfind(label, 0) == 0);
+
+    size_t contentTokens = app_.tokenizer().countTokensWithVocab(r.content);
+    size_t labelTokens = alreadyLabeled ? 0 : app_.tokenizer().countTokensWithVocab(label);
+
+    if (maxContextTokens < nofTokens + + labelTokens + contentTokens) {
+      size_t remaining = (nofTokens < maxContextTokens) ? (maxContextTokens - nofTokens) : 0;
+      if (remaining <= labelTokens) {
+        // can't fit label + content excerpt -> stop
+        break;
       }
+      size_t remainingContentTokens = remaining - labelTokens;
+      if (remainingContentTokens == 0) break;
+      
+      // approximate characters for remainingContentTokens
+      size_t approxCharCount = r.content.length();
+      if (0 < contentTokens) {
+        approxCharCount = r.content.length() * remainingContentTokens / contentTokens;
+      }
+
+      std::string excerpt = r.content.substr(0, approxCharCount);
+
+      std::string labeledExcerpt = alreadyLabeled ? excerpt : (label + excerpt);
+      context += labeledExcerpt + "\n\n";
+      nofTokens += app_.tokenizer().countTokensWithVocab(labeledExcerpt);
       break;
     }
-    nofTokens += nt;
-    context += r.content + "\n\n";
+    // full add
+    std::string labeledFull = alreadyLabeled ? r.content : (label + r.content);
+    nofTokens += labelTokens + contentTokens;
+    context += labeledFull + "\n\n";
   }
 
   //std::cout << "Generating completions with context length of " << nofTokens << " tokens \n";
@@ -271,11 +295,11 @@ std::string CompletionClient::generateCompletion(
   size_t pos = prompt.find("__CONTEXT__");
   assert(pos != std::string::npos);
   prompt.replace(pos, std::string("__CONTEXT__").length(), context);
-  
+
   pos = prompt.find("__QUESTION__");
   assert(pos != std::string::npos);
   std::string question = messagesJson.back()["content"].get<std::string>();
-  prompt.replace(pos, std::string("__QUESTION__").length(), question);  
+  prompt.replace(pos, std::string("__QUESTION__").length(), question);
 
   // Assign propmt to the last messagesJson's content field
   nlohmann::json modifiedMessages = messagesJson;

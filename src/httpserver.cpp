@@ -23,6 +23,7 @@
 #include <functional>
 #include <string_view>
 #include <format>
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -534,7 +535,6 @@ namespace {
     if (app.settings().generationMaxChunks() < orderedResults.size()) {
       orderedResults.resize(app.settings().generationMaxChunks());
     }
-    //onInfo("Finished collecting context data");
     onInfo(std::format("Context token budget used {}/{}", usedTokens, maxTokenBudget));
 
 //#ifdef _DEBUG

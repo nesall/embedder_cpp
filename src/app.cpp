@@ -87,7 +87,7 @@ namespace {
     return url.substr(0, pos);
   }
 
-  size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db, bool embedFileinfo) {
+  size_t addEmbedChunks(const std::vector<Chunk> &chunks, size_t batchSize, const EmbeddingClient &ec, VectorDatabase &db, std::string_view prependlabelFmt) {
     size_t totalTokens = 0;
     size_t iBatch = 1;
     const size_t nofBatches = static_cast<size_t>(std::ceil(chunks.size() / double(batchSize)));
@@ -98,14 +98,15 @@ namespace {
       std::vector<std::string> texts;
       for (const auto &chunk : batch) {
         auto text = chunk.text;
-        if (embedFileinfo) {
+        if (!prependlabelFmt.empty()) {
           std::string info;
           try {
             info = std::filesystem::path(chunk.docUri).filename().string();
           } catch (...) {
             info = chunk.docUri;
           }
-          text = "Source: " + info + "\n" + text;
+          auto label = std::vformat(prependlabelFmt, std::make_format_args(info));
+          text = label + "\n\n" + text;
         }
         texts.push_back(std::move(text));
         totalTokens += chunk.metadata.tokenCount;
@@ -217,7 +218,7 @@ namespace {
             continue;
           }
           auto chunks = chunker.chunkText(content, filepath);
-          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingEmbedFileinfo());
+          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingPrependLabelFormat());
           totalUpdated++;
           clearFailure(filepath);
           LOG_MSG << "  Updated with" << chunks.size() << " chunks";
@@ -244,7 +245,7 @@ namespace {
             continue;
           }
           auto chunks = chunker.chunkText(content, filepath);
-          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingEmbedFileinfo());
+          addEmbedChunks(chunks, batchSize_, client, *db_, app_.settings().embeddingPrependLabelFormat());
           totalUpdated++;
           clearFailure(filepath);
           LOG_MSG << "  Added with" << chunks.size() << " chunks";
@@ -665,7 +666,7 @@ void App::embed(bool noPrompt)
 
       LOG_MSG << "  Generated" << chunks.size() << "chunks";
       const size_t batchSize = imp->settings_->embeddingBatchSize();
-      totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_, settings().embeddingEmbedFileinfo());
+      totalTokens += addEmbedChunks(chunks, batchSize, embeddingClient, *imp->db_, settings().embeddingPrependLabelFormat());
       std::cout << std::endl;
       totalChunks += chunks.size();
       totalFiles++;
