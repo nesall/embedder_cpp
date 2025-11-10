@@ -261,7 +261,7 @@ std::string CompletionClient::generateCompletion(
     size_t contentTokens = app_.tokenizer().countTokensWithVocab(r.content);
     size_t labelTokens = alreadyLabeled ? 0 : app_.tokenizer().countTokensWithVocab(label);
 
-    if (maxContextTokens < nofTokens + + labelTokens + contentTokens) {
+    if (maxContextTokens < nofTokens + labelTokens + contentTokens) {
       size_t remaining = (nofTokens < maxContextTokens) ? (maxContextTokens - nofTokens) : 0;
       if (remaining <= labelTokens) {
         // can't fit label + content excerpt -> stop
