@@ -542,12 +542,12 @@ bool App::testSettings() const
         return "";// "FAIL";
         };
 
-      LOG_MSG << "    A0-A1 (similar):    " << simA0A1 << yesNo(simA0A1, 0.8, 0.95);
-      LOG_MSG << "    A0-B0 (different):  " << simA0B0 << yesNo(simA0B0, 0.3, 0.7);
-      LOG_MSG << "    A0-B1 (typo):       " << simA0B1 << yesNo(simA0B1, 0.3, 0.7);
-      LOG_MSG << "    B0-B1 (similar):    " << simB0B1 << yesNo(simB0B1, 0.6, 0.9);
-      LOG_MSG << "    A0-C0 (different):  " << simA0C0 << yesNo(simA0C0, 0.1, 0.5);
-      LOG_MSG << "    Doc-Query (Similar):" << simSelf << yesNo(simSelf, 0.75, 0.95);
+      LOG_MSG << "    A0-A1 (similar):    " << simA0A1 << yesNo(simA0A1, 0.8f, 0.95f);
+      LOG_MSG << "    A0-B0 (different):  " << simA0B0 << yesNo(simA0B0, 0.3f, 0.7f);
+      LOG_MSG << "    A0-B1 (typo):       " << simA0B1 << yesNo(simA0B1, 0.3f, 0.7f);
+      LOG_MSG << "    B0-B1 (similar):    " << simB0B1 << yesNo(simB0B1, 0.6f, 0.9f);
+      LOG_MSG << "    A0-C0 (different):  " << simA0C0 << yesNo(simA0C0, 0.1f, 0.5f);
+      LOG_MSG << "    Doc-Query (Similar):" << simSelf << yesNo(simSelf, 0.75f, 0.95f);
 
     } else {
       LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";

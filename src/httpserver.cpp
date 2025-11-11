@@ -343,7 +343,7 @@ namespace {
     std::vector<SearchResult> filteredChunkResults;
     std::vector<SearchResult> orderedResults; // Final ordered results
 
-    const auto maxTokenBudget = apiConfig.contextLength * std::clamp(contextSizeRatio, 0.1f, 1.0f);
+    const auto maxTokenBudget = static_cast<size_t>(apiConfig.contextLength * std::clamp(contextSizeRatio, 0.1f, 1.0f));
     assert(0 < maxTokenBudget);
 
     if (attachedOnly && attachments.empty() && sources.empty()) {
@@ -960,7 +960,7 @@ bool HttpServer::startServer()
 
       const float temperature = request.value("temperature", imp->app_.settings().generationDefaultTemperature());
       const size_t maxTokens = request.value("max_tokens", imp->app_.settings().generationDefaultMaxTokens());
-      const float contextSizeRatio = request.value("ctxratio", 0.9);
+      const float contextSizeRatio = request.value("ctxratio", 0.9f);
       const bool attachedOnly = request.value("attachedonly", false);
 
       res.set_header("Content-Type", "text/event-stream");
