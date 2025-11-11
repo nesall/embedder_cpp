@@ -29,14 +29,26 @@ struct ApiConfig {
 
   // Compute an effective "combined" price per million tokens.
   // hitRatio = fraction of input tokens served from cache (0.0–1.0)
-double combinedPrice(double hitRatio = 0.05) const {
+  double combinedPrice(double hitRatio = 0.05) const {
     // Only input can be cached; output is always fully billed
     double effectiveInput = pricing.input;
     if (0 < pricing.cachedInput) {
-        effectiveInput = hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input;
+      effectiveInput = hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input;
     }
     return effectiveInput + pricing.output;
-}
+  }
+
+  double inputTokensPrice(size_t tokens, double hitRatio = 0.05) const {
+    double effectiveInput = pricing.input;
+    if (0 < pricing.cachedInput) {
+      effectiveInput = hitRatio * pricing.cachedInput + (1.0 - hitRatio) * pricing.input;
+    }
+    return (tokens / 1'000'000.0) * effectiveInput;
+  }
+
+  double outputTokensPrice(size_t tokens) const {
+    return (tokens / 1'000'000.0) * pricing.output;
+  }
 
 };
 
@@ -94,6 +106,18 @@ public:
   size_t generationDefaultMaxTokens() const { return config_["generation"].value("default_max_tokens", size_t(2048)); }
   std::string generationPrependLabelFormat() const {
     return config_["generation"].value("prepend_label_format", std::string(""));
+  }
+  bool generationExcerptEnabled() const {
+    return config_["generation"].contains("excerpt") ? config_["generation"]["excerpt"].value("enabled", true) : true;
+  }
+  size_t generationExcerptMinChunks() const {
+    return config_["generation"].contains("excerpt") ? config_["generation"]["excerpt"].value("min_chunks", size_t(3)) : size_t(3);
+  }
+  size_t generationExcerptMaxChunks() const {
+    return config_["generation"].contains("excerpt") ? config_["generation"]["excerpt"].value("max_chunks", size_t(9)) : size_t(9);
+  }
+  float generationExcerptThresholdRatio() const {
+    return config_["generation"].contains("excerpt") ? config_["generation"]["excerpt"].value("threshold_ratio", 0.6f) : 0.6f;
   }
 
   std::string databaseSqlitePath() const { return config_["database"].value("sqlite_path", "db.sqlite"); }

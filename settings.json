@@ -184,7 +184,7 @@
           "input": 0.15,
           "output": 0.15
         },
-        "context_length": 90000
+        "context_length": 128000
       },
       {
         "api_key": "${MISTRAL_API_KEY}",
@@ -197,7 +197,7 @@
           "input": 0.1,
           "output": 0.3
         },
-        "context_length": 90000
+        "context_length": 128000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -211,7 +211,7 @@
           "input": 0.1,
           "output": 0.4
         },
-        "context_length": 90000
+        "context_length": 1000000
       },
       {
         "api_key": "${DEEPSEEK_API_KEY}",
@@ -224,7 +224,8 @@
           "cached_input": 0.028,
           "input": 0.28,
           "output": 0.42
-        }
+        },
+        "context_length": 128000
       },
       {
         "api_key": "${XAI_API_KEY}",
@@ -252,7 +253,7 @@
           "input": 0.15,
           "output": 0.6
         },
-        "context_length": 90000
+        "context_length": 128000
       },
       {
         "api_key": "${CODESTRAL_API_KEY}",
@@ -265,7 +266,7 @@
           "input": 0.3,
           "output": 0.9
         },
-        "context_length": 200000
+        "context_length": 256000
       },
       {
         "api_key": "${XAI_API_KEY}",
@@ -279,7 +280,7 @@
           "input": 0.2,
           "output": 1.5
         },
-        "context_length": 150000
+        "context_length": 256000
       },
       {
         "api_key": "${OPENAI_API_KEY}",
@@ -308,6 +309,7 @@
           "input": 0.25,
           "output": 2.0
         },
+        "context_length": 256000,
         "stream": false,
         "temperature_support": false
       },
@@ -322,7 +324,8 @@
           "cached_input": 0.03,
           "input": 0.3,
           "output": 2.5
-        }
+        },
+        "context_length": 1000000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -335,7 +338,8 @@
           "cached_input": 0.125,
           "input": 1.5,
           "output": 10.0
-        }
+        },
+        "context_length": 1000000
       }
     ],
     "current_api": "remote-hosted",
@@ -343,11 +347,17 @@
     "default_max_tokens_name": "max_tokens",
     "default_temperature": 0.5,
     "max_chunks": 7,
-    "max_context_tokens": 40000,
+    "max_context_tokens": 96000,
     "max_full_sources": 2,
     "max_related_per_source": 3,
     "timeout_ms": 120000,
-    "prepend_label_format": "[Source: {}]\n"
+    "prepend_label_format": "[Source: {}]\n",
+    "excerpt": {
+      "enabled": true,
+      "min_chunks": 3,
+      "max_chunks": 11,
+      "threshold_ratio": 0.5
+    }
   },
   "logging": {
     "diagnostics_file": "embedder_diag.log",

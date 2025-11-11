@@ -99,10 +99,10 @@ namespace {
     return result;
   }
 
-  size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens) {
+  size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens, size_t minChunks, size_t maxChunks) {
     size_t neighbors = excerptBudget / avgChunkTokens;
     // Always include at least 3 chunks (before, match, after)
-    return std::clamp(neighbors, size_t(3), size_t(15));
+    return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), 1ull, 101ull);
   }
 
   std::vector<size_t> getClosestNeighbors(const std::vector<size_t> &ids, size_t D, size_t M) {
@@ -149,14 +149,20 @@ namespace {
     const auto excerptBudget = maxTokenBudget - usedTokens;
     if (excerptBudget <= 0) return false;
     // If the source file of the best chunk is too large then we fetch an excerpt of it instead.
-    const auto avgChunkTokens = app.settings().chunkingMaxTokens();
+    const auto avgChunkTokens = app.settings().chunkingMaxTokens();    
     if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
+      if (!app.settings().generationExcerptEnabled()) {
+        return false;
+      }
       const auto ids = app.db().getChunkIdsBySource(src);
       assert(!ids.empty());
       if (chunkId == -1) {
         chunkId = ids[ids.size() / 2];
       }
-      const auto nofNb = calculateNeighborCount(static_cast<size_t>(excerptBudget * 0.7), avgChunkTokens);
+      float thresholdRatio = app.settings().generationExcerptThresholdRatio();
+      size_t minChunks = app.settings().generationExcerptMinChunks();
+      size_t maxChunks = app.settings().generationExcerptMaxChunks();
+      const auto nofNb = calculateNeighborCount(static_cast<size_t>(excerptBudget * thresholdRatio), avgChunkTokens, minChunks, maxChunks);
       const auto betterIds = getClosestNeighbors(ids, chunkId, nofNb);
       std::vector<std::string> chunkhood;
       for (auto i : betterIds) {
@@ -319,7 +325,7 @@ namespace {
     return true;
   }
 
-  std::vector<SearchResult> processInputResults(
+  std::pair<std::vector<SearchResult>, size_t> processInputResults(
     const App &app, 
     const ApiConfig &apiConfig,
     const std::string &question, 
@@ -545,7 +551,7 @@ namespace {
 //    LOG_MSG << "Total context tokens used:" << nn;
 //#endif
 
-    return orderedResults;
+    return { orderedResults, usedTokens };
   }
 
 } // anonymous namespace
@@ -975,17 +981,19 @@ bool HttpServer::startServer()
           auto initialInfo = packPayload("[meta]Searching for relevant content");
           sink.write(initialInfo.data(), initialInfo.size());
 
-          auto orderedResults = processInputResults(imp->app_, apiConfig, question, attachments, sources, contextSizeRatio, attachedOnly,
-            [packPayload, &sink](std::string_view info)
+          auto onInfo = [packPayload, &sink](std::string_view info)
             {
               auto s = packPayload(std::string{ "[meta]" } + std::string{ info.data(), info.size() });
               sink.write(s.data(), s.size());
-            }
+            };
+
+          const auto [orderedResults, usedTokens] = processInputResults(imp->app_, apiConfig, question, attachments, sources, 
+            contextSizeRatio, attachedOnly, onInfo
           );
 
           CompletionClient completionClient(apiConfig, imp->app_.settings().generationTimeoutMs(), imp->app_);
           try {
-            /*std::string context = */completionClient.generateCompletion(
+            const std::string fullResponse = completionClient.generateCompletion(
               messagesJson, orderedResults, temperature, maxTokens,
               [&sink, packPayload](const std::string &chunk) {
 #ifdef _DEBUG2
@@ -1005,6 +1013,13 @@ bool HttpServer::startServer()
               }
               });
 #endif
+            size_t resTokens = imp->app_.tokenizer().countTokensWithVocab(fullResponse);
+            onInfo(std::format("Response token count {}", resTokens));
+
+            float costReq = apiConfig.inputTokensPrice(usedTokens);
+            float costRes = apiConfig.outputTokensPrice(resTokens);
+            auto costTotal = costReq + costRes;
+            onInfo(std::format("Total cost incurred {} (context: {}, response: {})", costTotal, costReq, costRes));
 
             // Add sources information
             nlohmann::json sourcesJson;

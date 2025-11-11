@@ -1,4 +1,8 @@
 {
+  "_comment": "PhenixCode Embedder RAG System Configuration Template v1.0.0",
+  "_version": "1.0.0",
+  "_docs": "https://github.com/nesall/embedder_cpp/wiki/configuration",
+  
   "placeholder_descriptions": {
     "_PL_EMB_API_URL_": "Embedding API base URL",
     "_PL_EMB_API_KEY_": "Embedding API access key",
@@ -34,8 +38,8 @@
     "batch_size": 4,
     "timeout_ms": 30000,
     "retry_attempts": 3,
-    "embed_fileinfo": false,
-    "top_k": 5
+    "top_k": 5,
+    "prepend_label_format": "[Source: {}]\n"
   },
   "generation": {
     "apis": [
@@ -49,7 +53,8 @@
           "input": 0.00,
           "cached_input": 0.00,
           "output": 0.00
-        }
+        },
+        "context_length": 100000
       },
       {
         "api_key": "${MISTRAL_API_KEY}",
@@ -60,7 +65,8 @@
         "pricing_tpm": {
           "input": 0.1,
           "output": 0.3
-        }
+        },
+        "context_length": 128000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -72,7 +78,7 @@
           "input": 0.1,
           "output": 0.4
         },
-        "context_length": 100000
+        "context_length": 1000000
       },      
       {
         "api_key": "${DEEPSEEK_API_KEY}",
@@ -84,7 +90,8 @@
           "cached_input": 0.028,
           "input": 0.28,
           "output": 0.42
-        }
+        },
+        "context_length": 128000
       },      
       {
         "api_key": "${XAI_API_KEY}",
@@ -97,6 +104,7 @@
           "input": 0.2,
           "output": 0.5
         },
+        "context_length": 2000000
       },
       {
         "api_key": "${OPENAI_API_KEY}",
@@ -108,8 +116,9 @@
           "cached_input": 0.075,
           "input": 0.15,
           "output": 0.6
-        }
-      }      
+        },
+        "context_length": 128000
+      }
     ],
     "current_api": "mistral-devstral",
     "timeout_ms": 120000,
@@ -119,7 +128,14 @@
     "max_context_tokens": 64000,
     "default_temperature": 0.1,
     "default_max_tokens": 2048,
-    "default_max_tokens_name": "max_tokens"
+    "default_max_tokens_name": "max_tokens",
+    "prepend_label_format": "[Source: {}]\n",
+    "excerpt": {
+      "enabled": true,
+      "min_chunks": 3,
+      "max_chunks": 15,
+      "threshold_ratio": 0.5
+    }
   },
   "database": {
     "sqlite_path": "./db_metadata.db",
@@ -137,6 +153,7 @@
   },
   "source": {
     "project_title":"Default Project Title",
+    "project_description": "",
     "paths":[
       {
         "exclude": [
@@ -166,5 +183,5 @@
     "log_to_file": true,
     "logging_file": "embedder.log",
     "diagnostics_file": "embedder_d.log"
-  },
+  }
 }
