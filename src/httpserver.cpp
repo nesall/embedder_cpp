@@ -99,12 +99,6 @@ namespace {
     return result;
   }
 
-  size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens, size_t minChunks, size_t maxChunks) {
-    size_t neighbors = excerptBudget / avgChunkTokens;
-    // Always include at least 3 chunks (before, match, after)
-    return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), 1ull, 101ull);
-  }
-
   std::vector<size_t> getClosestNeighbors(const std::vector<size_t> &ids, size_t D, size_t M) {
     if (ids.empty() || M == 0) return {};
 
@@ -136,12 +130,19 @@ namespace {
     return result;
   }
 
+  size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens, size_t minChunks, size_t maxChunks) {
+    size_t neighbors = excerptBudget / avgChunkTokens;
+    // Always include at least 3 chunks (before, match, after)
+    return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), 1ull, 101ull);
+  }
+
   bool isWithinThreshold(const App &app, const std::string &content, size_t maxTokenBudget, size_t usedTokens) {
     const auto excerptBudget = maxTokenBudget - usedTokens;
     if (excerptBudget <= 0) return false;
     const auto avgChunkTokens = app.settings().chunkingMaxTokens();
     const auto tokens = app.tokenizer().countTokensWithVocab(content);
-    auto threshold = (std::max)(excerptBudget / 2, avgChunkTokens);
+    float thresholdRatio = app.settings().generationExcerptThresholdRatio();
+    auto threshold = (std::max)(static_cast<size_t>(excerptBudget * thresholdRatio), avgChunkTokens);
     return tokens <= threshold;
   }
 
@@ -405,14 +406,17 @@ namespace {
     std::vector<std::string> allFullSources;
     std::vector<std::string> relSources;
 
+    EmbeddingClient embeddingClient(app.settings().embeddingCurrentApi(), app.settings().embeddingTimeoutMs());
+    const auto questionChunks = app.chunker().chunkText(question, "", false);
+    for (const auto &qc : questionChunks) {
+      std::vector<float> embedding;
+      embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
+      questionEmbeddingVectors.push_back(embedding);
+    }
+
     if (!attachedOnly) {
-      EmbeddingClient embeddingClient(app.settings().embeddingCurrentApi(), app.settings().embeddingTimeoutMs());
       std::unordered_map<std::string, float> sourcesRank;
-      const auto questionChunks = app.chunker().chunkText(question, "", false);
-      for (const auto &qc : questionChunks) {
-        std::vector<float> embedding;
-        embeddingClient.generateEmbeddings(qc.text, embedding, EmbeddingClient::EncodeType::Query);
-        questionEmbeddingVectors.push_back(embedding);
+      for (const auto &embedding : questionEmbeddingVectors) {
         auto res = app.db().search(embedding, app.settings().embeddingTopK());
         filteredChunkResults.insert(filteredChunkResults.end(), res.begin(), res.end());
         for (const auto &r : res) {
@@ -475,7 +479,7 @@ namespace {
             const auto nofMaxChunks = remaining / avgChunkTokens;
             hnswlib::InnerProductSpace space{ app.settings().databaseVectorDim() };
             hnswlib::HierarchicalNSW<float> hnswDB(&space, 1000, 16, 200, 42, true);
-            ids.reserve(999);
+            ids.resize(999);
             std::unordered_map<size_t, std::string> idToContent;
             for (auto id : ids) {
               if (auto opt = app.db().getChunkData(id)) {
@@ -487,6 +491,7 @@ namespace {
             content.clear();
             const auto topK = static_cast<size_t>(nofMaxChunks * 0.8);
             if (0 < topK) {
+              assert(!questionEmbeddingVectors.empty());
               content.reserve(questionEmbeddingVectors.size() * topK);
               int nofFetched = 0;
               for (const auto &v : questionEmbeddingVectors) {
@@ -1019,7 +1024,10 @@ bool HttpServer::startServer()
             float costReq = apiConfig.inputTokensPrice(usedTokens);
             float costRes = apiConfig.outputTokensPrice(resTokens);
             auto costTotal = costReq + costRes;
-            onInfo(std::format("Total cost incurred {} (context: {}, response: {})", costTotal, costReq, costRes));
+            if (costTotal == 0)
+              onInfo("Total cost incurred: 0");
+            else
+              onInfo(std::format("Approx. cost incurred: ${:.4f} (input: {:.4f}, output: {:.4f})", costTotal, costReq, costRes));
 
             // Add sources information
             nlohmann::json sourcesJson;

@@ -82,7 +82,7 @@
           "input": 0,
           "output": 0
         },
-        "context_length": 100000
+        "context_length": 128000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -356,7 +356,7 @@
       "enabled": true,
       "min_chunks": 3,
       "max_chunks": 11,
-      "threshold_ratio": 0.5
+      "threshold_ratio": 0.75
     }
   },
   "logging": {

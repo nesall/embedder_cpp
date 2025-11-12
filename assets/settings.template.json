@@ -4,6 +4,7 @@
   "_docs": "https://github.com/nesall/embedder_cpp/wiki/configuration",
   
   "placeholder_descriptions": {
+    "_comment": "Placeholders will be replaced during setup wizard",
     "_PL_EMB_API_URL_": "Embedding API base URL",
     "_PL_EMB_API_KEY_": "Embedding API access key",
     "_PL_EMB_MODEL_NAME_": "Embedding model name",
@@ -134,7 +135,7 @@
       "enabled": true,
       "min_chunks": 3,
       "max_chunks": 15,
-      "threshold_ratio": 0.5
+      "threshold_ratio": 0.75
     }
   },
   "database": {
