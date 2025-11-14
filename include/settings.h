@@ -144,6 +144,7 @@ public:
     return config_.contains("logging") ? config_["logging"].value("log_to_console", true) : true;
   }
 
+  std::string getProjectId() const;
   std::string getProjectTitle() const;
   std::vector<SourceItem> sources() const;
   std::string configDump() const { return config_.dump(2); }

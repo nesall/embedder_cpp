@@ -15,6 +15,8 @@ public:
 
   std::string fileLastModifiedTime() const;
 
+  static std::string fnv1a64(const std::string &str);
+
 private:
   struct Impl;
   std::unique_ptr<Impl> imp;

@@ -18,7 +18,7 @@ public:
   InstanceRegistry(InstanceRegistry &&) = default;
   InstanceRegistry &operator=(InstanceRegistry &&) = default;
 
-  void registerInstance(int port, const std::string &name = "");
+  void registerInstance(int port, const std::string &projectId, const std::string &projectTitle);
   void unregister();
   void startHeartbeat();
   void stopHeartbeat();

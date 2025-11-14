@@ -161,17 +161,19 @@ struct InstanceRegistry::Impl {
 #endif
   }
 
-  void registerInstance(int port, const std::string &name) const {
+  void registerInstance(
+    int port, const std::string &projectId, const std::string &projectTitle/*, std::function<void(const std::string &)> callback*/)
+  {
     std::lock_guard<std::mutex> lock(registryMutex());
     json registry = fetchRegistry();
-
     const auto [now, nowStr] = curTimestamp();
     json instance = {
         {"id", instanceId_},
         {"pid", getProcessId()},
         {"port", port},
         {"host", "localhost"},
-        {"name", name.empty() ? detectProjectName() : name},
+        {"project_id", projectId},
+        {"name", projectTitle.empty() ? detectProjectName() : projectTitle},
         {"started_at", now},
         {"started_at_str", nowStr},
         {"last_heartbeat", now},
@@ -179,9 +181,7 @@ struct InstanceRegistry::Impl {
         {"cwd", std::filesystem::current_path().string()},
         {"status", "healthy"}
     };
-
     Impl::cleanStaleInstances(registry);
-
     bool found = false;
     for (auto &inst : registry["instances"]) {
       if (inst["id"] == instanceId_) {
@@ -191,7 +191,6 @@ struct InstanceRegistry::Impl {
       }
     }
     if (!found) registry["instances"].push_back(instance);
-
     saveRegistry(registry);
     LOG_MSG << "Registered instance:" << instanceId_ << "on port" << port;
   }
@@ -250,9 +249,9 @@ InstanceRegistry::InstanceRegistry(const std::string &registryPath_)
 
 InstanceRegistry::~InstanceRegistry() = default;
 
-void InstanceRegistry::registerInstance(int port, const std::string &name)
+void InstanceRegistry::registerInstance(int port, const std::string &projectId, const std::string &projectTitle)
 {
-  imp->registerInstance(port, name);
+  imp->registerInstance(port, projectId, projectTitle);
 }
 
 void InstanceRegistry::unregister()

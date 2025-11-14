@@ -1,7 +1,9 @@
 #include "settings.h"
+#include "auth.h"
 #include <fstream>
 #include <stdexcept>
 #include <filesystem>
+#include <sstream>
 #include <cstdlib>
 
 namespace {
@@ -70,6 +72,14 @@ namespace {
     }
     return cfg;
   }
+
+  std::string hashString(const std::string &str) {
+    std::hash<std::string> hasher;
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0') << std::setw(16) << hasher(str);
+    return ss.str();
+    //return AdminAuth::fnv1a64(str);
+  }
 } // anonymous namespace
 
 Settings::Settings(const std::string &path)
@@ -122,6 +132,20 @@ std::vector<ApiConfig> Settings::generationApis() const
 {
   if (!config_.contains("generation")) return {};
   return getApiConfigList(config_["generation"]);
+}
+
+std::string Settings::getProjectId() const
+{
+  std::string s;
+  s = config_["source"].value("project_id", "");
+  if (s.empty()) {
+    // Auto-generate
+    auto absPath = std::filesystem::absolute(configPath()).lexically_normal();
+    std::string dirName = absPath.parent_path().filename().string();
+    std::string pathHash = hashString(absPath.generic_string()).substr(0, 8);
+    s = dirName + "-" + pathHash;
+  }
+  return s;
 }
 
 std::string Settings::getProjectTitle() const

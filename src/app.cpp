@@ -316,12 +316,16 @@ namespace {
     static volatile std::sig_atomic_t shutdownRequested;
 
   public:
-    static void handleSignal(int sig) {
+    static void handleSignal(int) {
       shutdownRequested = 1;
     }
 
     static bool shouldShutdown() {
       return shutdownRequested != 0;
+    }
+
+    static void requestShutdown() {
+      shutdownRequested = 1;
     }
 
     static void setup() {
@@ -448,6 +452,7 @@ struct App::Impl {
   std::chrono::system_clock::time_point lastUpdateTime_;
 
   std::unique_ptr<InstanceRegistry> registry_;
+  std::string privateAppKey_;
 
   StatsCache statsCache_;
   std::string projectTitle_;
@@ -791,7 +796,7 @@ void App::serve(int suggestedPort, bool watch, int interval)
 
     imp->httpServer_->stop();
     imp->db_->persist();
-
+    //imp->appKey_.clear();
     if (serverThread.joinable()) serverThread.join();
     if (watchThread.joinable()) watchThread.join();
 
@@ -826,12 +831,13 @@ void App::serve(int suggestedPort, bool watch, int interval)
       LOG_MSG << "  Auto-update: disabled";
     }
     
-
     serverThread = std::thread([this, suggestedPort]() {
       int newPort = imp->httpServer_->bindToPortIncremental(suggestedPort);
       if (0 < newPort) {
         imp->registry_ = std::make_unique<InstanceRegistry>();
-        imp->registry_->registerInstance(newPort, describeProjectTitle());
+        imp->registry_->registerInstance(
+          newPort, settings().getProjectId(), describeProjectTitle()
+        );
         imp->registry_->startHeartbeat();
         LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";
         imp->httpServer_->startServer();
@@ -1014,6 +1020,16 @@ AdminAuth &App::auth()
 const InstanceRegistry &App::registry() const
 {
   return *imp->registry_;
+}
+
+bool App::isValidPrivateAppKey(const std::string &appKey)
+{
+  return appKey == imp->privateAppKey_;
+}
+
+void App::requestShutdownAsync()
+{
+  SignalHandler::requestShutdown();
 }
 
 float App::dbSizeMB() const
@@ -1415,12 +1431,14 @@ int App::run(int argc, char *argv[])
   int servePort = 8590;
   bool serveWatch = false;
   int serveWatchInterval = 60;
+  std::string privateAppKey;
   cmdServe->add_option("-p,--port", servePort, "Server port")
     ->default_val(8590)
     ->envname("EMBEDDER_PORT")
     ->check(CLI::Range(1, 65535));
   cmdServe->add_flag("--watch", serveWatch, "Enable auto-update");
   cmdServe->add_option("--interval", serveWatchInterval, "Watch interval in seconds")->default_val(60);
+  cmdServe->add_option("--appkey", privateAppKey, "Caller-provided key for privileged operations (e.g., exit requests through the instance registry)");
 
   auto cmdProviders = app.add_subcommand("providers", "List embedding and completion providers");
   std::string testProvider;
@@ -1473,6 +1491,7 @@ int App::run(int argc, char *argv[])
 
     App appInstance;
     appInstance.imp->settings_ = std::move(settings);
+    appInstance.imp->privateAppKey_ = std::move(privateAppKey);
     appInstance.initialize();
 
     if (!appInstance.testSettings()) {

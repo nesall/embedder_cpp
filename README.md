@@ -152,5 +152,9 @@ curl -N -X POST http://localhost:8590/api/chat   -H "Content-Type: application/j
     "temperature": 0.7
   }'
 
+# Shutdown instance that was started with an app key e.g. ./embeddings_cpp serve --appkey abc123
+curl -X POST http://localhost:8590/api/shutdown \
+  -H "X-App-Key: abc123" \
+  -d '{}'  
 ```
 

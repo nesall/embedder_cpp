@@ -1100,7 +1100,7 @@ bool HttpServer::startServer()
       res.set_content(errorJson.dump(2), "application/json");
       Impl::errorCounter_++;
     }
-    HttpServer::Impl::requestCounter_++;
+    Impl::requestCounter_++;
     });
 
   server.Get("/api/instances", [this](const httplib::Request &, httplib::Response &res) {
@@ -1121,10 +1121,29 @@ bool HttpServer::startServer()
       res.set_content(errorJson.dump(2), "application/json");
       Impl::errorCounter_++;
     }
-    HttpServer::Impl::requestCounter_++;
+    Impl::requestCounter_++;
     });
 
-  // Add to your HTTP server
+  server.Post("/api/shutdown", [&](const httplib::Request &req, httplib::Response &res) {
+    LOG_MSG << "POST /api/shutdown";
+    auto appKey = req.get_header_value("X-App-Key");
+    if (!imp->app_.isValidPrivateAppKey(appKey) && !requireAuth(auth, req, res, nullptr)) return;
+    try {
+      imp->app_.requestShutdownAsync();
+      json response = {
+          {"status", "success"},
+          {"message", "Shutdown initiated"}
+      };
+      res.set_content(response.dump(), "application/json");
+    } catch (const std::exception &e) {
+      json error = { {"error", e.what()} };
+      res.status = 500;
+      res.set_content(error.dump(), "application/json");
+      Impl::errorCounter_++;
+    }
+    Impl::requestCounter_++;
+    });
+
   server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
     LOG_MSG << "GET /api/metrics";
 
@@ -1247,6 +1266,7 @@ bool HttpServer::startServer()
             {"POST /api/embed", "Generate embeddings"},
             {"POST /api/documents", "Add documents"},
             {"POST /api/update", "Trigger manual update"},
+            {"POST /api/shutdown", "Initiate a shutdown"},
         }}
     };
     res.set_content(info.dump(2), "application/json");
@@ -1269,6 +1289,8 @@ bool HttpServer::startServer()
   LOG_MSG << "  POST /api/embed     - {\"text\": \"...\"}";
   LOG_MSG << "  POST /api/documents - {\"content\": \"...\", \"source_id\": \"...\"}";
   LOG_MSG << "  POST /api/chat      - {\"messages\":[\"role\":\"...\", \"content\":\"...\"], \"temperature\": \"...\"}";
+  LOG_MSG << "  POST /api/update    - Trigger manual update of sources";
+  LOG_MSG << "  POST /api/shutdown  - Initiate server shutdown (expects X-App-Key header for the key)";
   LOG_MSG << "\nPress Ctrl+C to stop";
   return server.listen_after_bind();
 }

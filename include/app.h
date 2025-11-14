@@ -44,6 +44,9 @@ public:
   AdminAuth &auth();
   const InstanceRegistry &registry() const;
 
+  bool isValidPrivateAppKey(const std::string &appKey);
+  void requestShutdownAsync();
+
 public:
   static void printUsage();
   static int run(int argc, char *argv[]);

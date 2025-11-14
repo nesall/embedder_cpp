@@ -173,17 +173,19 @@ struct AdminAuth::Impl {
     // Return salt$hash format for storage
     return pSalt ? (salt + "$" + ss.str()) : ss.str();
 #else
-    constexpr uint64_t fnv_offset = 14695981039346656037ull;
-    constexpr uint64_t fnv_prime = 1099511628211ull;
+    //constexpr uint64_t fnv_offset = 14695981039346656037ull;
+    //constexpr uint64_t fnv_prime = 1099511628211ull;
 
-    uint64_t hash = fnv_offset;
-    for (unsigned char c : saltedPass)
-      hash = (hash ^ c) * fnv_prime;
+    //uint64_t hash = fnv_offset;
+    //for (unsigned char c : saltedPass)
+    //  hash = (hash ^ c) * fnv_prime;
 
-    std::stringstream ss;
-    ss << std::hex << std::setw(16) << std::setfill('0') << hash;
+    //std::stringstream ss;
+    //ss << std::hex << std::setw(16) << std::setfill('0') << hash;
 
-    return pSalt ? (salt + "$" + ss.str()) : ss.str();
+    //return pSalt ? (salt + "$" + ss.str()) : ss.str();
+    auto ss = fnv1a64(saltedPass);
+    return pSalt ? (salt + "$" + ss) : ss;
 #endif
   }
   std::string fileLastModifiedTime() const {
@@ -223,4 +225,23 @@ void AdminAuth::setPassword(const std::string &new_password)
 std::string AdminAuth::fileLastModifiedTime() const
 {
   return imp->fileLastModifiedTime();
+}
+
+std::string AdminAuth::fnv1a64(const std::string &str)
+{
+  const uint64_t FNV_prime = 1099511628211ull; // 0x100000001b3
+  // Use the standard initial hash value
+  uint64_t hash = 0xcbf29ce484222325ull;
+
+  for (unsigned char c : str) {
+    // FNV-1a: XOR then Multiply
+    hash ^= c;
+    hash *= FNV_prime;
+    // C++ uint64_t automatically wraps (performs the modulo 2^64)
+  }
+
+  std::stringstream ss;
+  // Ensure we output exactly 16 hex digits
+  ss << std::hex << std::setfill('0') << std::setw(16) << hash;
+  return ss.str();
 }

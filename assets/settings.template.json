@@ -153,7 +153,9 @@
     "overlap_percentage": 0.2
   },
   "source": {
-    "project_title":"Default Project Title",
+    "_comment_project_id": "Leave empty to auto-generate from config path, or set a custom stable project_id",
+    "project_id": "",
+    "project_title": "Default Project Title",
     "project_description": "",
     "paths":[
       {
