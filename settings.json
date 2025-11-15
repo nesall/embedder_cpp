@@ -98,17 +98,17 @@
         "context_length": 60000
       },
       {
-        "api_key": "${OPENROUTER_API_KEY}",
-        "api_url": "https://openrouter.ai/api/v1/chat/completions",
-        "id": "minimax-m2-free",
-        "model": "minimax/minimax-m2:free",
+        "api_key": "${COMET_API_KEY}",
+        "api_url": "https://api.cometapi.com/v1/chat/completions",
+        "id": "minimax-m2",
+        "model": "minimax-m2",
         "name": "MiniMax",
         "enabled": true,
         "pricing_tpm": {
-          "input": 0.15,
-          "output": 0.45
+          "input": 0.24,
+          "output": 0.96
         },
-        "context_length": 196000
+        "context_length": 204000
       },
       {
         "api_key": "${OPENROUTER_API_KEY}",
@@ -135,43 +135,6 @@
           "output": 0.38
         },
         "context_length": 131000
-      },
-      {
-        "api_key": "${OPENROUTER_API_KEY}",
-        "api_url": "https://openrouter.ai/api/v1/chat/completions",
-        "id": "llama-3.3-70b-instruct",
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
-        "name": "Meta",
-        "enabled": true,
-        "pricing_tpm": {
-          "input": 0.08,
-          "output": 0.30
-        },
-        "context_length": 128000
-      },
-      {
-        "api_key": "${HF_TOKEN}",
-        "api_url": "https://router.huggingface.co/v1/chat/completions",
-        "id": "hfq",
-        "model": "Qwen/Qwen2.5-Coder-32B-Instruct:nscale",
-        "name": "HF (Qwen2.5 32B)",
-        "enabled": true,
-        "pricing_tpm": {
-          "input": 0.06,
-          "output": 0.2
-        }
-      },
-      {
-        "api_key": "${HF_TOKEN}",
-        "api_url": "https://router.huggingface.co/v1/chat/completions",
-        "id": "hfgpt-oss",
-        "model": "openai/gpt-oss-120b:novita",
-        "name": "HF (openai/gpt-oss-120b)",
-        "enabled": true,
-        "pricing_tpm": {
-          "input": 0.05,
-          "output": 0.25
-        }
       },
       {
         "api_key": "${MISTRAL_API_KEY}",
@@ -239,7 +202,7 @@
           "input": 0.2,
           "output": 0.5
         },
-        "context_length": 350000
+        "context_length": 128000
       },
       {
         "api_key": "${OPENAI_API_KEY}",

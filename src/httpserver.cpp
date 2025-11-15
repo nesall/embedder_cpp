@@ -136,12 +136,12 @@ namespace {
     return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), 1ull, 101ull);
   }
 
-  bool isWithinThreshold(const App &app, const std::string &content, size_t maxTokenBudget, size_t usedTokens) {
+  bool isWithinThreshold(const App &app, const std::string &content, size_t maxTokenBudget, size_t usedTokens, float thresholdRatio, size_t *pTokens = nullptr) {
     const auto excerptBudget = maxTokenBudget - usedTokens;
     if (excerptBudget <= 0) return false;
     const auto avgChunkTokens = app.settings().chunkingMaxTokens();
     const auto tokens = app.tokenizer().countTokensWithVocab(content);
-    float thresholdRatio = app.settings().generationExcerptThresholdRatio();
+    if (pTokens) *pTokens = tokens;
     auto threshold = (std::max)(static_cast<size_t>(excerptBudget * thresholdRatio), avgChunkTokens);
     return tokens <= threshold;
   }
@@ -151,7 +151,9 @@ namespace {
     if (excerptBudget <= 0) return false;
     // If the source file of the best chunk is too large then we fetch an excerpt of it instead.
     const auto avgChunkTokens = app.settings().chunkingMaxTokens();    
-    if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
+    float thresholdRatio = app.settings().generationExcerptThresholdRatio();
+    size_t contentTokens = 0;
+    if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens, thresholdRatio, &contentTokens)) {
       if (!app.settings().generationExcerptEnabled()) {
         return false;
       }
@@ -160,7 +162,6 @@ namespace {
       if (chunkId == -1) {
         chunkId = ids[ids.size() / 2];
       }
-      float thresholdRatio = app.settings().generationExcerptThresholdRatio();
       size_t minChunks = app.settings().generationExcerptMinChunks();
       size_t maxChunks = app.settings().generationExcerptMaxChunks();
       const auto nofNb = calculateNeighborCount(static_cast<size_t>(excerptBudget * thresholdRatio), avgChunkTokens, minChunks, maxChunks);
@@ -173,8 +174,9 @@ namespace {
         }
       }
       content = stitchChunks(chunkhood); // Also removes overlaps
+      contentTokens = app.tokenizer().countTokensWithVocab(content);
     }
-    usedTokens += app.tokenizer().countTokensWithVocab(content);
+    usedTokens += contentTokens;
     return true;
   }
 
@@ -458,10 +460,12 @@ namespace {
     }
 
     size_t srcTokens = 0;
-    for (const auto &src : sources) {
+    for (size_t j = 0; j < sources.size(); j ++) {
+      const auto &src = sources[j];
       // src is either a user-set context file, or a chunk's base file (sourceToChunk).
       auto content = app.sourceProcessor().fetchSource(src).content;
       if (maxTokenBudget <= usedTokens) break;
+      size_t contentTokens = 0;
       if (sourceToChunk.contains(src)) {
         auto nUsed = usedTokens;
         if (!processContent(app, content, src, sourceToChunk[src].chunkId, maxTokenBudget, usedTokens)) {
@@ -469,7 +473,9 @@ namespace {
         }
         srcTokens += usedTokens - nUsed;
       } else {
-        if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens)) {
+        float thresholdRatio = app.settings().generationExcerptThresholdRatio();
+        if (attachedOnly && j == sources.size() - 1) thresholdRatio = 1.0f;
+        if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens, thresholdRatio, &contentTokens)) {
           auto info = std::format("Processing large file {}", std::filesystem::path(src).filename().string());
           onInfo(info);
           auto ids = app.db().getChunkIdsBySource(src);
@@ -489,7 +495,8 @@ namespace {
               }
             }
             content.clear();
-            const auto topK = static_cast<size_t>(nofMaxChunks * 0.8);
+            contentTokens = 0;
+            const auto topK = static_cast<size_t>(nofMaxChunks * thresholdRatio);
             if (0 < topK) {
               assert(!questionEmbeddingVectors.empty());
               content.reserve(questionEmbeddingVectors.size() * topK);
@@ -508,7 +515,7 @@ namespace {
               }
               onInfo(std::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
               auto tokens = app.tokenizer().countTokensWithVocab(content);
-              usedTokens += tokens;
+              contentTokens += tokens;
               srcTokens += tokens;
             }
           }
@@ -516,6 +523,7 @@ namespace {
       }
       if (!content.empty()) {
         addToSearchResult(fullSourceResults, src, std::move(content));
+        usedTokens += contentTokens;
       }
     }
     LOG_MSG << "Budget used for full sources:" << srcTokens;
