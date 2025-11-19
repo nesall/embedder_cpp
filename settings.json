@@ -306,7 +306,7 @@
       }
     ],
     "current_api": "remote-hosted",
-    "default_max_tokens": 2048,
+    "default_max_tokens": 4096,
     "default_max_tokens_name": "max_tokens",
     "default_temperature": 0.5,
     "max_chunks": 7,

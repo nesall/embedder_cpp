@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 ## embedder\_cpp
 
 Chunking/embedding utility for both code and natural language.  
