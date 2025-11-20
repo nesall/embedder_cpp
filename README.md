@@ -71,7 +71,7 @@ Check for changes and update only what changed
 ```./embedder update```
 
 Continuous monitoring (checks every 60 seconds)  
-```./embedder watch 60```
+```./embedder watch --interval 60```
 
 Reclaim space used by deleted index items  
 ```./embedder compact```
@@ -83,7 +83,7 @@ Chat with LLM
 ```./embedder chat```
 
 Server on custom port with auto-update  
-```./embedder serve --port 9000 --watch 60```
+```./embedder serve --port 9000 --watch --interval 60```
 
 Server without auto-update (manual trigger via /update endpoint)  
 ```./embedder serve```
