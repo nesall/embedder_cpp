@@ -2,15 +2,23 @@
 
 ## embedder\_cpp
 
-Chunking/embedding utility for both code and natural language.  
-This is experimental RAG oriented embedder in pure C++.  
+embedder_cpp is a local, self-hosted Retrieval-Augmented Generation setup designed for code assistance.
+It indexes codebases and documentation to produce context-aware responses to technical queries, drawing on both locally hosted AI models (via HTTP API) and remote cloud models.
+The system enables creation of a private, customizable code assistant that can run offline or integrate with cloud LLMs, improving workflow efficiency and long-term knowledge retention.
+
+Configuration is handled through a single JSON file, with no external database requirements.
+File-based engines—HNSWLib for vector search and SQLite3 for metadata—manage all storage.
+
+Refer to settings.template.json for an example configuration file and adjust it as needed before launching the embedder.
 
 ### How to build
 
-```
+C++ 20 or newer is required.
+
+```bash
 # clone the repository and cd into it. Then:
 mkdir build && cd build
-cmake ...
+cmake ..
 make
 ```
 
@@ -57,7 +65,7 @@ Configuration:
 ### CLI commands
 
 Initial full embed of all sources from settings.json  
-```./embedder embed --config settings.json```
+```./embedder --config settings.json embed```
 
 Check for changes and update only what changed  
 ```./embedder update```
@@ -93,7 +101,7 @@ Check password status
 ### Editing settings.json
 
 Method 1:  
-Edit file `settings.json` to configure settings manually.
+Edit file `settings.json` to configure settings manually (recommended on first time use).
 
 Method 2:  
 Open `http://localhost:8590/setup` to configure settings interactively.
@@ -101,62 +109,98 @@ Open `http://localhost:8590/setup` to configure settings interactively.
 
 ### REST API endpoints
 
-```
+```bash
 # Get list of API endpoints
 curl http://localhost:8590/api
 
 # Health check
 curl http://localhost:8590/api/health
 
-# Get documents
+# Get document list
 curl http://localhost:8590/api/documents
 
 # Get configuration parameters (full config)
 curl http://localhost:8590/api/setup
 
-# Get configuration parameters (completion endpoints)
+# Get available APIs (completion endpoints)
 curl http://localhost:8590/api/settings
 
-# Get list of running instances (usually one instance per project codebase)
+# Get running instances (usually one instance per project codebase)
 curl http://localhost:8590/api/instances
+
+# Get database statistics
+curl http://localhost:8590/api/stats
+
+# Get metrics (JSON)
+curl http://localhost:8590/api/metrics
+
+# Get Prometheus metrics
+curl http://localhost:8590/metrics
+
+# Setup configuration (POST)
+curl -X POST http://localhost:8080/api/setup \
+  -H "Authorization: Basic $(echo -n "username:password" | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "embedding": {...},
+    "generation": {...},
+    "database": {...},
+    "chunking": {...}
+  }'
 
 # Search
 curl -X POST http://localhost:8590/api/search \
   -H "Content-Type: application/json" \
   -d '{"query": "optimize performance", "top_k": 5}'
 
-# Embed text (without storing)
+# Generate embeddings (without storing)
 curl -X POST http://localhost:8590/api/embed \
   -H "Content-Type: application/json" \
   -d '{"text": "your text here"}'
 
 # Add document
-curl -X POST http://localhost:8590/api/add \
+curl -X POST http://localhost:8080/api/documents \
   -H "Content-Type: application/json" \
-  -d '{"content": "document content", "source_id": "doc.txt"}'
-
-# Get stats
-curl http://localhost:8590/api/stats
-
-# Get metrics
-curl http://localhost:8590/api/metrics
-
-# Get Prometheus formatted metrics
-curl http://localhost:8590/metrics
-
-# Chat completions
-curl -N -X POST http://localhost:8590/api/chat   -H "Content-Type: application/json"   -d '{
-    "model": "",
-    "messages": [
-      {"role": "system", "content": "Keep it short."},
-      {"role": "user", "content": "How to get all the chunks from index database?"}
-    ],
-    "temperature": 0.7
+  -d '{
+    "content": "your document content",
+    "source_id": "document_source_id"
   }'
 
-# Shutdown instance that was started with an app key e.g. ./embeddings_cpp serve --appkey abc123
+# Trigger Manual Update
+curl -X POST http://localhost:8080/api/update
+
+# Chat with optional context (streaming)
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "system", "content": "Keep it short."},
+      {"role": "user", "content": "What is the capital of France?"}
+    ],
+    "sourceids": [
+      "../embedder_cpp/src/main.cpp",
+      "../embedder_cpp/include/settings.h"
+    ],
+    "attachments": [
+      { "filename": "filename1.cpp", "content": "..text file content 1.."},
+      { "filename": "filename2.cpp", "content": "..text file content 2.."}
+    ],
+    "temperature": 0.2,
+    "max_tokens": 800,
+    "targetapi": "xai",
+    "ctxratio": 0.5,
+    "attachedonly": false
+  }'
+
+# Initiate server shutdown that was started with an app key e.g. ./embeddings_cpp serve --appkey abc123
 curl -X POST http://localhost:8590/api/shutdown \
   -H "X-App-Key: abc123" \
   -d '{}'  
+
+# Authenticate  
+curl -X POST http://localhost:8080/api/authenticate \
+  -H "Authorization: Basic $(echo -n "username:password" | base64)"
+
+  
 ```
 
