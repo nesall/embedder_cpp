@@ -4,35 +4,30 @@ project(embeddings_cpp)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Include FetchContent module
 include(FetchContent)
 
-# Fetch cpp-httplib
 FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.26.0
+  httplib
+  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+  GIT_TAG v0.26.0
 )
 
-# Fetch hnswlib
 FetchContent_Declare(
-    hnswlib
-    GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
-    GIT_TAG v0.8.0
+  hnswlib
+  GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
+  GIT_TAG v0.8.0
 )
 
-# Bundle SQLite3 directly
 FetchContent_Declare(
-    sqlite3
-    URL https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip
+  sqlite3
+  URL https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip
 )
 
-#FetchContent_Declare(
-#  nlohmann_json
-#  GIT_REPOSITORY https://github.com/nlohmann/json.git
-#  GIT_TAG v3.11.3
-#)
-#FetchContent_MakeAvailable(nlohmann_json)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
+)
 
 FetchContent_Declare(
   utils_log
@@ -40,15 +35,16 @@ FetchContent_Declare(
   GIT_TAG main
 )
 
+# Making sure jwt-cpp does not pull nlohmann/json (an old version)
+set(JWT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   jwt-cpp
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
-  GIT_TAG v0.7.0  # or latest stable
+  GIT_TAG v0.7.1  # or latest stable
 )
 
-
-# Make dependencies available
-FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp)
+FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp nlohmann_json)
 
 # Create SQLite3 library
 add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)
@@ -88,18 +84,18 @@ add_executable(${PROJECT_NAME}
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    httplib::httplib
-    sqlite3_lib
-    nlohmann_json::nlohmann_json
-    utils_log
-    jwt-cpp::jwt-cpp
+  httplib::httplib
+  sqlite3_lib
+  nlohmann_json::nlohmann_json
+  utils_log
+  jwt-cpp::jwt-cpp
 )
 
 # Include directories
 target_include_directories(${PROJECT_NAME} 
-    PRIVATE 
-    include/
-    ${hnswlib_SOURCE_DIR}
+  PRIVATE 
+  include/
+  ${hnswlib_SOURCE_DIR}
 )
 
 # Enable threading (required by hnswlib)
@@ -109,9 +105,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads )
 set(OPENSSL_PATH $ENV{OPENSSL_PATH})
 
 if(WIN32)
-    set(OPENSSL_INCLUDE_DIR "${OPENSSL_PATH}/include")
-    set(OPENSSL_CRYPTO_LIBRARY "${OPENSSL_PATH}/lib/libcrypto.lib")
-    set(OPENSSL_SSL_LIBRARY "${OPENSSL_PATH}/lib/libssl.lib")
+  set(OPENSSL_INCLUDE_DIR "${OPENSSL_PATH}/include")
+  set(OPENSSL_CRYPTO_LIBRARY "${OPENSSL_PATH}/lib/libcrypto.lib")
+  set(OPENSSL_SSL_LIBRARY "${OPENSSL_PATH}/lib/libssl.lib")
 endif()
 
 # Optional OpenSSL support
@@ -119,32 +115,32 @@ option(NO_OPENSSL "Disable OpenSSL support" OFF)
 
 # Optional OpenSSL support
 if(NOT NO_OPENSSL)
-    find_package(OpenSSL QUIET)
-    if(OpenSSL_FOUND)
-        message(STATUS "OpenSSL found - HTTPS support enabled." )
-        message(STATUS "  OpenSSL version: ${OPENSSL_VERSION}")
-        message(STATUS "  OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
-        message(STATUS "  OpenSSL libraries: ${OPENSSL_LIBRARIES}")
-        target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-        target_compile_definitions(${PROJECT_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT HAS_OPENSSL)
-    else()
-        message(WARNING "OpenSSL not found - HTTPS support disabled")
-        if(WIN32)
-            message(WARNING "  Hint: Install from https://slproweb.com/products/Win32OpenSSL.html")
-            message(WARNING "  Or set: cmake -DOPENSSL_PATH=\"C:/Program Files/OpenSSL-Win64\"")
-        endif()
+  find_package(OpenSSL QUIET)
+  if(OpenSSL_FOUND)
+    message(STATUS "OpenSSL found - HTTPS support enabled." )
+    message(STATUS "  OpenSSL version: ${OPENSSL_VERSION}")
+    message(STATUS "  OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
+    message(STATUS "  OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT HAS_OPENSSL)
+  else()
+    message(WARNING "OpenSSL not found - HTTPS support disabled")
+    if(WIN32)
+      message(WARNING "  Hint: Install from https://slproweb.com/products/Win32OpenSSL.html")
+      message(WARNING "  Or set: cmake -DOPENSSL_PATH=\"C:/Program Files/OpenSSL-Win64\"")
     endif()
+  endif()
 else()
-    message(STATUS "NO_OPENSSL is set - HTTPS support disabled")
+  message(STATUS "NO_OPENSSL is set - HTTPS support disabled")
 endif()
 
 # Platform-specific settings
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 wsock32)
+  target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 wsock32)
 endif()
 
 if(UNIX AND NOT APPLE)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dl)
+  target_link_libraries(${PROJECT_NAME} PRIVATE dl)
 endif()
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -159,9 +155,9 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/public/
-        ${CMAKE_BINARY_DIR}/public/
-    COMMENT "Copying setup UI files"
+  TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_SOURCE_DIR}/public/
+      ${CMAKE_BINARY_DIR}/public/
+  COMMENT "Copying setup UI files"
 )
