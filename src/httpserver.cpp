@@ -22,8 +22,9 @@
 #include <atomic>
 #include <functional>
 #include <string_view>
-#include <format>
+//#include <format>
 #include <filesystem>
+#include <fmt/core.h>
 
 using json = nlohmann::json;
 
@@ -356,7 +357,7 @@ namespace {
       onInfo("'attachedOnly' is set but no attachments or sources provided; ignoring.");
     }
 
-    //onInfo(std::format("Context token budget:", ((maxTokenBudget % 1000) == 0) ? std::to_string(maxTokenBudget) + "k" : std::to_string(maxTokenBudget)));
+    //onInfo(fmt::format("Context token budget:", ((maxTokenBudget % 1000) == 0) ? std::to_string(maxTokenBudget) + "k" : std::to_string(maxTokenBudget)));
     const size_t questionTokens = app.tokenizer().countTokensWithVocab(question);
     size_t usedTokens = questionTokens;
 
@@ -375,7 +376,7 @@ namespace {
         size_t tokens = app.tokenizer().countTokensWithVocab(content);
         if (tokens < maxAttBudget * 0.2 && usedTokens + tokens < maxAttBudget) {
           usedTokens += tokens;
-          onInfo(std::format("Adding attachment {}", att.filename));
+          onInfo(fmt::format("Adding attachment {}", att.filename));
           addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, std::move(content));
           attachments.erase(attachments.begin() + j);
           j --;
@@ -383,7 +384,7 @@ namespace {
       }
       for (const auto &att : attachments) {
         if (maxAttBudget <= usedTokens) break;
-        onInfo(std::format("Adding attachment {}", att.filename));
+        onInfo(fmt::format("Adding attachment {}", att.filename));
         auto content{ att.content };
         size_t tokens = app.tokenizer().countTokensWithVocab(content);
         if (usedTokens + tokens < maxAttBudget) {
@@ -393,9 +394,9 @@ namespace {
           content = truncateToTokens(app.tokenizer(), content, maxAttBudget - usedTokens);
           usedTokens = maxAttBudget;
           auto percent = int((content.length() / double(m)) * 100);
-          auto info = std::format("Warning: Attachment too large, truncated to {}% of {}", percent, att.filename);
+          auto info = fmt::format("Warning: Attachment too large, truncated to {}% of {}", percent, att.filename);
           LOG_MSG << info;
-          onInfo(std::format("{} truncated to {}% ", att.filename, percent));
+          onInfo(fmt::format("{} truncated to {}% ", att.filename, percent));
         }
         addToSearchResult(attachmentResults, att.filename.empty() ? "attachment" : att.filename, std::move(content));
       }
@@ -450,7 +451,7 @@ namespace {
       }
 
       for (const auto &rel : relSources) {
-        onInfo(std::format("Adding related file {}", std::filesystem::path(rel).filename().string()));
+        onInfo(fmt::format("Adding related file {}", std::filesystem::path(rel).filename().string()));
       }
     } else {
       allFullSources = sources;
@@ -466,7 +467,7 @@ namespace {
       auto content = app.sourceProcessor().fetchSource(src).content;
       if (maxTokenBudget <= usedTokens) break;
       size_t contentTokens = 0;
-      if (sourceToChunk.contains(src)) {
+      if (sourceToChunk.count(src)) {
         auto nUsed = usedTokens;
         if (!processContent(app, content, src, sourceToChunk[src].chunkId, maxTokenBudget, usedTokens)) {
           break;
@@ -476,7 +477,7 @@ namespace {
         float thresholdRatio = app.settings().generationExcerptThresholdRatio();
         if (attachedOnly && j == sources.size() - 1) thresholdRatio = 1.0f;
         if (!isWithinThreshold(app, content, maxTokenBudget, usedTokens, thresholdRatio, &contentTokens)) {
-          auto info = std::format("Processing large file {}", std::filesystem::path(src).filename().string());
+          auto info = fmt::format("Processing large file {}", std::filesystem::path(src).filename().string());
           onInfo(info);
           auto ids = app.db().getChunkIdsBySource(src);
           if (!ids.empty()) {
@@ -513,7 +514,7 @@ namespace {
                   content += chunk;
                 }
               }
-              onInfo(std::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
+              onInfo(fmt::format("Adding {} relevant chunks from {}", nofFetched, std::filesystem::path(src).filename().string()));
               auto tokens = app.tokenizer().countTokensWithVocab(content);
               contentTokens += tokens;
               srcTokens += tokens;
@@ -554,7 +555,7 @@ namespace {
     if (app.settings().generationMaxChunks() < orderedResults.size()) {
       orderedResults.resize(app.settings().generationMaxChunks());
     }
-    onInfo(std::format("Context token budget used {}/{}", usedTokens, maxTokenBudget));
+    onInfo(fmt::format("Context token budget used {}/{}", usedTokens, maxTokenBudget));
 
 //#ifdef _DEBUG
 //    size_t nn = 0;
@@ -1027,15 +1028,15 @@ bool HttpServer::startServer()
               });
 #endif
             size_t resTokens = imp->app_.tokenizer().countTokensWithVocab(fullResponse);
-            onInfo(std::format("Response token count {}", resTokens));
+            onInfo(fmt::format("Response token count {}", resTokens));
 
-            float costReq = apiConfig.inputTokensPrice(usedTokens);
-            float costRes = apiConfig.outputTokensPrice(resTokens);
+            auto costReq = apiConfig.inputTokensPrice(usedTokens);
+            auto costRes = apiConfig.outputTokensPrice(resTokens);
             auto costTotal = costReq + costRes;
             if (costTotal == 0)
               onInfo("Total cost incurred: 0");
             else
-              onInfo(std::format("Approx. cost incurred: ${:.4f} (input: {:.4f}, output: {:.4f})", costTotal, costReq, costRes));
+              onInfo(fmt::format("Approx. cost incurred: ${:.4f} (input: {:.4f}, output: {:.4f})", costTotal, costReq, costRes));
 
             // Add sources information
             nlohmann::json sourcesJson;

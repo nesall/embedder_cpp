@@ -113,6 +113,7 @@
         "id": "openai-4o-mini",
         "model": "gpt-4o-mini",
         "name": "OpenAI",
+        "max_tokens_name": "max_completion_tokens",
         "pricing_tpm": {
           "cached_input": 0.075,
           "input": 0.15,
@@ -144,7 +145,7 @@
     "vector_dim": 768,
     "max_elements": 100000,
     "distance_metric": "cosine",
-    "distance_metric_": "l2"
+    "_comment": "For distance_metric use either cosine (default) or l2"
   },
   "chunking": {
     "semantic": true,
@@ -171,7 +172,7 @@
       }
     ],  
     "default_extensions": [ ".c", ".cpp", ".h", ".hpp", ".py", ".js", ".ts", ".java", ".rs", ".cs", ".xaml", ".php", ".jsp", ".html", ".css", ".md" ],
-        "global_exclude": [
+    "global_exclude": [
       "*/node_modules/*", "*.min.js", "*.log", "*/build/*",
       "*/.git/*", ".gitignore", "*/CVS/*",
       "*/debug/*", "*/release/*", "*/lib/*", "*/docker/*",

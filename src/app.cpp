@@ -23,13 +23,14 @@
 #include <stdexcept>
 #include <chrono>
 #include <ranges>
-#include <format>
+//#include <format>
 #include <cctype>
 #include <cassert>
 #include <csignal>
 #include <nlohmann/json.hpp>
 #include <utils_log/logger.hpp>
 #include <3rdparty/CLI11.hpp>
+#include <fmt/core.h>
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -105,7 +106,7 @@ namespace {
           } catch (...) {
             info = chunk.docUri;
           }
-          auto label = std::vformat(prependlabelFmt, std::make_format_args(info));
+          auto label = fmt::vformat(prependlabelFmt, fmt::make_format_args(info));
           text = label + "\n\n" + text;
         }
         texts.push_back(std::move(text));
@@ -650,7 +651,7 @@ void App::embed(bool noPrompt)
       }
 
       imp->db_->beginTransaction();
-      LOG_MSG << "PROCESSING" << source << std::format("({}/{})", i + 1, sources.size());
+      LOG_MSG << "PROCESSING" << source << fmt::format("({}/{})", i + 1, sources.size());
 
       std::string content{ sources[i].content };
 

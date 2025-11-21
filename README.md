@@ -111,31 +111,31 @@ Open `http://localhost:8590/setup` to configure settings interactively.
 
 ```bash
 # Get list of API endpoints
-curl http://localhost:8590/api
+curl -X GET http://localhost:8590/api
 
 # Health check
-curl http://localhost:8590/api/health
+curl -X GET http://localhost:8590/api/health
 
 # Get document list
-curl http://localhost:8590/api/documents
+curl -X GET http://localhost:8590/api/documents
 
 # Get configuration parameters (full config)
-curl http://localhost:8590/api/setup
+curl -X GET http://localhost:8590/api/setup
 
 # Get available APIs (completion endpoints)
-curl http://localhost:8590/api/settings
+curl -X GET http://localhost:8590/api/settings
 
 # Get running instances (usually one instance per project codebase)
-curl http://localhost:8590/api/instances
+curl -X GET http://localhost:8590/api/instances
 
 # Get database statistics
-curl http://localhost:8590/api/stats
+curl -X GET http://localhost:8590/api/stats
 
 # Get metrics (JSON)
-curl http://localhost:8590/api/metrics
+curl -X GET http://localhost:8590/api/metrics
 
 # Get Prometheus metrics
-curl http://localhost:8590/metrics
+curl -X GET http://localhost:8590/metrics
 
 # Setup configuration (POST)
 curl -X POST http://localhost:8080/api/setup \
@@ -166,7 +166,7 @@ curl -X POST http://localhost:8080/api/documents \
     "source_id": "document_source_id"
   }'
 
-# Trigger Manual Update
+# Trigger a manual update
 curl -X POST http://localhost:8080/api/update
 
 # Chat with optional context (streaming)

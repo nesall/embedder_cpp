@@ -5,11 +5,12 @@
 #include "tokenizer.h"
 #include <stdexcept>
 #include <cassert>
-#include <format>
+//#include <format>
 #include <filesystem>
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 #include <utils_log/logger.hpp>
+#include <fmt/core.h>
 
 
 struct InferenceClient::Impl {
@@ -174,14 +175,14 @@ std::vector<std::string> EmbeddingClient::prepareContent(const std::vector<std::
   case EmbeddingClient::EncodeType::Document:
     if (!fmtDoc.empty() && fmtDoc.find("{}") != std::string::npos) {
       for (auto &t : res) {
-        t = std::vformat(fmtDoc, std::make_format_args(t));
+        t = fmt::vformat(fmtDoc, fmt::make_format_args(t));
       }
     }
     break;
   case EmbeddingClient::EncodeType::Query:
     if (!fmtQry.empty() && fmtQry.find("{}") != std::string::npos) {
       for (auto &t : res) {
-        t = std::vformat(fmtQry, std::make_format_args(t));
+        t = fmt::vformat(fmtQry, fmt::make_format_args(t));
       }
     }
     break;
@@ -253,8 +254,8 @@ std::string CompletionClient::generateCompletion(
   for (const auto &r : searchRes) {
     std::string filename = std::filesystem::path(r.sourceId).filename().string();
     if (filename.empty()) filename = r.sourceId.empty() ? "source" : r.sourceId;
-    // format label (std::vformat requires C++20)
-    std::string label = std::vformat(labelFmt, std::make_format_args(filename));
+    // format label (fmt::vformat requires C++20)
+    std::string label = fmt::vformat(labelFmt, fmt::make_format_args(filename));
     // avoid double-labeling
     bool alreadyLabeled = (r.content.rfind(label, 0) == 0);
 
@@ -403,7 +404,7 @@ std::string CompletionClient::generateCompletion(
   }
 
   if (res->status != 200) {
-    std::string msg = std::format("Server returned error: {} - {}", res->status, res->body);
+    std::string msg = fmt::format("Server returned error: {} - {}", res->status, res->body);
     if (onStream) onStream(msg);
     throw std::runtime_error(msg);
   }

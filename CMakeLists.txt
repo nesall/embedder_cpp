@@ -44,6 +44,13 @@ FetchContent_Declare(
   GIT_TAG v0.7.1  # or latest stable
 )
 
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG 10.2.1 
+)
+FetchContent_MakeAvailable(fmt)
+
 FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp nlohmann_json)
 
 # Create SQLite3 library
@@ -53,6 +60,7 @@ target_include_directories(sqlite3_lib PUBLIC ${sqlite3_SOURCE_DIR})
 # logging
 add_library(utils_log INTERFACE)
 target_include_directories(utils_log INTERFACE ${utils_log_SOURCE_DIR})
+
 
 # Create executable
 add_executable(${PROJECT_NAME} 
@@ -89,6 +97,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   nlohmann_json::nlohmann_json
   utils_log
   jwt-cpp::jwt-cpp
+  fmt::fmt-header-only
 )
 
 # Include directories
@@ -96,6 +105,11 @@ target_include_directories(${PROJECT_NAME}
   PRIVATE 
   include/
   ${hnswlib_SOURCE_DIR}
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    FMT_HEADER_ONLY
+    FMT_USE_LOCALE=0
 )
 
 # Enable threading (required by hnswlib)

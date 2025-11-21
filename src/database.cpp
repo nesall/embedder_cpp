@@ -4,12 +4,13 @@
 #include <algorithm>
 #include <stdexcept>
 #include <filesystem>
-#include <format>
+//#include <format>
 #include <mutex>
 #include <fstream>
 #include <iterator>
 #include "app.h"
 #include "utils_log/logger.hpp"
+#include "fmt/core.h"
 
 
 namespace {
@@ -89,7 +90,7 @@ size_t HnswSqliteVectorDatabase::addDocument(const Chunk &chunk, const std::vect
 {
   std::lock_guard<std::mutex> lock(mutex_);
   if (embedding.size() != imp->vectorDim_) {
-    throw std::runtime_error(std::format("Embedding dimension mismatch: actual {}, claimed {}", embedding.size(), imp->vectorDim_));
+    throw std::runtime_error(fmt::format("Embedding dimension mismatch: actual {}, claimed {}", embedding.size(), imp->vectorDim_));
   }
   size_t chunkId = insertMetadata(chunk);
   try {
@@ -118,7 +119,7 @@ std::vector<size_t> HnswSqliteVectorDatabase::addDocuments(const std::vector<Chu
 std::vector<SearchResult> HnswSqliteVectorDatabase::search(const std::vector<float> &queryEmbedding, size_t topK) const
 {
   if (queryEmbedding.size() != imp->vectorDim_) {
-    throw std::runtime_error(std::format("Query embedding dimension mismatch: actual {}, claimed {}", queryEmbedding.size(), imp->vectorDim_));
+    throw std::runtime_error(fmt::format("Query embedding dimension mismatch: actual {}, claimed {}", queryEmbedding.size(), imp->vectorDim_));
   }
   std::lock_guard<std::mutex> lock(mutex_);
   if (imp->index_->getCurrentElementCount() == 0) {
