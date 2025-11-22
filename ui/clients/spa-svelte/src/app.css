@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton/themes/concord';
+@import '@skeletonlabs/skeleton/themes/hamlindigo';
+@import '@skeletonlabs/skeleton/themes/terminus';
+@import '@skeletonlabs/skeleton/themes/mona';
+@import '@skeletonlabs/skeleton/themes/wintry';
+@import '@skeletonlabs/skeleton/themes/nosh';
+@import '@skeletonlabs/skeleton/themes/vox';
+@import '@skeletonlabs/skeleton/themes/rocket';
+
+@import '@skeletonlabs/skeleton-svelte';
+@source './lib/widgets';
+@source './lib';
+
+@custom-variant dark (&:where([data-mode=dark], [data-mode=dark] *));
+
+.card {
+  padding: 2em;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  text-align: center;
+  overflow-y: hidden;
+}
+
+.hljs {
+  background: none !important;
+  color: inherit;
+}
+
+.hljs-title {
+  color: inherit;
+}
+
+html[data-mode="light"] .hljs-keyword,
+html[data-mode="light"] .hljs-meta {
+  color: #8F08C4 !important;
+}
+
+html[data-mode="light"] .hljs-selector-tag,
+html[data-mode="light"] .hljs-built_in,
+html[data-mode="light"] .hljs-name,
+html[data-mode="light"] .hljs-tag {
+  color: slategray
+}
+
+html[data-mode="light"] .hljs-number {
+  color: #800080;
+}
+
+html[data-mode="light"] .hljs-section,
+html[data-mode="light"] .hljs-attribute,
+html[data-mode="light"] .hljs-literal,
+html[data-mode="light"] .hljs-template-tag,
+html[data-mode="light"] .hljs-template-variable,
+html[data-mode="light"] .hljs-type {
+  color: #2B91AF
+}

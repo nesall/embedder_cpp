@@ -1,0 +1,135 @@
+# Dependency directories
+node_modules/
+cargo/
+npm/
+yarn/
+# Output of 'npm pack'
+*.tgz
+# dotenv environment variables file
+env
+# VSCode workspace settings file
+vscode/settings.json
+vscode/launch.json
+vscode/tasks.json
+# Lock files
+package-lock.json
+yarn.lock
+bun.lockb
+# Rust compiled folders
+target/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+# Miscellaneous
+.vscode/
+.vs
+.env
+.env.local
+# C++ (Visual Studio)
+*.obj
+*.exe
+*.pdb
+*.lib
+*.dll
+*.ilk
+*.idb
+*.pch
+*.sln.ide
+*.vs/
+*.vcxproj.user
+x64/
+Debug/
+Release/
+dist/
+build/
+build_rel/
+cmake/
+cmake-build/
+DS_Store
+Thumbs.db
+*.sublime*
+idea
+debug.log
+TODO.md
+# Examples and bench directories
+/examples/**/src-tauri/gen/
+/bench/**/src-tauri/gen/
+=======
+# Build directories
+build/
+cmake-build-*/
+bin/
+*.so
+*.dll
+*.dylib
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Compiled Object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# Testing
+Testing/
+CTestTestfile.cmake
+
+# Coverage reports
+*.gcov
+*.gcno
+*.gcda
+coverage/
+lcov.info
+
+# Benchmarks output
+benchmarks/results/
+*.prof
+
+
+# Other stuff
+*.zip
