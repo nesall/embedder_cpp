@@ -1,15 +1,26 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-## embedder\_cpp
+# PhenixCode Assistant
 
-embedder_cpp is a local, self-hosted Retrieval-Augmented Generation setup designed for code assistance.
-It indexes codebases and documentation to produce context-aware responses to technical queries, drawing on both locally hosted AI models (via HTTP API) and remote cloud models.
-The system enables creation of a private, customizable code assistant that can run offline or integrate with cloud LLMs, improving workflow efficiency and long-term knowledge retention.
+A self-hosted RAG system for querying codebases with AI. Index your code locally, search with semantic meaning, and get context-aware answers using local or cloud LLMs.
 
-Configuration is handled through a single JSON file, with no external database requirements.
-File-based engines—HNSWLib for vector search and SQLite3 for metadata—manage all storage.
+**Built for developers who want:**
+- **Privacy** – Your code never leaves your machine
+- **Zero subscriptions** – Run entirely on local models (no monthly fees)
+- **Flexibility** – Switch between local and cloud LLMs as needed
 
-Refer to settings.template.json for an example configuration file and adjust it as needed before launching the embedder.
+Works offline with local models or integrates with OpenAI-compatible APIs. Your data, your infrastructure, your choice.
+
+![Demo of chat session](link-to-demo.gif)
+
+**Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
+
+**[Download release](#)** | **[Quick start](#quick-start)**  
+
+### Why Self-Host?
+
+**GitHub Copilot:** $10-20/month, code sent to cloud, limited customization  
+**PhenixCode:** One-time setup, runs on your hardware, customize everything  
 
 ### How to build
 
