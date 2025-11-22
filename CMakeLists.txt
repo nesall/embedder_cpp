@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
-project(phenixcode-core LANGUAGES CXX)
+project(phenixcode-core LANGUAGES C CXX) # C needed to compile sqlite3
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 11) 
+
+# Fixes the timestamp warning
+cmake_policy(SET CMP0135 NEW)
 
 include(FetchContent)
 
@@ -43,13 +47,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
   GIT_TAG v0.7.1  # or latest stable
 )
-
-FetchContent_Declare(
-  fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 10.2.1 
-)
-FetchContent_MakeAvailable(fmt)
 
 FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp nlohmann_json)
 
@@ -97,7 +94,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   nlohmann_json::nlohmann_json
   utils_log
   jwt-cpp::jwt-cpp
-  fmt::fmt-header-only
 )
 
 # Include directories

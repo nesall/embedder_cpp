@@ -10,7 +10,7 @@
 #include <cmath>  // for std::sqrt
 #include <httplib.h>
 #include <utils_log/logger.hpp>
-#include <fmt/core.h>
+#include "3rdparty/fmt/core.h"
 
 
 struct InferenceClient::Impl {

@@ -10,7 +10,7 @@
 #include <iterator>
 #include "app.h"
 #include "utils_log/logger.hpp"
-#include "fmt/core.h"
+#include "3rdparty/fmt/core.h"
 
 
 namespace {
