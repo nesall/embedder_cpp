@@ -5,6 +5,8 @@ echo Building SPA client...
 cd ..\spa-svelte
 rm dist -rf
 REM call npm ci
+rm node_modules -rf
+call npm install
 call npm run build
 
 echo Building webview...

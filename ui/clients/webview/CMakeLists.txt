@@ -51,7 +51,13 @@ set(SPA_CLIENT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../spa-svelte)
 set(SPA_DIST_DIR ${SPA_CLIENT_DIR}/dist)
 
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/procmngr.h src/procmngr.cpp appconfig.json app.rc)
+add_executable(${PROJECT_NAME} src/main.cpp src/procmngr.h appconfig.json app.rc)
+
+# using fmt lib instead of std::format (for older compiler compatibility)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    FMT_HEADER_ONLY
+    FMT_USE_LOCALE=0
+)
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
 	message(INFO " Win32 Release build")
