@@ -13,16 +13,16 @@
       "value": "dark"
     },
     {
+      "key": "EmbedderExecutablePath",
+      "value": "./phenixcode-core"
+    },
+    {
       "key": "ApiOptionsGroupedKey",
       "value": "1"
     },
     {
-      "key": "EmbedderExecutablePath",
-      "value": "C:/Users/Arman/workspace/projects/embedder_cpp/build_dbg/Debug/embeddings_cpp.exe"
-    },
-    {
       "key": "EmbedderSettingsFilePaths",
-      "value": "[\"C:/Users/Arman/workspace/projects/alpha/settings-icm_coderank.json\",\"C:/Users/Arman/workspace/projects/alpha/settings-embcpp.json\"]"
+      "value": "[\"./settings.json\"]"
     },
     {
       "key": "ApiOptionsSortedKey",
@@ -30,7 +30,7 @@
     }
   ],
   "window": {
-    "height": 909,
-    "width": 778
+    "height": 860,
+    "width": 740
   }
 }
