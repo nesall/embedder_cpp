@@ -2,7 +2,7 @@
 # start.sh
 
 PID_FILE="process.pid"
-BINARY="./embeddings_cpp"
+BINARY="./phenixcode-core"
 ARGS="serve --port 8590 --watch --interval 60"
 
 if [[ -f "$PID_FILE" ]] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then

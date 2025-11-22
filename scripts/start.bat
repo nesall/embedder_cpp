@@ -2,7 +2,7 @@
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET PID_FILE=process.pid
-SET BINARY=embeddings_cpp.exe
+SET BINARY=phenixcode-core.exe
 SET ARGS=serve --port 8590 --watch --interval 60
 
 REM Check if PID file exists and process is running

@@ -12,7 +12,7 @@ if not exist "nssm.exe" (
 )
 
 REM Install service
-nssm install PhenixCodeRAG "%CD%\embeddings_cpp.exe" serve --port 8081 --watch 60
+nssm install PhenixCodeRAG "%CD%\phenixcode-core.exe" serve --port 8081 --watch 60
 nssm set PhenixCodeRAG AppDirectory "%CD%"
 nssm set PhenixCodeRAG DisplayName "PhenixCode RAG Service"
 nssm set PhenixCodeRAG Description "Local RAG embeddings and search service"

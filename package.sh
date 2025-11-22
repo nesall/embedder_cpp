@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-NAME="phenixcode_v1"
+NAME="phenixcode-v1.0.0-linux-x64"
 EMBEDDER="./"
-WEBVIEW="clients/webview"
+WEBVIEW="ui/clients/webview"
 
 cd "$EMBEDDER"
 ./build_rel.sh
 echo "FINISHED $EMBEDDER"
 
-cd "../../$WEBVIEW"
+cd "$WEBVIEW"
 ./build_rel.sh
-cd ../..
+cd ../../..
 
 rm -rf "$NAME"
 mkdir "$NAME"
