@@ -1,29 +1,31 @@
-echo Building embedder_cpp release version...
+echo Building phenixcode-core release version...
 mkdir build_rel
 cd build_rel
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 cd ..
 
-echo Copying release artifacts to dist folder...
-rm dist -rf
-rm dist.zip -f
-mkdir dist
-xcopy build_rel\Release\* dist\ /E /Y
-xcopy build_rel\public dist\public\ /E /I
-rm dist\output.log -f
-rm dist\diagnostics.log -f
-rm dist\sqlite3_lib.lib -f
-xcopy assets\README dist\
-xcopy assets\settings.template.json dist\
-xcopy assets\bge_tokenizer.json dist\
-xcopy scripts\install-service.bat dist\
-xcopy scripts\uninstall-service.bat dist\
-xcopy scripts\start.bat dist\
-xcopy scripts\stop.bat dist\
+set DIRNAME=dist
+
+echo Copying release artifacts to %DIRNAME% folder...
+rm %DIRNAME% -rf
+rm %DIRNAME%.zip -f
+mkdir %DIRNAME%
+xcopy build_rel\Release\* %DIRNAME%\ /E /Y
+xcopy build_rel\public %DIRNAME%\public\ /E /I
+rm %DIRNAME%\output.log -f
+rm %DIRNAME%\diagnostics.log -f
+rm %DIRNAME%\sqlite3_lib.lib -f
+xcopy assets\README %DIRNAME%\
+xcopy assets\settings.template.json %DIRNAME%\
+xcopy assets\bge_tokenizer.json %DIRNAME%\
+xcopy scripts\install-service.bat %DIRNAME%\
+xcopy scripts\uninstall-service.bat %DIRNAME%\
+xcopy scripts\start.bat %DIRNAME%\
+xcopy scripts\stop.bat %DIRNAME%\
 
 
-echo Creating dist.zip...
-powershell -NoProfile -Command "Compress-Archive -Path 'dist\*' -DestinationPath 'dist.zip' -Force"
+echo Creating %DIRNAME%.zip...
+powershell -NoProfile -Command "Compress-Archive -Path '%DIRNAME%\*' -DestinationPath '%DIRNAME%.zip' -Force"
 
-echo Build complete. Package is in dist folder!
+echo Build complete. Package is in %DIRNAME% folder!
