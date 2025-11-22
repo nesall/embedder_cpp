@@ -18,6 +18,7 @@ rm %DIRNAME%\diagnostics.log -f
 rm %DIRNAME%\sqlite3_lib.lib -f
 xcopy assets\README %DIRNAME%\
 xcopy assets\settings.template.json %DIRNAME%\
+xcopy assets\settings.json %DIRNAME%\
 xcopy assets\bge_tokenizer.json %DIRNAME%\
 xcopy scripts\install-service.bat %DIRNAME%\
 xcopy scripts\uninstall-service.bat %DIRNAME%\
