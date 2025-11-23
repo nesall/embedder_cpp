@@ -17,6 +17,7 @@ jobs:
           - os: macos-latest
             name: macOS
             cmake_flags: ""
+            xcode_version: "15.2"
           - os: windows-latest
             name: Windows
             cmake_flags: ""
@@ -42,6 +43,12 @@ jobs:
           libwebkit2gtk-4.1-dev \
           build-essential \
           cmake
+    
+    - name: Setup Xcode version
+      if: runner.os == 'macOS'
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: ${{ matrix.xcode_version }}
     
     - name: Install macOS dependencies
       if: runner.os == 'macOS'
