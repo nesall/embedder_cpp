@@ -59,23 +59,17 @@ jobs:
         choco install openssl -y
         echo "OPENSSL_ROOT_DIR=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
     
-    - name: Install npm dependencies
-      run: npm install 
+    - name: Run package script (Windows)
+      if: runner.os == 'Windows'
+      run: .\package.bat
+      shell: cmd
     
-    - name: Configure CMake
-      run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Release \
-          ${{ matrix.cmake_flags }}
-    
-    - name: Build
-      run: cmake --build build --config Release
+    - name: Run package script (Unix)
+      if: runner.os != 'Windows'
+      run: ./package.sh
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.name }}-build
-        path: |
-          build/
-          !build/_deps/
-          !build/CMakeFiles/
+        name: ${{ matrix.name }}-package
+        path: '*.zip'
