@@ -58,9 +58,15 @@ std::string utils::currentTimestamp()
 
 time_t utils::getFileModificationTime(const std::string &path)
 {
+  //auto ftime = fs::last_write_time(path);
+  //auto sctp = std::chrono::clock_cast<std::chrono::system_clock>(ftime);
+  //return std::chrono::system_clock::to_time_t(sctp);
+  // Implementation compatible with C++17
   auto ftime = fs::last_write_time(path);
-  auto sctp = std::chrono::clock_cast<std::chrono::system_clock>(ftime);
-  return std::chrono::system_clock::to_time_t(sctp);
+  using namespace std::chrono;
+  auto sctp = time_point_cast<system_clock::duration>(ftime - fs::file_time_type::clock::now()
+    + system_clock::now());
+  return system_clock::to_time_t(sctp);
 }
 
 int utils::safeStoI(const std::string &s, int def)
