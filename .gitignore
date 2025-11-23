@@ -8,7 +8,6 @@ build_rel/
 cmake-build-*/
 cmake/
 bin/
-lib/
 tmp/
 temp/
 test/
