@@ -1,4 +1,5 @@
 echo Building phenixcode-core release version...
+rmdir /s /q build_rel
 mkdir build_rel
 cd build_rel
 cmake .. -DCMAKE_BUILD_TYPE=Release
@@ -8,14 +9,14 @@ cd ..
 set DIRNAME=dist
 
 echo Copying release artifacts to %DIRNAME% folder...
-rm %DIRNAME% -rf
-rm %DIRNAME%.zip -f
+rmdir /s /q %DIRNAME%
+del /f /q %DIRNAME%.zip
 mkdir %DIRNAME%
 xcopy build_rel\Release\* %DIRNAME%\ /E /Y
 xcopy build_rel\public %DIRNAME%\public\ /E /I
-rm %DIRNAME%\output.log -f
-rm %DIRNAME%\diagnostics.log -f
-rm %DIRNAME%\sqlite3_lib.lib -f
+del /f /q %DIRNAME%\output.log 2>nul
+del /f /q %DIRNAME%\diagnostics.log 2>nul
+del /f /q %DIRNAME%\sqlite3_lib.lib 2>nul
 xcopy assets\README %DIRNAME%\
 xcopy assets\settings.template.json %DIRNAME%\
 xcopy assets\settings.json %DIRNAME%\

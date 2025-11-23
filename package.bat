@@ -13,17 +13,17 @@ cd %WEBVIEW%
 call build_rel.bat
 cd ../../..
 
-rm -rf %NAME%
+rmdir /s /q %NAME%
 mkdir %NAME%
 
-cp %EMBEDDER%/dist/* %NAME% -rf
-cp %WEBVIEW%/dist/* %NAME% -rf
+xcopy %EMBEDDER%/dist/* %NAME% /E /Y
+xcopy %WEBVIEW%/dist/* %NAME% /E /Y
 
-rm -f %NAME%.zip
+del /f /q %NAME%.zip 2>nul
 echo %NAME%.zip...
 powershell -NoProfile -Command "Compress-Archive -Path '%NAME%' -DestinationPath '%NAME%.zip' -Force"
 
-rm -rf %NAME%/
+rmdir /s /q %NAME%/
 echo Package '%NAME%.zip' ready.
 
 endlocal
