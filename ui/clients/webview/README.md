@@ -1,17 +1,20 @@
 ## Dependencies
+
 This project requires WebKitGTK development packages on Linux. Install them based on your platform:
 
-## Windows
+### Windows
+
 No additional dependencies required! The project uses the native webview2 backend and will automatically download WebView2 during build via CMake's FetchContent.
 
 ## Linux Distributions
+
 This project requires WebKitGTK development packages. Install them based on your distribution:
 
 ### Fedora / RHEL / CentOS
 
 ```bash
 # Fedora 43+
-sudo dnf install webkit2gtk4.1-devel
+sudo dnf install webkit2gtk4.1-devel webkit2gtk4.0-devel
 
 # RHEL 9 / CentOS Stream 9
 sudo dnf install webkit2gtk4.1-devel
@@ -20,7 +23,7 @@ sudo dnf install webkit2gtk4.1-devel
 sudo dnf install webkit2gtk3-devel
 ```
 
-## Debian / Ubuntu
+### Debian / Ubuntu
 
 ```
 # Ubuntu 22.04+ / Debian 12+
@@ -30,21 +33,28 @@ sudo apt install libwebkit2gtk-4.1-dev
 sudo apt install libwebkit2gtk-4.0-dev
 ```
 
-## Arch Linux
+### Arch Linux
 
 ```
 sudo zypper install webkit2gtk3-devel
 ```
 
-## openSUSE
+### openSUSE
 
 ```
 sudo zypper install webkit2gtk3-devel
 ```
 
 ## Verification
+
 ```
-pkg-config --exists webkit2gtk-4.1 && echo "WebKitGTK found" || echo "WebKitGTK not found"
+# Check installed packages
+rpm -qa | grep webkit2gtk
+
+# Check pkg-config availability
+pkg-config --exists webkit2gtk-4.1 && echo "4.1 found"
+pkg-config --exists webkit2gtk-4.0 && echo "4.0 found"
+
 ```
 
 ## Build instructions
