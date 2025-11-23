@@ -152,7 +152,12 @@ if(WIN32)
 endif()
 
 if(APPLE)
-  target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
+  # target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
+  find_library(COREFOUNDATION CoreFoundation)
+  if(COREFOUNDATION)
+      target_link_libraries(${PROJECT_NAME} PRIVATE ${COREFOUNDATION})
+  endif()
+  set_target_properties(${PROJECT_NAME} PROPERTIES RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E echo Linking: ")
 endif()
 
 if(UNIX AND NOT APPLE)
