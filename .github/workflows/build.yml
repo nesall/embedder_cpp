@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest
             name: macOS
             cmake_flags: ""
-            xcode_version: "15.2"
+            xcode_version: "16.2"
           - os: windows-latest
             name: Windows
             cmake_flags: ""
