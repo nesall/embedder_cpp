@@ -40,7 +40,6 @@ jobs:
           libssl-dev \
           libgtk-3-dev \
           libwebkit2gtk-4.1-dev \
-          libzstd-dev \
           build-essential \
           cmake
     
