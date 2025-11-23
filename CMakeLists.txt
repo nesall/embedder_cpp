@@ -10,8 +10,8 @@ cmake_policy(SET CMP0135 NEW)
 
 include(FetchContent)
 
-set(CPPHTTPLIB_ZSTD_SUPPORT OFF)
-set(CPPHTTPLIB_BROTLI_SUPPORT OFF)
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
+set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
 FetchContent_Declare(
   httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
