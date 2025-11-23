@@ -12,6 +12,8 @@ FetchContent_Declare(
   GIT_TAG 0.12.0
 )
 
+set(CPPHTTPLIB_ZSTD_SUPPORT OFF)
+set(CPPHTTPLIB_BROTLI_SUPPORT OFF)
 FetchContent_Declare(
   httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
