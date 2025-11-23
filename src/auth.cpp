@@ -12,7 +12,8 @@
 #include <utils_log/logger.hpp>
 
 #if HAS_OPENSSL
-#include <openssl/sha.h>
+#include <openssl/evp.h>
+//#include <openssl/sha.h>
 #else
 #include <functional>  // fallback hash
 #endif
@@ -160,11 +161,20 @@ struct AdminAuth::Impl {
     std::string saltedPass = salt + password;
 
 #ifdef HAS_OPENSSL
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, saltedPass.c_str(), saltedPass.length());
-    SHA256_Final(hash, &sha256);
+    //unsigned char hash[SHA256_DIGEST_LENGTH];
+    //SHA256_CTX sha256;
+    //SHA256_Init(&sha256);
+    //SHA256_Update(&sha256, saltedPass.c_str(), saltedPass.length());
+    //SHA256_Final(hash, &sha256);
+
+    unsigned char hash[EVP_MAX_MD_SIZE] = { 0 };
+    unsigned int hashLen = 0;
+
+    EVP_MD_CTX *sha256 = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(sha256, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(sha256, saltedPass.data(), saltedPass.size());
+    EVP_DigestFinal_ex(sha256, hash, &hashLen);
+    EVP_MD_CTX_free(sha256);
 
     std::stringstream ss;
     for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
@@ -173,17 +183,6 @@ struct AdminAuth::Impl {
     // Return salt$hash format for storage
     return pSalt ? (salt + "$" + ss.str()) : ss.str();
 #else
-    //constexpr uint64_t fnv_offset = 14695981039346656037ull;
-    //constexpr uint64_t fnv_prime = 1099511628211ull;
-
-    //uint64_t hash = fnv_offset;
-    //for (unsigned char c : saltedPass)
-    //  hash = (hash ^ c) * fnv_prime;
-
-    //std::stringstream ss;
-    //ss << std::hex << std::setw(16) << std::setfill('0') << hash;
-
-    //return pSalt ? (salt + "$" + ss.str()) : ss.str();
     auto ss = fnv1a64(saltedPass);
     return pSalt ? (salt + "$" + ss) : ss;
 #endif
