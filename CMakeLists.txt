@@ -152,10 +152,7 @@ if(WIN32)
 endif()
 
 if(APPLE)
-  #find_library(COCOA Cocoa)
-  find_library(COREFOUNDATION CoreFoundation REQUIRED)
-  target_link_libraries(${PROJECT_NAME} ${COCOA} ${COREFOUNDATION})
-  #target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
+  target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
 endif()
 
 if(UNIX AND NOT APPLE)
