@@ -151,6 +151,10 @@ if(WIN32)
   target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 wsock32)
 endif()
 
+if(APPLE)
+  target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
+endif()
+
 if(UNIX AND NOT APPLE)
   target_link_libraries(${PROJECT_NAME} PRIVATE dl)
 endif()
