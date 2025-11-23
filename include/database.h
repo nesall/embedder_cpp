@@ -132,7 +132,7 @@ private:
   void initializeVectorIndex();
   void executeSql(const std::string &sql);
   size_t insertMetadata(const Chunk &chunk);
-  std::optional<SearchResult> getChunkData(size_t chunkId) const;
-  std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const;
+  std::optional<SearchResult> getChunkData(size_t chunkId) const override;
+  std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const override;
   void compactIndex();
 };

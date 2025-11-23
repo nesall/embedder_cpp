@@ -1,4 +1,5 @@
 #include "auth.h"
+#include "app.h"
 
 #include <fstream>
 #include <iostream>
@@ -190,11 +191,7 @@ struct AdminAuth::Impl {
   std::string fileLastModifiedTime() const {
     if (!std::filesystem::exists(PASSWORD_FILE))
       return {};
-
-    auto ftime = std::filesystem::last_write_time(PASSWORD_FILE);
-    auto sctp = std::chrono::clock_cast<std::chrono::system_clock>(ftime);
-    std::time_t cftime = std::chrono::system_clock::to_time_t(sctp);
-
+    auto cftime = utils::getFileModificationTime(PASSWORD_FILE);
     std::ostringstream ss;
     ss << std::put_time(std::localtime(&cftime), "%Y-%m-%d %H:%M:%S");
     return ss.str();

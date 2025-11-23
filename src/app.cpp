@@ -32,6 +32,7 @@
 #include "3rdparty/CLI11.hpp"
 #include "3rdparty/fmt/core.h"
 #ifndef _WIN32
+#include <unistd.h>
 #include <termios.h>
 #endif
 
