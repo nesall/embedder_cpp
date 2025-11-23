@@ -12,7 +12,7 @@ echo "Copying release artifacts to dist folder..."
 rm -rf dist
 rm -f dist.zip
 mkdir -p dist
-cp -r build_rel/Release/* dist/
+cp build_rel/phenixcode-core dist/
 cp -r build_rel/public dist/
 rm dist\output.log -f
 rm dist\diagnostics.log -f
