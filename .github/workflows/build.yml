@@ -1,0 +1,81 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux
+            cmake_flags: ""
+          - os: macos-latest
+            name: macOS
+            cmake_flags: ""
+          - os: windows-latest
+            name: Windows
+            cmake_flags: ""
+    
+    runs-on: ${{ matrix.os }}
+    name: Build on ${{ matrix.name }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libssl-dev \
+          libgtk-3-dev \
+          libwebkit2gtk-4.0-dev \
+          build-essential \
+          cmake
+    
+    - name: Install macOS dependencies
+      if: runner.os == 'macOS'
+      run: |
+        brew install openssl@3 cmake
+    
+    - name: Setup MSVC (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+    
+    - name: Install OpenSSL (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install openssl -y
+        echo "OPENSSL_ROOT_DIR=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
+    
+    - name: Install npm dependencies
+      run: npm install 
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          ${{ matrix.cmake_flags }}
+    
+    - name: Build
+      run: cmake --build build --config Release
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}-build
+        path: |
+          build/
+          !build/_deps/
+          !build/CMakeFiles/
