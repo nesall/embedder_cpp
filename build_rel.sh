@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Building embedder_cpp release version..."
+echo "Building phenixcode-core release version..."
 mkdir -p build_rel
 cd build_rel
 cmake .. -DCMAKE_BUILD_TYPE=Release

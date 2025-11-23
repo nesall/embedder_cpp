@@ -134,7 +134,7 @@ namespace {
   size_t calculateNeighborCount(size_t excerptBudget, size_t avgChunkTokens, size_t minChunks, size_t maxChunks) {
     size_t neighbors = excerptBudget / avgChunkTokens;
     // Always include at least 3 chunks (before, match, after)
-    return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), 1ull, 101ull);
+    return std::clamp(std::clamp(neighbors, size_t(minChunks), size_t(maxChunks)), size_t(1), size_t(101));
   }
 
   bool isWithinThreshold(const App &app, const std::string &content, size_t maxTokenBudget, size_t usedTokens, float thresholdRatio, size_t *pTokens = nullptr) {
