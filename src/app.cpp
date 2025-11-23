@@ -31,6 +31,9 @@
 #include <utils_log/logger.hpp>
 #include "3rdparty/CLI11.hpp"
 #include "3rdparty/fmt/core.h"
+#ifndef _WIN32
+#include <termios.h>
+#endif
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
