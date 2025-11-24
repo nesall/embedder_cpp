@@ -18,9 +18,6 @@ jobs:
             name: macOS
             cmake_flags: ""
             xcode_version: "16.2"
-          - os: windows-latest
-            name: Windows
-            cmake_flags: ""
     
     runs-on: ${{ matrix.os }}
     name: Build on ${{ matrix.name }}
@@ -55,23 +52,7 @@ jobs:
       run: |
         brew install openssl@3 cmake
     
-    - name: Setup MSVC (Windows)
-      if: runner.os == 'Windows'
-      uses: ilammy/msvc-dev-cmd@v1
-    
-    - name: Install OpenSSL (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install openssl -y
-        echo "OPENSSL_PATH=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
-    
-    - name: Run package script (Windows)
-      if: runner.os == 'Windows'
-      run: .\package.bat
-      shell: cmd
-    
     - name: Run package script (Unix)
-      if: runner.os != 'Windows'
       run: ./package.sh
     
     - name: Upload artifacts
