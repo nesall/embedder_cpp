@@ -9,8 +9,10 @@ include(FetchContent)
 FetchContent_Declare(
   webview
   GIT_REPOSITORY https://github.com/webview/webview
-  GIT_TAG 0.12.0
+  #GIT_TAG 0.12.0
+  GIT_TAG master
 )
+FetchContent_MakeAvailable(webview)
 
 set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
 set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
@@ -38,7 +40,7 @@ FetchContent_Declare(
   GIT_TAG v3.11.3
 )
 
-FetchContent_MakeAvailable(webview httplib utils_log win_dark nlohmann_json)
+FetchContent_MakeAvailable(httplib utils_log win_dark nlohmann_json)
 
 # logging
 add_library(utils_log INTERFACE)
