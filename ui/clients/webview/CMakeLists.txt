@@ -12,6 +12,7 @@ FetchContent_Declare(
   #GIT_TAG 0.12.0
   GIT_TAG master
 )
+set(WEBVIEW_WEBKITGTK_VERSION "4.1" CACHE STRING "WebKitGTK version" FORCE)
 FetchContent_MakeAvailable(webview)
 
 set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
