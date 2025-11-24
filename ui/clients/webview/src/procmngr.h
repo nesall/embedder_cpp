@@ -340,7 +340,7 @@ public:
 #else
     if (timeoutMs == -1) {
       // Blocking wait
-      std::lock_guard<std::mutex> lock(mutex_);
+      std::lock_guard<std::recursive_mutex> lock(mutex_);
       int status;
       if (waitpid(pid, &status, 0) == pid) {
         running_ = false;

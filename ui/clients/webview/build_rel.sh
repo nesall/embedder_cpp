@@ -4,6 +4,9 @@ echo "Building RAG Code Assistant WebView..."
 # Build the SPA client first
 echo "Building SPA client..."
 cd ../spa-svelte
+rm -rf dist
+rm -rf node_modules
+npm install
 npm run build
 
 # Build the webview
