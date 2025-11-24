@@ -63,7 +63,7 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         choco install openssl -y
-        echo "OPENSSL_ROOT_DIR=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
+        echo "OPENSSL_PATH=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
     
     - name: Run package script (Windows)
       if: runner.os == 'Windows'
