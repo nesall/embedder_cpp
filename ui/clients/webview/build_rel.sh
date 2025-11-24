@@ -4,7 +4,6 @@ echo "Building RAG Code Assistant WebView..."
 # Build the SPA client first
 echo "Building SPA client..."
 cd ../spa-svelte
-npm ci
 npm run build
 
 # Build the webview
@@ -14,6 +13,7 @@ mkdir -p build_rel
 cd build_rel
 cmake ..
 make -j$(nproc)
+cd ..
 
 echo "Copying release artifacts to dist folder..."
 rm -rf dist
