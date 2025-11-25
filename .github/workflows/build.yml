@@ -8,19 +8,8 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-#          - os: ubuntu-latest
-#            name: Linux
-#            cmake_flags: ""
-          - os: macos-latest
-            name: macOS
-            cmake_flags: ""
-            xcode_version: "16.2"
-    
-    runs-on: ${{ matrix.os }}
-    name: Build on ${{ matrix.name }}
+    runs-on: macos-latest
+    name: Build on macOS
     
     steps:
     - uses: actions/checkout@v4
@@ -30,33 +19,20 @@ jobs:
       with:
         node-version: '20'
     
-    - name: Install Linux dependencies
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libssl-dev \
-          libgtk-3-dev \
-          libwebkit2gtk-4.1-dev \
-          build-essential \
-          cmake
-    
     - name: Setup Xcode version
-      if: runner.os == 'macOS'
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: ${{ matrix.xcode_version }}
+        xcode-version: "16.2"
     
     - name: Install macOS dependencies
-      if: runner.os == 'macOS'
       run: |
         brew install openssl@3 cmake
     
-    - name: Run package script (Unix)
+    - name: Run package script
       run: ./package.sh
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.name }}-package
+        name: macOS-package
         path: '*.zip'
