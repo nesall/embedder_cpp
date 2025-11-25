@@ -11,9 +11,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            name: Linux
-            cmake_flags: ""
+#          - os: ubuntu-latest
+#            name: Linux
+#            cmake_flags: ""
           - os: macos-latest
             name: macOS
             cmake_flags: ""

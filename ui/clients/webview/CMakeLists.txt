@@ -9,10 +9,9 @@ include(FetchContent)
 FetchContent_Declare(
   webview
   GIT_REPOSITORY https://github.com/webview/webview
-  #GIT_TAG 0.12.0
-  GIT_TAG master
+  GIT_TAG 0.12.0
 )
-set(WEBVIEW_WEBKITGTK_API "4.1" CACHE STRING "WebKitGTK API version" FORCE)
+#set(WEBVIEW_WEBKITGTK_API "4.1" CACHE STRING "WebKitGTK API version" FORCE)
 FetchContent_MakeAvailable(webview)
 
 set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
