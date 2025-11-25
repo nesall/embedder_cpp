@@ -12,16 +12,16 @@ npm run build
 # Build the webview
 echo "Building webview..."
 cd ../webview
-mkdir -p build_rel
+mkdir -p build_rel/out
 cd build_rel
-cmake ..
-make -j$(nproc)
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release --parallel
 cd ..
 
 echo "Copying release artifacts to dist folder..."
 rm -rf dist
 mkdir -p dist
-cp -r build_rel/* dist/
+cp -r build_rel/out/* dist/
 rm -f dist/output.log
 rm -f dist/diagnostics.log
 cp settings.template.json dist/

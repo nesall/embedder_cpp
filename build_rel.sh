@@ -2,10 +2,10 @@
 set -e
 
 echo "Building phenixcode-core release version..."
-mkdir -p build_rel
+mkdir -p build_rel/out
 cd build_rel
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release --parallel
 cd ..
 
 echo "Debug: Checking for built executable..."
