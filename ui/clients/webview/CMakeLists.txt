@@ -57,9 +57,9 @@ set(SPA_DIST_DIR ${SPA_CLIENT_DIR}/dist)
 # Main executable
 add_executable(${PROJECT_NAME} src/main.cpp src/wb.h src/wb.cpp src/wb.mm src/procmngr.h appconfig.json app.rc)
 
-get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
-message("Root directory - ${ROOT_DIR}")
-target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
+#get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
+#message("Root directory - ${ROOT_DIR}")
+#target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
 
 # using fmt lib instead of std::format (for older compiler compatibility)
 target_compile_definitions(${PROJECT_NAME} PRIVATE

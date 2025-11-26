@@ -8,7 +8,7 @@
 #include <string>
 #include <cassert>
 #include <thread>
-#include "fmt/core.h"
+//#include "fmt/core.h"
 #include <sstream>
 #include <atomic>
 #include <fstream>
@@ -30,6 +30,13 @@
 namespace fs = std::filesystem;
 
 namespace {
+  template <typename... Args>
+  std::string strf(Args&&... args) {
+    std::ostringstream oss;
+    (oss << ... << std::forward<Args>(args));
+    return oss.str();
+  }
+
 
   struct AppConfig {
     int width = 700;
@@ -189,7 +196,7 @@ namespace {
     std::uniform_int_distribution<> dis(0, 255);
     std::stringstream ss;
     for (int i = 0; i < 16; i++) {
-      ss << std::hex << std::setw(2) << std::setfill('0') << dis(gen);
+      ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(dis(gen));
     }
     return ss.str();
   }
@@ -424,7 +431,7 @@ int main() {
 #endif
       , nullptr);
     w.setAppIcon("logo");
-    w.set_title(fmt::format("PhenixCode Assistant - v1.0 [build date: {} {}]", __DATE__, __TIME__));
+    w.set_title(strf("Phenix Code Assistant - v1.0 [build date: ", __DATE__, " ", __TIME__));
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
       {
@@ -531,7 +538,8 @@ int main() {
         std::lock_guard<std::mutex> lock(prefs.mutex_);
         LOG_MSG << "getServerUrl" << prefs.host << prefs.port;
         try {
-          std::string url = fmt::format("http://{}:{}", prefs.host, prefs.port);
+          //std::string url = std::format("http://{}:{}", prefs.host, prefs.port);
+          std::string url = strf("http://", prefs.host, ":", prefs.port);
           return nlohmann::json(url).dump();
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
