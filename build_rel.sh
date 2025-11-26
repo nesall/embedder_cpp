@@ -40,4 +40,7 @@ cp scripts/stop.sh dist/
 echo "Setting executable permissions..."
 chmod +x dist/phenixcode-core
 
+echo "Final permissions:"
+ls -la dist/phenixcode-core
+
 echo "Build complete. Package is in dist folder!"

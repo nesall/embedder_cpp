@@ -30,5 +30,8 @@ cp bge_tokenizer.json dist/
 echo "Setting executable permissions..."
 chmod +x dist/phenixcode-ui
 
+echo "Final permissions:"
+ls -la dist/phenixcode-ui
+
 echo "Build complete. Package is in dist folder!"
 
