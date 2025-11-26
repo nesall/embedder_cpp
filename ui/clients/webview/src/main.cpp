@@ -30,13 +30,6 @@
 namespace fs = std::filesystem;
 
 namespace {
-  template <typename... Args>
-  std::string strf(Args&&... args) {
-    std::ostringstream oss;
-    (oss << ... << std::forward<Args>(args));
-    return oss.str();
-  }
-
 
   struct AppConfig {
     int width = 700;
@@ -431,7 +424,7 @@ int main() {
 #endif
       , nullptr);
     w.setAppIcon("logo");
-    w.set_title(strf("Phenix Code Assistant - v1.0 [build date: ", __DATE__, " ", __TIME__));
+    w.set_title("Phenix Code Assistant - v1.0 [build date: " + std::string(__DATE__) + " " + std::string(__TIME__));
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
       {
@@ -539,7 +532,7 @@ int main() {
         LOG_MSG << "getServerUrl" << prefs.host << prefs.port;
         try {
           //std::string url = std::format("http://{}:{}", prefs.host, prefs.port);
-          std::string url = strf("http://", prefs.host, ":", prefs.port);
+          std::string url = "http://" + prefs.host + ":" + std::to_string(prefs.port);
           return nlohmann::json(url).dump();
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
