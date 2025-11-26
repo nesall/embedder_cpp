@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Building phenixcode-core release version..."
-echo "Trying CMake install approach..."
-mkdir -p build_rel
-cd build_rel
-cmake -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --config Release --parallel
-echo "=== BEFORE INSTALL ==="
-find . -name "phenixcode-core" -type f
-cmake --install . --config Release
-echo "=== AFTER INSTALL ==="
+echo "Building phenixcode-core release version..." 
+mkdir -p build_rel/out 
+cd build_rel 
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release .. 
+cmake --build . --config Release --parallel 
+cd .. 
+echo "$(pwd)" 
+echo "Copying release artifacts to dist/..." 
+rm -rf dist 
+rm -f dist.zip 
+mkdir -p dist 
+cp -r build_rel/out/* dist/
+
 cd ..
 find . -name "phenixcode-core" -type f
 
