@@ -175,10 +175,10 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
   )
 endif()
 
-add_custom_command(
-  TARGET ${PROJECT_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-      ${CMAKE_SOURCE_DIR}/public/
-      ${CMAKE_BINARY_DIR}/public/
-  COMMENT "Copying setup UI files"
+#add_custom_command(
+#  TARGET ${PROJECT_NAME} POST_BUILD
+#  COMMAND ${CMAKE_COMMAND} -E copy_directory
+#      ${CMAKE_SOURCE_DIR}/public/
+#      ${CMAKE_BINARY_DIR}/public/
+#  COMMENT "Copying setup UI files"
 )
