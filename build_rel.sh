@@ -7,6 +7,7 @@ cd build_rel
 cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$PWD/out" -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="$PWD/out" -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
+find build_rel -type f -perm +111 -ls
 echo "Checking out paths:"
 find build_rel -maxdepth 3 -type f -name "phenixcode-core" -print
 echo "Searching for built binary:"
