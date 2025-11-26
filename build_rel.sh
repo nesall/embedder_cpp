@@ -4,7 +4,7 @@ set -e
 echo "Building phenixcode-core release version..."
 mkdir -p build_rel/out
 cd build_rel
-cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$PWD/out" -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="$PWD/out" -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="build_rel/out" -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
 find build_rel -type f -perm +111 -ls
