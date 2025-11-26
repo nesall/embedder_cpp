@@ -152,12 +152,8 @@ if(WIN32)
 endif()
 
 if(APPLE)
-  # Link CoreFoundation framework directly
-  target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreFoundation")
-  # Also link other needed frameworks
-  target_link_libraries(${PROJECT_NAME} PRIVATE "-framework Security")
-  # Remove or comment out this line - it was preventing actual linking!
-  # set_target_properties(${PROJECT_NAME} PROPERTIES RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E echo Linking: ")
+  find_library(COREFOUNDATION CoreFoundation REQUIRED)
+  target_link_libraries(${PROJECT_NAME} ${COREFOUNDATION})
 endif()
 
 if(UNIX AND NOT APPLE)
