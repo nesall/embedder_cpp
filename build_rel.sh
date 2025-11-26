@@ -4,22 +4,44 @@ set -e
 echo "Building phenixcode-core release version..."
 mkdir -p build_rel/out
 cd build_rel
-cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="build_rel/out" -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
-find build_rel -type f -perm +111 -ls
-echo "Checking out paths:"
-find build_rel -maxdepth 3 -type f -name "phenixcode-core" -print
-echo "Searching for built binary:"
-find "$(pwd)" -type f -name phenixcode-core
-echo "Current directory: $(pwd)"
-echo "Contents of build_rel/out:"; ls -R build_rel/out
+
+# Debug: Check what was actually built
+echo "Searching for phenixcode-core binary:"
+find build_rel -name "phenixcode-core" -type f
+
+echo "Contents of build_rel:"
+ls -la build_rel/
+
+echo "Contents of build_rel/out:"
+ls -la build_rel/out/
 
 echo "Copying release artifacts to dist/..."
 rm -rf dist
-rm -f dist.zip
 mkdir -p dist
-cp -r build_rel/out/* dist/
+
+# Copy the binary if it exists in out directory
+if [ -f "build_rel/out/phenixcode-core" ]; then
+    cp "build_rel/out/phenixcode-core" dist/
+    echo "Successfully copied phenixcode-core to dist/"
+else
+    echo "ERROR: phenixcode-core not found in build_rel/out/"
+    # Try to find it elsewhere as fallback
+    BINARY_PATH=$(find build_rel -name "phenixcode-core" -type f | head -1)
+    if [ -n "$BINARY_PATH" ]; then
+        echo "Found binary at: $BINARY_PATH"
+        cp "$BINARY_PATH" dist/
+        echo "Copied from alternative location"
+    else
+        echo "ERROR: Could not find phenixcode-core binary anywhere!"
+        exit 1
+    fi
+fi
+
+echo "Final dist contents:"
+ls -la dist/
 
 # Continue with other files
 echo "Deleting .log files from dist/ if any..."
