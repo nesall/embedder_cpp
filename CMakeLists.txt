@@ -153,7 +153,7 @@ endif()
 
 if(APPLE)
   find_library(COREFOUNDATION CoreFoundation REQUIRED)
-  target_link_libraries(${PROJECT_NAME} ${COREFOUNDATION})
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${COREFOUNDATION})
 endif()
 
 if(UNIX AND NOT APPLE)
