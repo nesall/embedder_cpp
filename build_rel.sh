@@ -4,12 +4,13 @@ set -e
 echo "Building phenixcode-core release version..."
 mkdir -p build_rel/out
 cd build_rel
-cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$PWD/out" -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$PWD/out" -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="$PWD/out" -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
+echo "Checking out paths:"
+find build_rel -maxdepth 3 -type f -name "phenixcode-core" -print
 echo "Searching for built binary:"
 find "$(pwd)" -type f -name phenixcode-core
-find build_rel -name phenixcode-core -type f -print
 echo "Current directory: $(pwd)"
 echo "Contents of build_rel/out:"; ls -R build_rel/out
 
