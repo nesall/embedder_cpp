@@ -2,17 +2,36 @@
 set -e
 
 echo "Building phenixcode-core release version..."
-echo "Trying CMake install approach..."
 mkdir -p build_rel
 cd build_rel
-cmake -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
-echo "=== BEFORE INSTALL ==="
-find . -name "phenixcode-core" -type f
-cmake --install . --config Release
-echo "=== AFTER INSTALL ==="
 cd ..
-find . -name "phenixcode-core" -type f
+
+echo "=== SEARCHING FOR BINARY ==="
+# The binary should be in the build_rel directory itself
+find build_rel -name "phenixcode-core" -type f
+
+echo "=== CHECKING BUILD_REL DIRECTORY ==="
+ls -la build_rel/ | grep phenixcode
+
+echo "=== COPYING BINARY ==="
+rm -rf dist
+mkdir -p dist
+
+# The binary should be directly in build_rel/
+if [ -f "build_rel/phenixcode-core" ]; then
+    echo "Found binary at: build_rel/phenixcode-core"
+    cp "build_rel/phenixcode-core" dist/
+    cp -r build_rel/public/ dist/public/ 2>/dev/null || true
+    cp README.md settings.json dist/ 2>/dev/null || true
+    echo "Successfully copied phenixcode-core to dist/"
+else
+    echo "ERROR: phenixcode-core not found in build_rel/"
+    echo "Available files in build_rel/:"
+    ls -la build_rel/
+    exit 1
+fi
 
 echo "Final dist contents:"
 ls -la dist/
