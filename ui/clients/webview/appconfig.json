@@ -13,12 +13,12 @@
       "value": "dark"
     },
     {
-      "key": "EmbedderExecutablePath",
-      "value": "./phenixcode-core"
-    },
-    {
       "key": "ApiOptionsGroupedKey",
       "value": "1"
+    },
+    {
+      "key": "EmbedderExecutablePath",
+      "value": "./phenixcode-core"
     },
     {
       "key": "EmbedderSettingsFilePaths",

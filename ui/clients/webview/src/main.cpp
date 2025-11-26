@@ -8,7 +8,7 @@
 #include <string>
 #include <cassert>
 #include <thread>
-#include <format>
+#include "fmt/core.h"
 #include <sstream>
 #include <atomic>
 #include <fstream>
@@ -424,7 +424,7 @@ int main() {
 #endif
       , nullptr);
     w.setAppIcon("logo");
-    w.set_title(std::format("Phenix Code Assistant - v1.0 [build date: {} {}]", __DATE__, __TIME__));
+    w.set_title(fmt::format("PhenixCode Assistant - v1.0 [build date: {} {}]", __DATE__, __TIME__));
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
       {
@@ -531,7 +531,7 @@ int main() {
         std::lock_guard<std::mutex> lock(prefs.mutex_);
         LOG_MSG << "getServerUrl" << prefs.host << prefs.port;
         try {
-          std::string url = std::format("http://{}:{}", prefs.host, prefs.port);
+          std::string url = fmt::format("http://{}:{}", prefs.host, prefs.port);
           return nlohmann::json(url).dump();
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
