@@ -28,11 +28,14 @@ FetchContent_Declare(
   GIT_TAG main
 )
 
-FetchContent_Declare(
-  win_dark
-  GIT_REPOSITORY https://github.com/nesall/WinDarkTitlebarImpl.git
-  GIT_TAG main
-)
+if(WIN32)
+  FetchContent_Declare(
+    win_dark
+    GIT_REPOSITORY https://github.com/nesall/WinDarkTitlebarImpl.git
+    GIT_TAG main
+  )
+  FetchContent_MakeAvailable(win_dark)
+endif()
 
 FetchContent_Declare(
   nlohmann_json
@@ -40,22 +43,38 @@ FetchContent_Declare(
   GIT_TAG v3.11.3
 )
 
-FetchContent_MakeAvailable(httplib utils_log win_dark nlohmann_json)
+FetchContent_MakeAvailable(httplib utils_log nlohmann_json)
 
 # logging
 add_library(utils_log INTERFACE)
 target_include_directories(utils_log INTERFACE ${utils_log_SOURCE_DIR})
 
 # win-dark-titlebar
-add_library(win_dark INTERFACE)
-target_include_directories(win_dark INTERFACE ${win_dark_SOURCE_DIR})
+if(WIN32)
+  add_library(win_dark INTERFACE)
+  target_include_directories(win_dark INTERFACE ${win_dark_SOURCE_DIR})
+endif()
 
 # Path to sibling spa-svelte project
 set(SPA_CLIENT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../spa-svelte)
 set(SPA_DIST_DIR ${SPA_CLIENT_DIR}/dist)
 
 # Main executable
-add_executable(${PROJECT_NAME} src/main.cpp src/wb.h src/wb.cpp src/wb.mm src/procmngr.h appconfig.json app.rc)
+#add_executable(${PROJECT_NAME} src/main.cpp src/wb.h src/wb.cpp src/wb.mm src/procmngr.h appconfig.json app.rc)
+set(SOURCES
+  src/main.cpp
+  src/wb.h
+  src/wb.cpp
+  src/procmngr.h
+  appconfig.json  
+)
+if (WIN32)
+  list(APPEND SOURCES app.rc)
+endif()
+if(APPLE)
+  list(APPEND SOURCES src/wb.mm)
+endif()
+add_executable(${PROJECT_NAME} ${SOURCES})
 
 #get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
 #message("Root directory - ${ROOT_DIR}")
@@ -74,33 +93,38 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
     )
 endif()
 
-target_link_libraries(${PROJECT_NAME} webview::core httplib::httplib utils_log win_dark nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  webview::core 
+  httplib::httplib 
+  utils_log 
+  nlohmann_json::nlohmann_json
+)
 
 # Platform-specific libraries
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} ole32 Comctl32)
+  target_link_libraries(${PROJECT_NAME} PRIVATE ole32 Comctl32 win_dark)
 elseif(APPLE)
-    find_library(COCOA Cocoa)
-    find_library(WEBKIT WebKit)
-    find_library(COREFOUNDATION CoreFoundation REQUIRED)
-    target_link_libraries(${PROJECT_NAME} ${COCOA} ${WEBKIT} ${COREFOUNDATION})
+  find_library(COCOA Cocoa)
+  find_library(WEBKIT WebKit)
+  find_library(COREFOUNDATION CoreFoundation REQUIRED)
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${COCOA} ${WEBKIT} ${COREFOUNDATION})
 elseif(UNIX AND NOT APPLE)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.0)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${WEBKIT2_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} ${WEBKIT2_LIBRARIES} pthread)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.0)
+  target_include_directories(${PROJECT_NAME} PRIVATE ${WEBKIT2_INCLUDE_DIRS})
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${WEBKIT2_LIBRARIES} pthread)
 endif()
 
 # Copy pre-built web assets if they exist
 if(EXISTS ${SPA_DIST_DIR})
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${SPA_DIST_DIR}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/web_assets
-        COMMENT "Copying web assets to executable directory"
-    )
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${SPA_DIST_DIR}
+      $<TARGET_FILE_DIR:${PROJECT_NAME}>/web_assets
+    COMMENT "Copying web assets to executable directory"
+  )
 else()
-    message(WARNING "Web assets not found at ${SPA_DIST_DIR} - build spa-svelte manually first")
+  message(WARNING "Web assets not found at ${SPA_DIST_DIR} - build spa-svelte manually first")
 endif()
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")

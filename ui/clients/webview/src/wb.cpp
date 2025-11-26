@@ -49,7 +49,7 @@ Webview::Webview(bool debug, void *pWindow) : webview::webview(debug, pWindow)
   g_signal_connect(
     G_OBJECT(w),
     "delete-event",     // fires before destroy
-    G_CALLBACK(&Webview::OnDeleteEventThunk),
+    G_CALLBACK(&OnDeleteEventThunk),
     this
   );
 #endif
@@ -87,7 +87,7 @@ void Webview::setAppIconImpl(void *wnd, const std::string &iconPath)
   GError *error = nullptr;
   GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(iconPath.c_str(), &error);
   if (pixbuf) {
-    gtk_window_set_icon(GTK_WINDOW(window()), pixbuf);
+    gtk_window_set_icon(GTK_WINDOW(window().value()), pixbuf);
     g_object_unref(pixbuf);
   }
 #endif
@@ -103,7 +103,7 @@ std::pair<int, int> Webview::getWindowSize()
   res.first = rect.right - rect.left;
   res.second = rect.bottom - rect.top;
 #elif defined(__linux__)
-  GtkWindow *gtkWindow = GTK_WINDOW(window());
+  GtkWindow *gtkWindow = GTK_WINDOW(window().value());
   gint width = 0;
   gint height = 0;
   gtk_window_get_size(gtkWindow, &width, &height);
