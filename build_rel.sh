@@ -39,6 +39,5 @@ cp scripts/stop.sh dist/
 
 echo "Setting executable permissions..."
 chmod +x dist/phenixcode-core
-chmod +x dist/phenixcode-ui
 
 echo "Build complete. Package is in dist folder!"

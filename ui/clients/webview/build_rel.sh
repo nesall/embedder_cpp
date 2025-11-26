@@ -27,5 +27,8 @@ rm -f dist/diagnostics.log
 cp settings.template.json dist/
 cp bge_tokenizer.json dist/
 
+echo "Setting executable permissions..."
+chmod +x dist/phenixcode-ui
+
 echo "Build complete. Package is in dist folder!"
 
