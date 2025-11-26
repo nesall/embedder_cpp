@@ -1,45 +1,43 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== COMPREHENSIVE DEBUGGING ==="
-echo "Building phenixcode-core release version..."
+echo "=== BUILD WITH PROPER ERROR HANDLING ==="
 mkdir -p build_rel
 cd build_rel
-cmake -DCMAKE_BUILD_TYPE=Release ..
 
-echo "=== BUILD WITH ERROR CHECKING ==="
+# Clean previous build
+rm -rf *
 
-# Run build and capture all output
-set -x
-cmake --build . --config Release --parallel 2>&1 | tee build.log
-set +x
+# Configure with more verbose output
+cmake -DCMAKE_BUILD_TYPE=Release .. 2>&1 | tee cmake.log
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "CMAKE CONFIGURATION FAILED"
+    exit 1
+fi
 
-echo "=== CHECKING BUILD LOG ==="
-grep -i "error\|fail\|cannot\|no such" build.log || echo "No obvious errors in build log"
+# Build with detailed output and proper error checking
+echo "=== STARTING BUILD ==="
+make phenixcode-core VERBOSE=1 2>&1 | tee make.log
+BUILD_EXIT_CODE=${PIPESTATUS[0]}
 
-# Check the actual linking command
-echo "=== CHECKING LINK COMMAND ==="
-grep -A2 -B2 "Linking.*phenixcode-core" build.log
+echo "=== BUILD EXIT CODE: $BUILD_EXIT_CODE ==="
 
-cd ..
+# Check if build actually succeeded
+if [ $BUILD_EXIT_CODE -eq 0 ]; then
+    echo "=== BUILD SUCCEEDED - SEARCHING FOR BINARY ==="
+    find . -name "phenixcode-core" -type f -ls 2>/dev/null
+    find . -type f -executable -ls 2>/dev/null | head -10
+    
+    echo "=== CURRENT DIRECTORY CONTENTS ==="
+    ls -la
+    
+    echo "=== ATTEMPTING TO RUN BINARY ==="
+    ./phenixcode-core --version 2>&1 || echo "Binary cannot be executed"
+else
+    echo "=== BUILD FAILED - CHECKING ERRORS ==="
+    grep -i "error\|fail\|undefined\|cannot" make.log | head -20
+fi
 
-echo "=== EXTENSIVE SEARCH ==="
-echo "1. Searching for ANY executable files in build_rel:"
-find build_rel -type f -executable -ls 2>/dev/null
-
-echo "2. Searching for files containing 'phenixcode':"
-find build_rel -type f -name "*phenixcode*" 2>/dev/null
-
-echo "3. Checking build_rel directory structure:"
-ls -la build_rel/
-
-echo "4. Checking if file exists at exact path:"
-[ -f "build_rel/phenixcode-core" ] && echo "FOUND: build_rel/phenixcode-core" || echo "NOT FOUND: build_rel/phenixcode-core"
-
-echo "5. Checking file creation during build:"
-cd build_rel
-echo "Running make with dry-run to see what would be executed:"
-make -n | grep -A5 -B5 "phenixcode-core" || echo "No phenixcode-core target found in dry-run"
 cd ..
 
 echo "6. Checking build system type:"
