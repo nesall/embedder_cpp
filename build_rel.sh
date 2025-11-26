@@ -2,38 +2,20 @@
 set -e
 
 echo "Building phenixcode-core release version..."
+echo "Trying CMake install approach..."
 mkdir -p build_rel
 cd build_rel
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
+echo "=== BEFORE INSTALL ==="
+find . -name "phenixcode-core" -type f
+cmake --install . --config Release
+echo "=== AFTER INSTALL ==="
 cd ..
+find . -name "phenixcode-core" -type f
 
-echo "=== DEBUGGING BINARY LOCATION ==="
-echo "Searching recursively for phenixcode-core:"
-find build_rel -name "phenixcode-core" -type f 2>/dev/null
-
-echo "Current directory: $(pwd)"
-echo "Listing build_rel contents recursively:"
-find build_rel -type f -name "*phenixcode*" 2>/dev/null
-
-echo "Checking if binary exists in common locations:"
-[ -f "build_rel/phenixcode-core" ] && echo "Found at: build_rel/phenixcode-core"
-[ -f "build_rel/out/phenixcode-core" ] && echo "Found at: build_rel/out/phenixcode-core"
-[ -f "build_rel/src/phenixcode-core" ] && echo "Found at: build_rel/src/phenixcode-core"
-
-# Copy whatever we find
-BINARY_PATH=$(find build_rel -name "phenixcode-core" -type f | head -1)
-if [ -n "$BINARY_PATH" ]; then
-    echo "Found binary at: $BINARY_PATH"
-    rm -rf dist
-    mkdir -p dist
-    cp "$BINARY_PATH" dist/
-    echo "Successfully copied to dist/"
-    ls -la dist/
-else
-    echo "ERROR: Could not find phenixcode-core binary"
-    exit 1
-fi
+echo "Final dist contents:"
+ls -la dist/
 
 # Continue with other files
 echo "Deleting .log files from dist/ if any..."
