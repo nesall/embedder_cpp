@@ -21,6 +21,10 @@ cp -r build_rel/out/* dist/
 
 find . -name "phenixcode-core" -type f
 
+echo "Setting executable permissions..."
+chmod +x dist/phenixcode-core
+chmod +x dist/phenixcode-ui
+
 echo "Final dist contents:";ls -la dist/
 
 # Continue with other files
