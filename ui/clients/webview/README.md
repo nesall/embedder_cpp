@@ -67,4 +67,4 @@ pkg-config --exists webkit2gtk-4.0 && echo "4.0 found"
 build_rel.bat
 ```
 
-*Note*: The project uses CMake's FetchContent to download the webview library, but on Linux you still need the system WebKitGTK development packages for linking. Windows automatically handles WebView2 dependencies through the Microsoft WebView2 runtime.
+*Note*: The project uses CMake's FetchContent to download the webview library, but on Linux you still need the system WebKitGTK development packages for linking. Windows and MacOS automatically handle the dependencies.
