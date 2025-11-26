@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
+echo "Building phenixcode-core release version..."
+echo "Trying CMake install approach..."
+mkdir -p build_rel
+cd build_rel
+cmake -DCMAKE_INSTALL_PREFIX=../dist -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release --parallel
+echo "=== BEFORE INSTALL ==="
+find . -name "phenixcode-core" -type f
+cmake --install . --config Release
+echo "=== AFTER INSTALL ==="
+cd ..
+find . -name "phenixcode-core" -type f
+
 echo "=== INVESTIGATING LINKING ISSUE ==="
 cd build_rel
 
@@ -36,19 +49,9 @@ else
 fi
 
 cd ..
-echo "6. Checking build system type:"
-cd build_rel
-ls -la CMakeFiles/ | grep phenixcode
-cd ..
 
-echo "=== BUILD REL CONTENTS RECURSIVE (first level) ==="
-find build_rel -maxdepth 2 -type f -ls 2>/dev/null | head -20
-
-
-mkdir -p dist/
 echo "Final dist contents:"
 ls -la dist/
-
 
 # Continue with other files
 echo "Deleting .log files from dist/ if any..."
