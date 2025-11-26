@@ -8,7 +8,7 @@ cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
 echo "$(pwd)"
-echo "Contents of build_rel:"; ls -R build_rel
+echo "Contents of build_rel/out:"; ls -R build_rel/out
 
 echo "Copying release artifacts to dist/..."
 rm -rf dist
