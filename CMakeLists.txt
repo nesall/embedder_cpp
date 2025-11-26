@@ -157,7 +157,7 @@ if(APPLE)
   if(COREFOUNDATION)
       target_link_libraries(${PROJECT_NAME} PRIVATE ${COREFOUNDATION})
   endif()
-  set_target_properties(${PROJECT_NAME} PROPERTIES RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E echo Linking: ")
+  #set_target_properties(${PROJECT_NAME} PROPERTIES RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E echo Linking: ")
 endif()
 
 if(UNIX AND NOT APPLE)
