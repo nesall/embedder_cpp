@@ -1,45 +1,41 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== BUILD WITH PROPER ERROR HANDLING ==="
-mkdir -p build_rel
+echo "=== INVESTIGATING LINKING ISSUE ==="
 cd build_rel
 
-# Clean previous build
-rm -rf *
+# Check the actual link command that CMake generated
+echo "=== LINK.TXT CONTENTS ==="
+cat CMakeFiles/phenixcode-core.dir/link.txt
 
-# Configure with more verbose output
-cmake -DCMAKE_BUILD_TYPE=Release .. 2>&1 | tee cmake.log
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
-    echo "CMAKE CONFIGURATION FAILED"
-    exit 1
-fi
+# Check if there are any object files
+echo "=== OBJECT FILES ==="
+ls -la CMakeFiles/phenixcode-core.dir/src/*.o 2>/dev/null | wc -l
 
-# Build with detailed output and proper error checking
-echo "=== STARTING BUILD ==="
-make phenixcode-core VERBOSE=1 2>&1 | tee make.log
-BUILD_EXIT_CODE=${PIPESTATUS[0]}
+# Try running the link command manually
+echo "=== MANUAL LINK ATTEMPT ==="
+LINK_CMD=$(cat CMakeFiles/phenixcode-core.dir/link.txt)
+echo "Link command length: ${#LINK_CMD}"
+echo "First 500 chars of link command:"
+echo "${LINK_CMD:0:500}"
+echo "..."
+echo "Last 500 chars of link command:"
+echo "${LINK_CMD: -500}"
 
-echo "=== BUILD EXIT CODE: $BUILD_EXIT_CODE ==="
+# Try to execute the link command
+echo "=== EXECUTING LINK COMMAND ==="
+eval "$LINK_CMD" 2>&1 | tee manual_link.log
 
-# Check if build actually succeeded
-if [ $BUILD_EXIT_CODE -eq 0 ]; then
-    echo "=== BUILD SUCCEEDED - SEARCHING FOR BINARY ==="
-    find . -name "phenixcode-core" -type f -ls 2>/dev/null
-    find . -type f -executable -ls 2>/dev/null | head -10
-    
-    echo "=== CURRENT DIRECTORY CONTENTS ==="
-    ls -la
-    
-    echo "=== ATTEMPTING TO RUN BINARY ==="
-    ./phenixcode-core --version 2>&1 || echo "Binary cannot be executed"
+if [ -f "phenixcode-core" ]; then
+    echo "MANUAL LINK SUCCESS!"
+    ls -la phenixcode-core
 else
-    echo "=== BUILD FAILED - CHECKING ERRORS ==="
-    grep -i "error\|fail\|undefined\|cannot" make.log | head -20
+    echo "MANUAL LINK FAILED"
+    echo "=== LINK ERRORS ==="
+    grep -i "error\|fail\|undefined" manual_link.log
 fi
 
 cd ..
-
 echo "6. Checking build system type:"
 cd build_rel
 ls -la CMakeFiles/ | grep phenixcode
@@ -49,6 +45,7 @@ echo "=== BUILD REL CONTENTS RECURSIVE (first level) ==="
 find build_rel -maxdepth 2 -type f -ls 2>/dev/null | head -20
 
 
+mkdir -p dist/
 echo "Final dist contents:"
 ls -la dist/
 
