@@ -6,8 +6,8 @@ mkdir -p build_rel/out
 cd build_rel 
 cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release .. 
 
-echo "=== CHECKING COREFOUNDATION DETECTION ==="
-grep -i "corefoundation" CMakeCache.txt
+#echo "=== CHECKING COREFOUNDATION DETECTION ==="
+#grep -i "corefoundation" CMakeCache.txt
 
 echo "=== BUILDING ==="
 cmake --build . --config Release --parallel 
@@ -19,11 +19,9 @@ rm -f dist.zip
 mkdir -p dist 
 cp -r build_rel/out/* dist/
 
-cd ..
 find . -name "phenixcode-core" -type f
 
-echo "Final dist contents:"
-ls -la dist/
+echo "Final dist contents:";ls -la dist/
 
 # Continue with other files
 echo "Deleting .log files from dist/ if any..."
