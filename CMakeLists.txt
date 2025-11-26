@@ -152,11 +152,10 @@ if(WIN32)
 endif()
 
 if(APPLE)
-  target_link_libraries(${PROJECT_NAME} PRIVATE 
-    "-framework CoreFoundation"
-    "-framework CoreServices"
-    "-framework Security"
-  )
+    find_library(COCOA Cocoa)
+    find_library(WEBKIT WebKit)
+    find_library(COREFOUNDATION CoreFoundation REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${COCOA} ${WEBKIT} ${COREFOUNDATION})
 endif()
 
 if(UNIX AND NOT APPLE)
