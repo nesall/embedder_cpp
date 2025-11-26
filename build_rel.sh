@@ -8,21 +8,25 @@ cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
 
-echo "Debug: Checking for built executable..."
-find . -name "phenixcode-core" -type f | head -5
+#echo "Debug: Checking for built executable..."
+#find . -name "phenixcode-core" -type f | head -5
 
-echo "Copying release artifacts to dist folder..."
+echo "Copying release artifacts to dist/..."
 rm -rf dist
 rm -f dist.zip
 mkdir -p dist
+cp -r build_rel/out/* dist/
 
 # Copy the executable (using find to locate it)
-find build_rel -name "phenixcode-core" -type f -exec cp {} dist/ \;
+#find build_rel -name "phenixcode-core" -type f -exec cp {} dist/ \;
+
 
 # Continue with other files
-cp -r build_rel/public dist/ 2>/dev/null || echo "public folder not found, skipping"
+echo "Deleting .log files from dist/ if any..."
 rm -f dist/output.log
 rm -f dist/diagnostics.log
+echo "Copying scripts and setup files to dist/ ..."
+cp -r build_rel/public dist/ 2>/dev/null || echo "public folder not found, skipping"
 cp assets/README dist/
 cp assets/settings.template.json dist/
 cp assets/bge_tokenizer.json dist/
