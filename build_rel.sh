@@ -7,19 +7,14 @@ cd build_rel
 cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 cd ..
-
-#echo "Debug: Checking for built executable..."
-#find . -name "phenixcode-core" -type f | head -5
+echo "$(pwd)"
+echo "Contents of build_rel:"; ls -R build_rel
 
 echo "Copying release artifacts to dist/..."
 rm -rf dist
 rm -f dist.zip
 mkdir -p dist
 cp -r build_rel/out/* dist/
-
-# Copy the executable (using find to locate it)
-#find build_rel -name "phenixcode-core" -type f -exec cp {} dist/ \;
-
 
 # Continue with other files
 echo "Deleting .log files from dist/ if any..."
