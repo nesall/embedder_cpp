@@ -11,11 +11,11 @@ A self-hosted RAG system for querying codebases with AI. Index your code locally
 
 Works offline with local models or integrates with OpenAI-compatible APIs. Your data, your infrastructure, your choice.
 
-![Demo of chat session](media/Image1.png)
+![PhenixCode UI](media/Image1.png)
 
 **Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
 
-**[Download release](https://github.com/nesall/phenixcode/releases/tag/v1.0.0)** | **[Quick start](https://github.com/nesall/phenixcode/blob/main/assets/README)**  
+**[Download release](releases/tag/v1.0.0)** | **[Quick start](assets/README)**  
 
 ### Why Self-Host?
 
