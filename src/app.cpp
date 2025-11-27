@@ -1389,8 +1389,9 @@ int App::run(int argc, char *argv[])
 {
   SignalHandler::setup();
 
-  CLI::App app{ "Embedder RAG System" };
-  app.set_version_flag("--version,-v", "1.0.0");
+  CLI::App app{ "PhenixCode RAG System" };
+  app.set_version_flag("--version,-v", 
+    "PhenixCode RAG System\nAuthor: Arman Sahakyan\nVersion: 1.0.0\n" + fmt::format("Build date: {} {}", __DATE__, __TIME__));
   app.require_subcommand(0, 1); // Allow 0 or 1 subcommand (0 shows help)
 
   std::string configPath = "settings.json";
@@ -1454,8 +1455,6 @@ int App::run(int argc, char *argv[])
   auto cmdProviders = app.add_subcommand("providers", "List embedding and completion providers");
   std::string testProvider;
   cmdProviders->add_option("--test", testProvider, "Test call to a given provider");
-
-  auto cmdVersion = app.add_subcommand("version", "Show version information");
 
   try {
     app.parse(argc, argv);
@@ -1529,12 +1528,6 @@ int App::run(int argc, char *argv[])
       appInstance.chat();
     } else if (cmdProviders->parsed()) {
       appInstance.providers(testProvider);
-    } else if (cmdVersion->parsed()) {
-      std::cout << "Embedder RAG System\n";
-      std::cout << "Author: Arman Sahakyan\n";
-      std::cout << "Version: 1.0.0\n";
-      std::cout << "Build: " << __DATE__ << " " << __TIME__ << "\n";
-      return 0;
     } else if (cmdServe->parsed()) {
       if (appInstance.auth().isDefaultPassword()) {
         std::cout << "\n  WARNING: You are using the default admin password!\n";

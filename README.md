@@ -25,12 +25,33 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 ### How to build
 
 C++ 20 or newer is required.
+nodejs 20 or newer is required.
+If building in Linux, gcc-12 or newer is required.
 
 ```bash
-# clone the repository and cd into it. Then:
-mkdir build && cd build
-cmake ..
-make
+# clone the repository and cd into it.
+
+# Build both core and ui with a single command:
+
+# Build in Linux
+./package-lin.sh
+
+# Build in MacOS
+./package-mac.sh
+
+# Build in Windows
+package.bat
+
+
+# To build either core or ui separately, use build_rel scripts
+
+# e.g. building core only
+./build_rel.sh
+
+# or building ui only
+cd ui/clients/webview
+./build_rel.sh
+
 ```
 
 ### Features overview
