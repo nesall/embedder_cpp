@@ -162,12 +162,6 @@ struct AdminAuth::Impl {
     std::string saltedPass = salt + password;
 
 #ifdef HAS_OPENSSL
-    //unsigned char hash[SHA256_DIGEST_LENGTH];
-    //SHA256_CTX sha256;
-    //SHA256_Init(&sha256);
-    //SHA256_Update(&sha256, saltedPass.c_str(), saltedPass.length());
-    //SHA256_Final(hash, &sha256);
-
     unsigned char hash[EVP_MAX_MD_SIZE] = { 0 };
     unsigned int hashLen = 0;
 
@@ -182,10 +176,12 @@ struct AdminAuth::Impl {
       ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
 
     // Return salt$hash format for storage
-    return pSalt ? (salt + "$" + ss.str()) : ss.str();
+    //return pSalt ? (salt + "$" + ss.str()) : ss.str();
+    return salt + "$" + ss.str();
 #else
     auto ss = fnv1a64(saltedPass);
-    return pSalt ? (salt + "$" + ss) : ss;
+    //return pSalt ? (salt + "$" + ss) : ss;
+    return salt + "$" + ss;
 #endif
   }
   std::string fileLastModifiedTime() const {
