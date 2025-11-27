@@ -6,9 +6,6 @@ mkdir -p build_rel/out
 cd build_rel 
 cmake -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=out -DCMAKE_BUILD_TYPE=Release .. 
 
-#echo "=== CHECKING COREFOUNDATION DETECTION ==="
-#grep -i "corefoundation" CMakeCache.txt
-
 echo "=== BUILDING ==="
 cmake --build . --config Release --parallel 
 cd .. 
@@ -31,6 +28,7 @@ echo "Copying scripts and setup files to dist/ ..."
 cp -r build_rel/public dist/ 2>/dev/null || echo "public folder not found, skipping"
 cp assets/README dist/
 cp assets/settings.template.json dist/
+cp assets/settings.json dist/
 cp assets/bge_tokenizer.json dist/
 cp scripts/install-service.sh dist/
 cp scripts/uninstall-service.sh dist/
