@@ -7,7 +7,6 @@
 #include <string>
 #include <cassert>
 #include <thread>
-//#include "fmt/core.h"
 #include <sstream>
 #include <atomic>
 #include <fstream>
@@ -423,7 +422,7 @@ int main() {
 #endif
       , nullptr);
     w.setAppIcon("logo");
-    w.set_title("Phenix Code Assistant - v1.0 [build date: " + std::string(__DATE__) + " " + std::string(__TIME__));
+    w.set_title("PhenixCode Assistant - v1.0 [build date: " + std::string(__DATE__) + " " + std::string(__TIME__));
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
       {
