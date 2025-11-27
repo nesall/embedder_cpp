@@ -10,15 +10,19 @@
     },
     {
       "key": "darkOrLight",
-      "value": "dark"
+      "value": "light"
     },
     {
-      "key": "ApiOptionsGroupedKey",
-      "value": "1"
+      "key": "theme",
+      "value": "hamlindigo"
     },
     {
       "key": "EmbedderExecutablePath",
       "value": "./phenixcode-core"
+    },
+    {
+      "key": "ApiOptionsGroupedKey",
+      "value": "1"
     },
     {
       "key": "EmbedderSettingsFilePaths",
@@ -30,7 +34,7 @@
     }
   ],
   "window": {
-    "height": 892,
-    "width": 740
+    "height": 714,
+    "width": 584
   }
 }
