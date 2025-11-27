@@ -11,7 +11,7 @@ A self-hosted RAG system for querying codebases with AI. Index your code locally
 
 Works offline with local models or integrates with OpenAI-compatible APIs. Your data, your infrastructure, your choice.
 
-![Demo of chat session](link-to-demo.gif)
+![Demo of chat session](media/Image1.png)
 
 **Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
 
