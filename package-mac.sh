@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-if [[ -z "$1" ]]; then
-  VER="1.0.1"
-fi
-
-VER="$1"
+VER="${1:-1.0.1}"
 NAME="phenixcode-v${VER}-macos-arm64"
 
 echo "VER=$VER"
