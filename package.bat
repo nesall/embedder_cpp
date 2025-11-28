@@ -1,7 +1,18 @@
 @echo off
 setlocal
 
-set "NAME=phenixcode-vd.d.d-win64"
+if "%~1"=="" (
+    echo Usage: package.bat version
+    echo Example: package.bat 1.0.1
+    exit /b 1
+)
+
+set "VER=%~1"
+set "NAME=phenixcode-v%VER%-win64"
+
+echo VER=%VER%
+echo NAME=%NAME%
+
 set "EMBEDDER=."
 set "WEBVIEW=ui\clients\webview"
 

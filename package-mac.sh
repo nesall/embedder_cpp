@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
-NAME="phenixcode-v1.d.d-macos-arm64"
+if [[ -z "$1" ]]; then
+    echo "Usage: $0 <version>"
+    echo "Example: $0 1.0.1"
+    exit 1
+fi
+
+VER="$1"
+NAME="phenixcode-v${VER}-linux-x64"
+
+echo "VER=$VER"
+echo "NAME=$NAME"
+
 EMBEDDER="./"
 WEBVIEW="ui/clients/webview"
 
