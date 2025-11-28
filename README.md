@@ -122,37 +122,38 @@ cd ui/clients/webview
 ### CLI commands
 
 Initial full embed of all sources from settings.json  
-```./embedder --config settings.json embed```
+```./phenixcode-core --config settings.json embed```
 
 Check for changes and update only what changed  
-```./embedder update```
+```./phenixcode-core update```
 
 Continuous monitoring (checks every 60 seconds)  
-```./embedder watch --interval 60```
+```./phenixcode-core watch --interval 60```
 
 Reclaim space used by deleted index items  
-```./embedder compact```
+```./phenixcode-core compact```
 
 Search nearest neighbours  
-```./embedder search "how to optimize C++" --top 10```
+```./phenixcode-core search "how to optimize C++" --top 10```
 
 Chat with LLM  
-```./embedder chat```
+```./phenixcode-core chat```
 
-Server on custom port with auto-update  
-```./embedder serve --port 9000 --watch --interval 60```
+Serve on a custom port with auto-update every N seconds 
+```./phenixcode-core serve --port 9000 --watch --interval 60```
 
-Server without auto-update (manual trigger via /update endpoint)  
-```./embedder serve```
+Serve on the default port (8590) without auto-update (manual trigger via /update endpoint)  
+```./phenixcode-core serve```
 
+Default admin password: `admin` — change it immediately using one of the methods below.
 Change Password - Method 1: Direct  
-```./embeddings_cpp reset-password --pass NewPassword456```
+```./phenixcode-core reset-password --pass NewPassword456```
 
-Change Password - Method 2: Interactive (hides password input)  
-```./embeddings_cpp reset-password-interactive```
+Change Password - Method 2: Interactive (hides input)  
+```./phenixcode-core reset-password-interactive```
 
 Check password status  
-```./embeddings_cpp password-status```
+```./phenixcode-core password-status```
 
 
 ### Editing settings.json
@@ -235,8 +236,8 @@ curl -X POST http://localhost:8080/api/chat \
       {"role": "user", "content": "What is the capital of France?"}
     ],
     "sourceids": [
-      "../embedder_cpp/src/main.cpp",
-      "../embedder_cpp/include/settings.h"
+      "../phenixcode-core/src/main.cpp",
+      "../phenixcode-core/include/settings.h"
     ],
     "attachments": [
       { "filename": "filename1.cpp", "content": "..text file content 1.."},
@@ -249,7 +250,7 @@ curl -X POST http://localhost:8080/api/chat \
     "attachedonly": false
   }'
 
-# Initiate server shutdown that was started with an app key e.g. ./embeddings_cpp serve --appkey abc123
+# Initiate server shutdown that was started with an app key e.g. ./phenixcode-core serve --appkey abc123
 curl -X POST http://localhost:8590/api/shutdown \
   -H "X-App-Key: abc123" \
   -d '{}'  
