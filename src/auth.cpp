@@ -194,8 +194,6 @@ struct AdminAuth::Impl {
   }
 };
 
-// Public API forwarding
-
 AdminAuth::AdminAuth() : imp(std::make_unique<Impl>()) {}
 AdminAuth::~AdminAuth() = default;
 

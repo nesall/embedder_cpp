@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _APP_H_
+#define _APP_H_
 
 #include <memory>
 #include <string>
@@ -76,3 +77,5 @@ namespace utils {
   int safeStoI(const std::string &s, int def = 0);
   std::string trimmed(std::string_view sv);
 }
+
+#endif // _APP_H_

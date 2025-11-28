@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _INFERENCE_H_
+#define _INFERENCE_H_
 
 #include <vector>
 #include <string>
@@ -52,3 +53,5 @@ public:
 
 private:
 };
+
+#endif // _INFERENCE_H_

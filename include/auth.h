@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _AUTH_H_
+#define _AUTH_H_
 
 #include <memory>
 #include <string>
@@ -21,3 +22,5 @@ private:
   struct Impl;
   std::unique_ptr<Impl> imp;
 };
+
+#endif // _AUTH_H_

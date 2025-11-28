@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _TOKENIZER_H_
+#define _TOKENIZER_H_
 
 #include <string>
 #include <string_view>
@@ -19,3 +20,4 @@ public:
   size_t countTokensWithVocab(std::string_view text, bool addSpecialTokens = false) const;
 };
 
+#endif // _TOKENIZER_H_

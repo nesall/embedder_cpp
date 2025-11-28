@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _DATABASE_H_
+#define _DATABASE_H_
 
 #include "chunker.h"
 #include <vector>
@@ -136,3 +137,5 @@ private:
   std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const override;
   void compactIndex();
 };
+
+#endif // _DATABASE_H_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _INSTREGISTRY_H_
+#define _INSTREGISTRY_H_
 
 #include <memory>
 #include <string>
@@ -29,3 +30,5 @@ private:
   struct Impl;
   std::unique_ptr<Impl> imp;
 };
+
+#endif // _INSTREGISTRY_H_
