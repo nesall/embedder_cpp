@@ -11,48 +11,16 @@ A self-hosted RAG system for querying codebases with AI. Index your code locally
 
 Works offline with local models or integrates with OpenAI-compatible APIs. Your data, your infrastructure, your choice.
 
-![PhenixCode UI](media/Image1.png)
+![PhenixCode UI](media/demo.gif)
 
 **Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
 
-**[Download release](https://github.com/nesall/phenixcode/releases/tag/v1.0.0)** | **[Quick start](assets/README)**  
+**[Download release](https://github.com/nesall/phenixcode/releases/tag/v1.0.0)** | **[Quick start](#quick-start)**  
 
 ### Why Self-Host?
 
 **GitHub Copilot:** $10-20/month, code sent to cloud, limited customization  
 **PhenixCode:** One-time setup, runs on your hardware, customize everything  
-
-### How to build
-
-C++ 20 or newer is required.
-nodejs 20 or newer is required.
-If building in Linux, gcc-12 or newer is required.
-
-```bash
-# clone the repository and cd into it.
-
-# Build both core and ui with a single command:
-
-# Build in Linux
-./package-lin.sh
-
-# Build in MacOS
-./package-mac.sh
-
-# Build in Windows
-package.bat
-
-
-# To build either core or ui separately, use build_rel scripts
-
-# e.g. building core only
-./build_rel.sh
-
-# or building ui only
-cd ui/clients/webview
-./build_rel.sh
-
-```
 
 ### Features overview
 
@@ -93,6 +61,45 @@ Configuration:
 * CLI parameter support  
 * Multiple source types (directories, files, URLs)  
 
+<a name="quick-start"></a>
+### Quick Start (Prebuilt Binaries)
+
+  1. Download the latest release for your platform
+  2. Extract and edit settings.json (package settings.json is in *nearly-ready* form)
+  3. Start embedding (optional): `phenixcode-core embed`
+  4. Start server: `phenixcode-core serve --watch --interval 60`
+  5. Launch UI: `phenixcode-ui`
+
+### How to build
+
+C++ 20 or newer is required.
+nodejs 20 or newer is required.
+If building in Linux, gcc-12 or newer is required.
+
+```bash
+# clone the repository and cd into it.
+
+# Build both core and ui with a single command:
+
+# Build in Linux
+./package-lin.sh
+
+# Build in MacOS
+./package-mac.sh
+
+# Build in Windows
+package.bat
+
+
+# To build either core or ui separately, use build_rel scripts
+
+# e.g. building core only
+./build_rel.sh
+
+# or building ui only
+cd ui/clients/webview
+./build_rel.sh
+```
 
 ### CLI commands
 
