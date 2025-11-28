@@ -6,7 +6,7 @@ if [[ -z "$1" ]]; then
 fi
 
 VER="$1"
-NAME="phenixcode-v${VER}-linux-x64"
+NAME="phenixcode-v${VER}-macos-arm64"
 
 echo "VER=$VER"
 echo "NAME=$NAME"
