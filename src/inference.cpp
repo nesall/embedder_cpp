@@ -145,7 +145,7 @@ void EmbeddingClient::generateEmbeddings(const std::vector<std::string> &texts, 
     LOG_MSG << "JSON parsing error: " << e.what();
     throw std::runtime_error("Failed to parse server response");
   } catch (const std::exception &e) {
-    LOG_MSG << "Error generating embeddings: " << e.what();
+    //LOG_MSG << "Error generating embeddings: " << e.what();
     throw;
   }
 }

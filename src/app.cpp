@@ -275,7 +275,6 @@ namespace {
       return totalUpdated;
     }
 
-    // Print update summary
     void printUpdateSummary(const UpdateInfo &info) {
       std::cout << "\n=== Update Summary ===" << std::endl;
       std::cout << "New files: " << info.newFiles.size() << std::endl;
@@ -371,10 +370,8 @@ namespace {
   json computeStats(VectorDatabase &db) {
     auto trackedFiles = db.getTrackedFiles();
 
-    // Get chunk counts for all files in one query
     auto chunkCounts = db.getChunkCountsBySources();
 
-    // Aggregate by language/directory
     std::map<std::string, int> byLanguage;
     std::map<std::string, int> byDirectory;
     size_t totalLines = 0;
@@ -388,7 +385,6 @@ namespace {
       size_t lines = file.nofLines;
       size_t size = file.fileSize;
 
-      // Get language
       std::string lang = detectLanguage(file.path);
       std::string dir = std::filesystem::path(file.path).parent_path().string();
 
@@ -397,7 +393,6 @@ namespace {
       totalLines += lines;
       totalSize += size;
 
-      // Get chunk count for this file
       size_t chunkCount = chunkCounts.count(file.path) ? chunkCounts[file.path] : 0ull;
 
       fileDetails.push_back({
@@ -467,7 +462,10 @@ struct App::Impl {
 
   StatsCache statsCache_;
   std::string projectTitle_;
+
+  static std::string binaryName_;
 };
+std::string App::Impl::binaryName_ = "";
 
 App::App() : imp(new Impl)
 {
@@ -511,20 +509,24 @@ void App::initialize(/*const std::string &configPath*/)
 bool App::testSettings() const
 {
   bool ok = true;
-  {
-    auto api = settings().embeddingCurrentApi();
-    LOG_MSG << "Testing embedding client" << api.model;
-    LOG_MSG << "  document format - '" << utils_log::LOGNOSPACE << api.documentFormat << "'";
-    LOG_MSG << "  query format - '" << utils_log::LOGNOSPACE << api.queryFormat << "'";
-    std::string textA0 = "int main() {}";
-    std::string textA1 = "int main() { return 0; }";
-    std::string textB0 = "double main() { return 0.0; }";
-    std::string textB1 = "float main() { reutrn 0.f; }";
-    std::string textC0 = "class Foo { void bar() { std::cout << \"hello\"; } };";
-    EmbeddingClient cl{ api, settings().embeddingTimeoutMs() };
-    std::vector<float> vA0;
-    cl.generateEmbeddings(textA0, vA0, EmbeddingClient::EncodeType::Query);
-    if (0 < vA0.size()) {
+  ApiConfig api;
+  try {
+    {
+      api = settings().embeddingCurrentApi();
+      LOG_MSG << "Testing embedding client" << api.model;
+      LOG_MSG << "  document format - '" << utils_log::LOGNOSPACE << api.documentFormat << "'";
+      LOG_MSG << "  query format - '" << utils_log::LOGNOSPACE << api.queryFormat << "'";
+      std::string textA0 = "int main() {}";
+      std::string textA1 = "int main() { return 0; }";
+      std::string textB0 = "double main() { return 0.0; }";
+      std::string textB1 = "float main() { reutrn 0.f; }";
+      std::string textC0 = "class Foo { void bar() { std::cout << \"hello\"; } };";
+      EmbeddingClient cl{ api, settings().embeddingTimeoutMs() };
+      std::vector<float> vA0;
+      cl.generateEmbeddings(textA0, vA0, EmbeddingClient::EncodeType::Query);
+      if (vA0.size() == 0) {
+        throw std::runtime_error("Embedding client not working");
+      }
       float l2Norm = EmbeddingClient::calculateL2Norm(vA0);
       LOG_MSG << "  Embedding client works fine." << "[ l2norm" << l2Norm << "]";
       LOG_MSG << "  Testing similarities:";
@@ -564,33 +566,35 @@ bool App::testSettings() const
       LOG_MSG << "    B0-B1 (similar):    " << simB0B1 << yesNo(simB0B1, 0.6f, 0.9f);
       LOG_MSG << "    A0-C0 (different):  " << simA0C0 << yesNo(simA0C0, 0.1f, 0.5f);
       LOG_MSG << "    Doc-Query (Similar):" << simSelf << yesNo(simSelf, 0.75f, 0.95f);
-
-    } else {
-      LOG_MSG << "  Embedding client not working. Please, check settings.json and edit manually if needed.";
-      ok = false;
     }
-  }
+    {
+      api = {};
+      api = settings().generationCurrentApi();
+      LOG_MSG << "\nTesting completion client" << api.model;
+      CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
+      std::vector<json> messages;
+      messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+      messages.push_back({ {"role", "user"}, {"content", "Answer in one word only - what is the capital of France?"} });
 
-  {
-    auto api = settings().generationCurrentApi();
-    LOG_MSG << "\nTesting completion client" << api.model;
-    CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
-    std::vector<json> messages;
-    messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
-    messages.push_back({ {"role", "user"}, {"content", "Answer in one word only - what is the capital of France?"} });
-
-    std::string fullResponse = cl.generateCompletion(
-      messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
-      [](const std::string &chunk) {
-        //std::cout << chunk << std::flush;
+      std::string fullResponse = cl.generateCompletion(
+        messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
+        [](const std::string &chunk) {
+          //std::cout << chunk << std::flush;
+        }
+      );
+      if (fullResponse.find("Paris") != std::string::npos) {
+        LOG_MSG << "  Completion client works fine.";
+      } else {
+        throw std::runtime_error("Completion client not working");
       }
-    );
-    if (fullResponse.find("Paris") != std::string::npos) {
-      LOG_MSG << "  Completion client works fine.";
-    } else {
-      LOG_MSG << "  Comletion client not working. Please, check settings.json and edit manually if needed.";
-      ok = false;
     }
+  } catch (const std::exception &ex) {
+    LOG_MSG << " " << ex.what();
+    LOG_MSG << " [" << api.apiUrl << "]";
+    LOG_MSG << " [" << api.model << "]";
+    LOG_MSG << "  Please, check settings file and edit it manually if needed.";
+    LOG_MSG << "   [ settings file path" << std::filesystem::absolute(settings().configPath()) << "]";
+    ok = false;
   }
   return ok;
 }
@@ -1210,15 +1214,15 @@ std::string App::describeProjectTitle() const
 std::string App::runSetupWizard(AdminAuth &auth)
 {
   std::cout << "\n";
-  std::cout << " =========================================\n";
+  std::cout << "|=========================================|\n";
   std::cout << "|   Embedder RAG - Configuration Wizard   |\n";
-  std::cout << " =========================================\n\n";
+  std::cout << "|=========================================|\n\n";
 
   // Check password status
   if (auth.isDefaultPassword()) {
     std::cout << "  SECURITY WARNING\n";
     std::cout << "You are using the default admin password.\n";
-    std::cout << "Would you like to change it now? [Y/n]: ";
+    std::cout << "Would you like to change it now? [y/N]: ";
 
     std::string response;
     std::getline(std::cin, response);
@@ -1232,7 +1236,7 @@ std::string App::runSetupWizard(AdminAuth &auth)
         std::cout << " Password changed successfully\n\n";
       } else {
         std::cout << " Password change failed. Using default password.\n";
-        std::cout << "You can change it later with: embeddings_cpp reset-password\n\n";
+        std::cout << fmt::format("You can change it later with: {} reset-password\n\n", Impl::binaryName_);
       }
     }
   }
@@ -1302,8 +1306,8 @@ std::string App::runSetupWizard(AdminAuth &auth)
   LOG_MSG << "\nConfiguration saved to settings.json\n";
   std::cout << "\nNext steps:\n";
   std::cout << "  1. Review settings.json (optional)\n";
-  std::cout << "  2. Run: embeddings_cpp embed\n";
-  std::cout << "  3. Start server: embeddings_cpp serve\n";
+  std::cout << fmt::format("  2. Run: {} embed\n", Impl::binaryName_);
+  std::cout << fmt::format("  3. Start server: {} serve\n", Impl::binaryName_);
   std::cout << "  or install as service: scripts/install-service\n\n";
 
   return path.string();
@@ -1377,7 +1381,7 @@ int App::handlePasswordStatus()
   if (auth.isDefaultPassword()) {
     LOG_MSG << "Status: Using default password 'admin'\n";
     LOG_MSG << "  WARNING: Please change the default password!\n";
-    LOG_MSG << "Run: embeddings_cpp reset-password --pass <your_password>\n";
+    LOG_MSG << fmt::format("Run: {} reset-password --pass <your_password>\n", Impl::binaryName_);
   } else {
     LOG_MSG << "Status: Custom password set \n";
     LOG_MSG << "Last modified: " << auth.fileLastModifiedTime() << "\n";
@@ -1387,6 +1391,8 @@ int App::handlePasswordStatus()
 
 int App::run(int argc, char *argv[])
 {
+  Impl::binaryName_ = argv[0];
+
   SignalHandler::setup();
 
   CLI::App app{ "PhenixCode RAG System" };
@@ -1473,7 +1479,7 @@ int App::run(int argc, char *argv[])
     SET_LOG_TO_FILE(settings->loggingLogToFile());
     SET_LOG_TO_CONSOLE(settings->loggingLogToConsole());
     LOG_MSG << "Build Date:" << __DATE__ << __TIME__;
-    LOG_MSG << "Read settings file from" << std::filesystem::absolute(configPath);
+    LOG_MSG << "Read settings from" << std::filesystem::absolute(configPath);
 
     // Handle password commands first (no app initialization needed)
     if (cmdResetPass->parsed()) {
@@ -1532,7 +1538,7 @@ int App::run(int argc, char *argv[])
       if (appInstance.auth().isDefaultPassword()) {
         std::cout << "\n  WARNING: You are using the default admin password!\n";
         std::cout << "This is a security risk. Please change it:\n";
-        std::cout << "  embeddings_cpp reset-password --pass <new_password>\n\n";
+        std::cout << "  " << Impl::binaryName_ << " reset - password --pass <new_password>\n\n";
         std::cout << "Continue anyway? [y/N]: ";
 
         std::string response;
