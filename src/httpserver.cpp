@@ -1161,7 +1161,7 @@ bool HttpServer::startServer()
 
     json metrics = {
         {"service", {
-            {"version", "1.0.0"},
+            {"version", EMBEDDER_VERSION},
             {"uptime_seconds", app.uptimeSeconds()},
             {"started_at", app.startTimestamp()}
         }},
@@ -1259,7 +1259,7 @@ bool HttpServer::startServer()
     LOG_MSG << "GET /api";
     json info = {
         {"name", "Embeddings RAG API"},
-        {"version", "1.0.0"},
+        {"version", EMBEDDER_VERSION},
         {"endpoints", {
             {"GET /api/setup", "Fetch setup configuration"},
             {"GET /api/health", "Health check"},

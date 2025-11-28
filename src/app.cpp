@@ -1397,7 +1397,7 @@ int App::run(int argc, char *argv[])
 
   CLI::App app{ "PhenixCode RAG System" };
   app.set_version_flag("--version,-v", 
-    "PhenixCode RAG System\nAuthor: Arman Sahakyan\nVersion: 1.0.0\n" + fmt::format("Build date: {} {}", __DATE__, __TIME__));
+    fmt::format("PhenixCode RAG System\nAuthor: Arman Sahakyan\nVersion: {}\nBuild date: {} {}", EMBEDDER_VERSION, __DATE__, __TIME__));
   app.require_subcommand(0, 1); // Allow 0 or 1 subcommand (0 shows help)
 
   std::string configPath = "settings.json";

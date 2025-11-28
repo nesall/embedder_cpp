@@ -1,0 +1,40 @@
+{
+  "api": {
+    "host": "127.0.0.1",
+    "port": 8590
+  },
+  "uiPrefs": [
+    {
+      "key": "",
+      "value": ""
+    },
+    {
+      "key": "darkOrLight",
+      "value": "dark"
+    },
+    {
+      "key": "theme",
+      "value": "terminus"
+    },
+    {
+      "key": "EmbedderExecutablePath",
+      "value": "./phenixcode-core"
+    },
+    {
+      "key": "ApiOptionsGroupedKey",
+      "value": "1"
+    },
+    {
+      "key": "EmbedderSettingsFilePaths",
+      "value": "[\"./settings.json\"]"
+    },
+    {
+      "key": "ApiOptionsSortedKey",
+      "value": "1"
+    }
+  ],
+  "window": {
+    "height": 787,
+    "width": 592
+  }
+}

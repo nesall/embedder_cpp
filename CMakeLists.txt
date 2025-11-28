@@ -19,29 +19,34 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
   GIT_TAG v0.26.0
 )
+FetchContent_MakeAvailable(httplib)
 
 FetchContent_Declare(
   hnswlib
   GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
   GIT_TAG v0.8.0
 )
+FetchContent_MakeAvailable(hnswlib)
 
 FetchContent_Declare(
   sqlite3
   URL https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip
 )
+FetchContent_MakeAvailable(sqlite3)
 
 FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.11.3
 )
+FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
   utils_log
   GIT_REPOSITORY https://github.com/nesall/utils-log.git
   GIT_TAG main
 )
+FetchContent_MakeAvailable(utils_log)
 
 # Making sure jwt-cpp does not pull nlohmann/json (an old version)
 set(JWT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -51,8 +56,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
   GIT_TAG v0.7.1  # or latest stable
 )
-
-FetchContent_MakeAvailable(httplib hnswlib sqlite3 utils_log jwt-cpp nlohmann_json)
+FetchContent_MakeAvailable(jwt-cpp)
 
 # Create SQLite3 library
 add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)
@@ -107,9 +111,12 @@ target_include_directories(${PROJECT_NAME}
   ${hnswlib_SOURCE_DIR}
 )
 
+include(version.cmake)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    FMT_HEADER_ONLY
-    FMT_USE_LOCALE=0
+  FMT_HEADER_ONLY
+  FMT_USE_LOCALE=0
+  EMBEDDER_VERSION="${EMBEDDER_VERSION}"
 )
 
 # Enable threading (required by hnswlib)

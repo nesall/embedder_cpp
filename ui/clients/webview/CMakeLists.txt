@@ -93,10 +93,13 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 #message("Root directory - ${ROOT_DIR}")
 #target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../../version.cmake")
+
 # using fmt lib instead of std::format (for older compiler compatibility)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    FMT_HEADER_ONLY
-    FMT_USE_LOCALE=0
+  FMT_HEADER_ONLY
+  FMT_USE_LOCALE=0
+  EMBEDDER_VERSION="${EMBEDDER_VERSION}"
 )
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
