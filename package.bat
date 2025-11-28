@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "NAME=phenixcode-v1.0.0-win64"
+set "NAME=phenixcode-vd.d.d-win64"
 set "EMBEDDER=."
 set "WEBVIEW=ui\clients\webview"
 

@@ -24,8 +24,7 @@ mkdir -p dist
 cp -r build_rel/out/* dist/
 rm -f dist/output.log
 rm -f dist/diagnostics.log
-cp settings.template.json dist/
-cp bge_tokenizer.json dist/
+cp assets/appconfig.json dist/
 
 echo "Setting executable permissions..."
 chmod +x dist/phenixcode-ui

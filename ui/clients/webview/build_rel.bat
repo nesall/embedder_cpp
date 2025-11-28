@@ -23,6 +23,6 @@ mkdir dist
 xcopy build_rel\Release\* dist\ /E /Y
 del /f /q dist\output.log
 del /f /q dist\diagnostics.log
-xcopy appconfig.json dist\
+xcopy assets\appconfig.json dist\
 
 echo Build complete. Package is in dist folder!

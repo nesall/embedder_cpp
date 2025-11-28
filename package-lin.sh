@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-NAME="phenixcode-v1.0.0-linux-x64"
+NAME="phenixcode-vd.d.d-linux-x64"
 EMBEDDER="./"
 WEBVIEW="ui/clients/webview"
 

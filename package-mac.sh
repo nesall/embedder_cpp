@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-NAME="phenixcode-v1.0.0-macos"
+NAME="phenixcode-v1.d.d-macos-arm64"
 EMBEDDER="./"
 WEBVIEW="ui/clients/webview"
 
