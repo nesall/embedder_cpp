@@ -19,8 +19,8 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 
 ### Why Self-Host?
 
-**GitHub Copilot:** $10-20/month, code sent to cloud, limited customization  
-**PhenixCode:** One-time setup, runs on your hardware, customize everything  
+**GitHub Copilot:** $10–20/month, cloud-only inference, limited customization  
+**PhenixCode:** One-time setup, runs locally or via APIs, fully customizable
 
 ### Features overview
 
