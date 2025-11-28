@@ -64,11 +64,30 @@ Configuration:
 <a name="quick-start"></a>
 ### Quick Start (Prebuilt Binaries)
 
-  1. Download the latest release for your platform
-  2. Extract and edit settings.json (package settings.json is in *nearly-ready* form)
-  3. Start embedding (optional): `phenixcode-core embed`
-  4. Start server: `phenixcode-core serve --watch --interval 60`
-  5. Launch UI: `phenixcode-ui`
+  1. **Download** the latest release for your platform  
+  2. **Extract the package**. The included `settings.json` is pre-configured for a local, private setup.  
+  3. **Start Local LLMs**: Since the default configuration uses local models, you must start the necessary servers first.  
+  The simplest way is using llama-server (or a similar tool):  
+```
+# 1. Start Embedding Server (e.g., CodeRankEmbed)
+# The current settings.json is configured for this default:
+./llama-server -m ./coderankembed-q4_k_m.gguf --embedding --pooling cls -ub 8192 --port 8584 &
+
+# 2. Start Generation Server (e.g., Qwen)
+# The current settings.json is configured for this default:
+./llama-server -m ./qwen2.5-coder-1.5b-instruct-q4_k_m.gguf -c 32768 --port 8585 -np 1 &
+```  
+  *Note: To use a cloud API (like Mistral or OpenAI), simply ensure the corresponding environment variable (e.g., `${MISTRAL_API_KEY}`) is set.*  
+
+  3. **Start embedding** (this uses the configured local directory ./):  
+```
+./phenixcode-core embed
+```  
+  4. **Start** the main HTTP server and the UI: 
+```
+./phenixcode-core serve --watch --interval 60
+./phenixcode-ui
+```  
 
 ### How to build
 
