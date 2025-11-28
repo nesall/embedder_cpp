@@ -91,9 +91,8 @@ Configuration:
 
 ### How to build
 
-*C++ 20* or newer is required.  
-*nodejs v20* or newer is required.  
-If building in Linux, gcc-12 or newer is required.
+C++ 20 or newer is required.  
+nodejs v20 or newer is required.  
 
 ```bash
 # clone the repository and cd into it.
