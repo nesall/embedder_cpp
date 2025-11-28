@@ -2,9 +2,7 @@
 set -e
 
 if [[ -z "$1" ]]; then
-    echo "Usage: $0 <version>"
-    echo "Example: $0 1.0.1"
-    exit 1
+  VER="1.0.1"
 fi
 
 VER="$1"
