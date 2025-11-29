@@ -19,8 +19,9 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 
 ### Why Self-Host?
 
-**GitHub Copilot:** $10–20/month, cloud-only inference, limited customization  
-**PhenixCode:** One-time setup, runs locally or via APIs, fully customizable
+**GitHub Copilot:** $10–20/month, cloud-only, limited customization  
+**PhenixCode:** Free with local models or your own APIs, fully customizable  
+*Note: PhenixCode focuses on chat-based code assistance, not inline code completion.*  
 
 ### Features overview
 
@@ -139,13 +140,13 @@ Search nearest neighbours
 Chat with LLM  
 ```./phenixcode-core chat```
 
-Serve on a custom port with auto-update every N seconds 
+Serve on a custom port with auto-update every N seconds  
 ```./phenixcode-core serve --port 9000 --watch --interval 60```
 
 Serve on the default port (8590) without auto-update (manual trigger via /update endpoint)  
 ```./phenixcode-core serve```
 
-Default admin password: `admin` — change it immediately using one of the methods below.
+Default admin password: `admin` — change it immediately using one of the methods below.  
 Change Password - Method 1: Direct  
 ```./phenixcode-core reset-password --pass NewPassword456```
 
