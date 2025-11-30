@@ -376,7 +376,7 @@
           ".h",
           ".hpp"
         ],
-        "path": "../../embedder_cpp",
+        "path": "../../phenixcode/",
         "recursive": true,
         "type": "directory"
       },

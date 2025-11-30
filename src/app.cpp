@@ -1538,7 +1538,7 @@ int App::run(int argc, char *argv[])
       if (appInstance.auth().isDefaultPassword()) {
         std::cout << "\n  WARNING: You are using the default admin password!\n";
         std::cout << "This is a security risk. Please change it:\n";
-        std::cout << "  " << Impl::binaryName_ << " reset - password --pass <new_password>\n\n";
+        std::cout << "  " << Impl::binaryName_ << " reset-password --pass <new_password>\n\n";
         std::cout << "Continue anyway? [y/N]: ";
 
         std::string response;
