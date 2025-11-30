@@ -330,7 +330,7 @@
     "logging_file": "embedder.log"
   },
   "source": {
-    "project_title": "Embedding RAG System",
+    "project_title": "phenixcode",
     "project_id":  "",
     "default_extensions": [
       ".cpp",
