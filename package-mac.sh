@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VER="${1:-1.0.1}"
+VER="${1:-1.0.2}"
 NAME="phenixcode-v${VER}-macos-arm64"
 
 echo "VER=$VER"
