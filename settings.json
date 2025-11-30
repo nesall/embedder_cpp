@@ -30,23 +30,6 @@
         "model": "nomic-ai/CodeRankEmbed",
         "name": "local coder",
         "query_format": "{}"
-      },
-      {
-        "api_key": "${MOLSOFT_API_KEY}",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embed",
-        "id": "remote",
-        "model": "bge-large-en-v1.5",
-        "name": "Remote Server",
-        "query_format": "Represent this sentence for searching relevant passages: {}"
-      },
-      {
-        "api_key": "${MOLSOFT_API_KEY}",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/embedcode",
-        "id": "remote-coder",
-        "model": "nomic-ai/CodeRankEmbed",
-        "name": "Remote coder",
-        "document_format": "{}",
-        "query_format": "{}"
       }
     ],
     "batch_size": 4,
@@ -69,20 +52,6 @@
           "input": 0,
           "output": 0
         }
-      },
-      {
-        "api_key": "${MOLSOFT_API_KEY}",
-        "api_url": "https://molsoft.com/support-test/api/ask-proxy/chat",
-        "id": "remote-hosted",
-        "model": "mistral-small-3.2-24B",
-        "name": "Hosted",
-        "enabled": true,
-        "pricing_tpm": {
-          "cached_input": 0,
-          "input": 0,
-          "output": 0
-        },
-        "context_length": 128000
       },
       {
         "api_key": "${GEMINI_API_KEY}",
@@ -381,38 +350,7 @@
         "type": "directory"
       },
       {
-        "exclude": [
-          "*/build/*",
-          "*/build_rel/*",
-          "*/dist/*",
-          "*/test/*"
-        ],
-        "extensions": [
-          ".cpp",
-          ".h",
-          ".hpp"
-        ],
-        "path": "../../rag-code-assistant/clients/webview_",
-        "recursive": true,
-        "type": "directory"
-      },
-      {
-        "exclude": [
-          "*/node_modules/*",
-          "*/dist/*"
-        ],
-        "extensions": [
-          ".svelte",
-          ".ts",
-          ".js",
-          ".html"
-        ],
-        "path": "../../rag-code-assistant/clients/spa-svelte_",
-        "recursive": true,
-        "type": "directory"
-      },
-      {
-        "path": "../settings.json_",
+        "path": "../../settings.json_",
         "type": "file"
       },
       {
