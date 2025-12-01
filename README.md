@@ -15,7 +15,7 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 
 **Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
 
-**[Download release](https://github.com/nesall/phenixcode/releases/tag/v1.0.0)** | **[Quick start](#quick-start)**  
+**[Download release](https://github.com/nesall/phenixcode/releases/latest)** | **[Quick start](#quick-start)**  
 
 ### Why Self-Host?
 
