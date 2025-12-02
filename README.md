@@ -21,7 +21,7 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 
 **GitHub Copilot:** $10–20/month, cloud-only, limited customization  
 **PhenixCode:** Free with local models or your own APIs, fully customizable  
-*Note: PhenixCode focuses on chat-based code assistance, not inline code completion.*  
+*Note: PhenixCode focuses on chat-based code assistance, not inline code auto-complete.*  
 
 ### Features overview
 
