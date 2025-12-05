@@ -1,31 +1,19 @@
+import type { ProjectItem, SettingsJsonType } from "../app";
+import { createToaster } from '@skeletonlabs/skeleton-svelte';
+
+export const toaster = createToaster();
+
+export function jsonDeepCopy<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+export const defaultJsonSettings: SettingsJsonType =
 {
-  "_comment": "PhenixCode Embedder RAG System Configuration Template v1.0.0",
-  "_version": "1.0.0",
-  "_docs": "https://github.com/nesall/embedder_cpp/wiki/configuration",
-  
-  "placeholder_descriptions": {
-    "_comment": "Placeholders will be replaced during setup wizard",
-    "_PL_EMB_API_URL_": "Embedding API base URL",
-    "_PL_EMB_API_KEY_": "Embedding API access key",
-    "_PL_EMB_MODEL_NAME_": "Embedding model name",
-    "_PL_CMPL_API_URL_": "Completion API base URL",
-    "_PL_CMPL_API_KEY_": "Completion API access key",
-    "_PL_CMPL_MODEL_NAME_": "Completion model name"
-  },
   "tokenizer": {
     "config_path": "./bge_tokenizer.json"
   },
   "embedding": {
     "apis": [
-      {
-        "id": "custom",
-        "name": "Custom",
-        "api_url": "_PL_EMB_API_URL_",
-        "api_key": "_PL_EMB_API_KEY_",
-        "model": "_PL_EMB_MODEL_NAME_",
-        "document_format": "{}",
-        "query_format": "{}"
-      },
       {
         "api_key": "",
         "api_url": "http://127.0.0.1:8583/embedding",
@@ -45,19 +33,6 @@
   },
   "generation": {
     "apis": [
-      {
-        "id": "custom",
-        "name": "Custom",
-        "api_url": "_PL_CMPL_API_URL_",
-        "api_key": "_PL_CMPL_API_KEY_",
-        "model": "_PL_CMPL_MODEL_NAME_",
-        "pricing_tpm": {
-          "input": 0.00,
-          "cached_input": 0.00,
-          "output": 0.00
-        },
-        "context_length": 100000
-      },
       {
         "api_key": "${MISTRAL_API_KEY}",
         "api_url": "https://api.mistral.ai/v1/chat/completions",
@@ -81,7 +56,7 @@
           "output": 0.4
         },
         "context_length": 1000000
-      },      
+      },
       {
         "api_key": "${DEEPSEEK_API_KEY}",
         "api_url": "https://api.deepseek.com/chat/completions",
@@ -94,7 +69,7 @@
           "output": 0.42
         },
         "context_length": 128000
-      },      
+      },
       {
         "api_key": "${XAI_API_KEY}",
         "api_url": "https://api.x.ai/v1/chat/completions",
@@ -159,7 +134,7 @@
     "project_id": "",
     "project_title": "Default Project Title",
     "project_description": "",
-    "paths":[
+    "paths": [
       {
         "exclude": [
           "*/dist/*",
@@ -171,13 +146,13 @@
         "recursive": true,
         "type": "directory"
       }
-    ],  
-    "default_extensions": [ ".c", ".cpp", ".h", ".hpp", ".py", ".js", ".ts", ".java", ".rs", ".cs", ".xaml", ".php", ".jsp", ".html", ".css", ".md" ],
+    ],
+    "default_extensions": [".c", ".cpp", ".h", ".hpp", ".py", ".js", ".ts", ".java", ".rs", ".cs", ".xaml", ".php", ".jsp", ".html", ".css", ".md"],
     "global_exclude": [
       "*/node_modules/*", "*.min.js", "*.log", "*/build/*",
       "*/.git/*", ".gitignore", "*/CVS/*",
       "*/debug/*", "*/release/*", "*/lib/*", "*/docker/*",
-      "*/fonts/*", "*/images/*", "*/test/*","*/tests/*",
+      "*/fonts/*", "*/images/*", "*/test/*", "*/tests/*",
       "*/example/*", "*/examples/*", "*/obj/*", "*/build_dbg/*", "*/build_rel/*"
     ],
     "encoding": "utf-8",
@@ -189,4 +164,95 @@
     "logging_file": "embedder.log",
     "diagnostics_file": "embedder_d.log"
   }
+};
+
+
+
+export const Consts = {
+  DarkOrLightKey: "darkOrLight",
+  EmbedderExecutablePath: "EmbedderExecutablePath",
+  EmbedderSettingsFilePaths: "EmbedderSettingsFilePaths"
+};
+
+export async function setPersistentKey(key: string, value: string, sendToCpp = true) {
+  try {
+    console.log(`setPersistentKey ${key}`, value, sendToCpp, window.cppApi);
+    localStorage.setItem(key, value);
+    if (sendToCpp && window.cppApi) {
+      await window.cppApi.setPersistentKey(key, value);
+      console.log(`Saved persistent key ${key} to C++`, value);
+    }
+  } catch (error) {
+    console.log(`Unable to set persistent key ${key}`, error)
+  }
+}
+
+export async function getPersistentKey(key: string, readFromCpp = true): Promise<string | null> {
+  try {
+    console.log(`getPersistentKey ${key}`, readFromCpp, window.cppApi);
+    let val = localStorage.getItem(key);
+    if (readFromCpp && window.cppApi) {
+      val = await window.cppApi.getPersistentKey(key);
+      console.log(`Loaded persistent key ${key} from C++`, val);
+      if (val != null) {
+        localStorage.setItem(key, val);
+      }
+    }
+    return val;
+  } catch (error) {
+    console.log(`Unable to get persistent key ${key}`, error)
+  }
+  return null;
+}
+// Mock data for testing without C++ backend
+let mockProjects: ProjectItem[] = [
+  {
+    settingsFilePath: "C:/Users/Arman/workspace/projects/alpha/settings-embcpp.json",
+    jsonData: {
+      ...defaultJsonSettings,
+      source: {
+        ...defaultJsonSettings.source,
+        project_id: "project1",
+        project_title: "phenixcode",
+      }
+    }
+  },
+  {
+    settingsFilePath: "C:/Users/Arman/workspace/projects/alpha/settings-vsix.json",
+    jsonData: {
+      ...defaultJsonSettings,
+      source: {
+        ...defaultJsonSettings.source,
+        project_id: "project2",
+        project_title: "ChatAssistantVSIX",
+      }
+    }
+  }
+];
+
+// Return mock data for testing
+export async function test_getProjectList() {
+  console.log("[mock] fetching projects", mockProjects);
+  return mockProjects;
+}
+
+// export async function test_getPojectSettings(projectId: string): Promise<SettingsJsonType | null> {
+//   if (projectId === "project1") {
+//     return mockProjects[0].jsonData;
+//   } else if (projectId === "project2") {
+//     return mockProjects[1].jsonData;
+//   }
+//   return null;
+// }
+
+export async function test_savePojectSettings(project: ProjectItem): Promise<{ status: string; message: string }> {
+  // if (projectId === "project1") {
+  //   mockProjects[0].jsonData = settings;
+  //   return { status: "success", message: "Project 1 settings updated." };
+  // } else if (projectId === "project2") {
+  //   mockProjects[0].jsonData = settings;
+  // }
+  console.log("[mock] saving project settings", project);
+  return { status: "success", message: "Project 2 settings updated." };
+  // return { status: "error", message: "Project not found." };
 }

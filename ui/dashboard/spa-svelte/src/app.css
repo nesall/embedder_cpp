@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+
+@import '@skeletonlabs/skeleton'; 
+@import '@skeletonlabs/skeleton-svelte'; 
+@import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton/themes/concord';
+@import '@skeletonlabs/skeleton/themes/hamlindigo';
+@import '@skeletonlabs/skeleton/themes/terminus';
+@import '@skeletonlabs/skeleton/themes/mona';
+@import '@skeletonlabs/skeleton/themes/wintry';
+@import '@skeletonlabs/skeleton/themes/nosh';
+@import '@skeletonlabs/skeleton/themes/vox';
+@import '@skeletonlabs/skeleton/themes/rocket';
+
+@custom-variant dark (&:where([data-mode=dark], [data-mode=dark] *));
+
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  text-align: center;
+  overflow-y: hidden;
+}
+
+.select,
+.input,
+.textarea,
+.ig-input,
+.ig-select {
+	background-color: var(--color-surface-50-950);
+	color: var(--color-surface-950-50);
+}
+
