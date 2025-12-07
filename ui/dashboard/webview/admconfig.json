@@ -1,8 +1,4 @@
 {
-  "api": {
-    "host": "127.0.0.1",
-    "port": 8590
-  },
   "uiPrefs": [
     {
       "key": "",
@@ -10,7 +6,7 @@
     },
     {
       "key": "darkOrLight",
-      "value": "dark"
+      "value": "light"
     },
     {
       "key": "theme",
@@ -35,6 +31,6 @@
   ],
   "window": {
     "height": 714,
-    "width": 584
+    "width": 1400
   }
 }

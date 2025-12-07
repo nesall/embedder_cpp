@@ -60,7 +60,7 @@ public:
   size_t lastUpdateTimestamp() const;
   nlohmann::json sourceStats() const;
 
-  std::string describeProjectTitle() const;
+  //std::string describeProjectTitle() const;
 
 private:
   void initialize(/*const std::string &configPath*/);

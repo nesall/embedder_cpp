@@ -72,13 +72,18 @@ endif()
 set(SPA_CLIENT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../spa-svelte)
 set(SPA_DIST_DIR ${SPA_CLIENT_DIR}/dist)
 
+get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
+message("Root directory - ${ROOT_DIR}")
+
 # Main executable
 #add_executable(${PROJECT_NAME} src/main.cpp src/wb.h src/wb.cpp src/wb.mm src/procmngr.h appconfig.json app.rc)
 set(SOURCES
   src/main.cpp
-  src/wb.h
-  src/wb.cpp
-  src/procmngr.h
+  "${ROOT_DIR}/ui/shared/utils.h"
+  "${ROOT_DIR}/ui/shared/utils.cpp"
+  "${ROOT_DIR}/ui/shared/wb.h"
+  "${ROOT_DIR}/ui/shared/wb.cpp"
+  "${ROOT_DIR}/ui/shared/procmngr.h"
   appconfig.json  
 )
 if (WIN32)
@@ -89,11 +94,12 @@ if(APPLE)
 endif()
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-#get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
-#message("Root directory - ${ROOT_DIR}")
-#target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
-
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../../version.cmake")
+
+
+#target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
+target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/ui/shared")
+
 
 # using fmt lib instead of std::format (for older compiler compatibility)
 target_compile_definitions(${PROJECT_NAME} PRIVATE

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(phenixcode-ui LANGUAGES CXX)
+project(phenixcode-admin LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -74,15 +74,18 @@ set(SPA_DIST_DIR ${SPA_CLIENT_DIR}/dist)
 get_filename_component(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../" REALPATH)
 message("Root directory - ${ROOT_DIR}")
 
-#target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
 
 # Main executable
 set(SOURCES
   src/main.cpp
-  "${ROOT_DIR}/ui/clients/webview/src/wb.h"
-  "${ROOT_DIR}/ui/clients/webview/src/wb.cpp"
-  "${ROOT_DIR}/ui/clients/webview/src/procmngr.h"
-  admincfg.json  
+  "${ROOT_DIR}/ui/shared/utils.h"
+  "${ROOT_DIR}/ui/shared/utils.cpp"
+  "${ROOT_DIR}/ui/shared/wb.h"
+  "${ROOT_DIR}/ui/shared/wb.cpp"
+  "${ROOT_DIR}/ui/shared/procmngr.h"
+  "${ROOT_DIR}/src/settings.cpp"
+  "${ROOT_DIR}/src/instregistry.cpp"
+  admconfig.json  
 )
 if (WIN32)
   list(APPEND SOURCES app.rc)
@@ -91,6 +94,9 @@ if(APPLE)
   list(APPEND SOURCES src/wb.mm)
 endif()
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+#target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
+target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/ui/shared" "${ROOT_DIR}/include")
 
 include("${ROOT_DIR}/version.cmake")
 

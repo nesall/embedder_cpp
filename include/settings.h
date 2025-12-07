@@ -70,7 +70,7 @@ public:
   };
 
 public:
-  Settings(const std::string &path = "settings.json");
+  explicit Settings(const std::string &path = "settings.json");
 
   void updateFromConfig(const nlohmann::json &config);
   void updateFromPath(const std::string &path);

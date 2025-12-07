@@ -461,7 +461,7 @@ struct App::Impl {
   std::string privateAppKey_;
 
   StatsCache statsCache_;
-  std::string projectTitle_;
+  //std::string projectTitle_;
 
   static std::string binaryName_;
 };
@@ -811,7 +811,6 @@ void App::serve(int suggestedPort, bool watch, int interval)
 
     imp->httpServer_->stop();
     imp->db_->persist();
-    //imp->appKey_.clear();
     if (serverThread.joinable()) serverThread.join();
     if (watchThread.joinable()) watchThread.join();
 
@@ -850,12 +849,15 @@ void App::serve(int suggestedPort, bool watch, int interval)
       int newPort = imp->httpServer_->bindToPortIncremental(suggestedPort);
       if (0 < newPort) {
         imp->registry_ = std::make_unique<InstanceRegistry>();
-        imp->registry_->registerInstance(
-          newPort, settings().getProjectId(), describeProjectTitle()
-        );
-        imp->registry_->startHeartbeat();
-        LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";
-        imp->httpServer_->startServer();
+        try {
+          imp->registry_->registerInstance(newPort, settings());
+          imp->registry_->startHeartbeat();
+          LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";
+          imp->httpServer_->startServer();
+        } catch (const std::exception &e) {
+          LOG_MSG << "[ERROR] Failed to register instance: " << e.what();
+          SignalHandler::requestShutdown();
+        }
       } else {
         LOG_MSG << "\nHTTP server was unable to bind to ports in the range [" << suggestedPort << "to" << newPort << "]";
       }
@@ -1191,25 +1193,25 @@ json App::sourceStats() const
   return imp->statsCache_.getStats(*imp->db_);
 }
 
-std::string App::describeProjectTitle() const
-{
-  if (imp->projectTitle_.empty()) {
-    //auto api = settings().generationCurrentApi();
-    //CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
-    //std::vector<json> messages;
-    //messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
-    //messages.push_back({ {"role", "user"}, {"content", "Give a 2 to 5 word description title based on sources being tracked."} });
-    //std::string fullResponse = cl.generateCompletion(
-    //  messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
-    //  [](const std::string &chunk) {
-    //    //std::cout << chunk << std::flush;
-    //  }
-    //);
-    //imp->projectTitle_ = fullResponse;
-    imp->projectTitle_ = settings().getProjectTitle();
-  }
-  return imp->projectTitle_;
-}
+//std::string App::describeProjectTitle() const
+//{
+//  if (imp->projectTitle_.empty()) {
+//    //auto api = settings().generationCurrentApi();
+//    //CompletionClient cl{ api, settings().generationTimeoutMs(), *this };
+//    //std::vector<json> messages;
+//    //messages.push_back({ {"role", "system"}, {"content", "You are a helpful assistant."} });
+//    //messages.push_back({ {"role", "user"}, {"content", "Give a 2 to 5 word description title based on sources being tracked."} });
+//    //std::string fullResponse = cl.generateCompletion(
+//    //  messages, {}, 0.0f, settings().generationDefaultMaxTokens(),
+//    //  [](const std::string &chunk) {
+//    //    //std::cout << chunk << std::flush;
+//    //  }
+//    //);
+//    //imp->projectTitle_ = fullResponse;
+//    imp->projectTitle_ = settings().getProjectTitle();
+//  }
+//  return imp->projectTitle_;
+//}
 
 std::string App::runSetupWizard(AdminAuth &auth)
 {
@@ -1403,6 +1405,9 @@ int App::run(int argc, char *argv[])
   std::string configPath = "settings.json";
   app.add_option("-c,--config", configPath, "Config file path")->envname("EMBEDDER_CONFIG")->check(CLI::ExistingFile);
 
+  bool noStartupTests = false;
+  app.add_flag("--no-startup-tests", noStartupTests, "Skip startup model test calls");
+
   // Password management commands
   auto cmdResetPass = app.add_subcommand("reset-password", "Reset admin password");
   std::string newPassword;
@@ -1446,6 +1451,9 @@ int App::run(int argc, char *argv[])
   auto cmdChat = app.add_subcommand("chat", "Chat mode");
 
   auto cmdServe = app.add_subcommand("serve", "Start HTTP API server");
+  bool serveNoConfirm = false;
+  cmdServe->add_flag("--yes,-y", serveNoConfirm, "Skip confirmation prompt");
+
   int servePort = 8590;
   bool serveWatch = false;
   int serveWatchInterval = 60;
@@ -1510,9 +1518,11 @@ int App::run(int argc, char *argv[])
     appInstance.imp->privateAppKey_ = std::move(privateAppKey);
     appInstance.initialize();
 
-    if (!appInstance.testSettings()) {
-      LOG_MSG << "Wrong/incomplete settings. Exiting.";
-      return 1;
+    if (!noStartupTests) {
+      if (!appInstance.testSettings()) {
+        LOG_MSG << "Wrong/incomplete settings. Exiting.";
+        return 1;
+      }
     }
 
     // Handle main commands
@@ -1535,7 +1545,7 @@ int App::run(int argc, char *argv[])
     } else if (cmdProviders->parsed()) {
       appInstance.providers(testProvider);
     } else if (cmdServe->parsed()) {
-      if (appInstance.auth().isDefaultPassword()) {
+      if (!serveNoConfirm && appInstance.auth().isDefaultPassword()) {
         std::cout << "\n  WARNING: You are using the default admin password!\n";
         std::cout << "This is a security risk. Please change it:\n";
         std::cout << "  " << Impl::binaryName_ << " reset-password --pass <new_password>\n\n";

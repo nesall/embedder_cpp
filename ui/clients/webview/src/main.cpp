@@ -3,16 +3,13 @@
 #include <utils_log/logger.hpp>
 #include "wb.h"
 #include "procmngr.h"
+#include "utils.h"
 #include <filesystem>
 #include <string>
 #include <cassert>
 #include <thread>
-#include <sstream>
 #include <atomic>
-#include <fstream>
 #include <unordered_map>
-#include <random>
-#include <memory>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -29,232 +26,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
-  struct AppConfig {
-    int width = 700;
-    int height = 900;
+  const std::string CONFIG_FNAME = "appconfig.json";
+
+  struct AppConfigEx : public shared::AppConfig {
     int port = 8590;
     std::string host = "127.0.0.1";
-    std::unordered_map<std::string, std::string> uiPrefs;
-    mutable std::mutex mutex_;
-
-    nlohmann::json toJson() const {
-      nlohmann::json j;
-      j["window"] = {
-          {"width", width},
-          {"height", height}
-      };
+    nlohmann::json toJson() const override {
+      nlohmann::json j = shared::AppConfig::toJson();
       j["api"] = {
-          {"host", host},
-          {"port", port}
+        {"host", host},
+        {"port", port}
       };
-      j["uiPrefs"] = nlohmann::json::array();
-      for (const auto &item : uiPrefs) {
-        j["uiPrefs"].push_back({
-          {"key", item.first},
-          {"value", item.second}
-        });
-      }
       return j;
     }
-  };
-
-  std::string getConfigPath() {
-    const std::string exeDir = Webview::getExecutableDir();
-    static std::vector<std::string> paths = {
-      exeDir + "/appconfig.json",
-      exeDir + "/../appconfig.json",
-      exeDir + "/../../appconfig.json"
-    };
-    std::string prefsPath;
-    for (const auto &path : paths) {
-      if (fs::exists(path)) {
-        prefsPath = path;
-        break;
-      }
-    }
-    if (!fs::exists(prefsPath)) {
-      prefsPath = paths[0];
-    }
-    return prefsPath;
-  }
-
-  void savePrefsToFile(const AppConfig &prefs) {
-    const auto prefsPath = getConfigPath();
-    nlohmann::json j = prefs.toJson();
-    std::ofstream out(prefsPath);
-    if (out.is_open()) {
-      out << j.dump(2) << std::endl;
-      out.close();
-      LOG_MSG << "Updated appconfig.json with new server URL";
-    } else {
-      LOG_MSG << "Failed to update" << prefsPath;
-      throw std::runtime_error("Failed to update appconfig.json");
-    }
-  }
-
-  void fetchOrCreatePrefsJson(AppConfig &prefs) {
-    LOG_START;
-    const auto prefsPath = getConfigPath();
-    std::ifstream f(prefsPath);
-    if (f.is_open()) {
-      std::stringstream ss;
-      ss << f.rdbuf();
-      try {
-        auto j = nlohmann::json::parse(ss.str());
-        if (j.contains("window") && j["window"].is_object()) {
-          const auto &w = j["window"];
-          if (w.contains("width") && w["width"].is_number_integer()) {
-            prefs.width = w["width"].get<int>();
-          }
-          if (w.contains("height") && w["height"].is_number_integer()) {
-            prefs.height = w["height"].get<int>();
-          }
-        }
-        if (j.contains("api") && j["api"].is_object()) {
-          const auto &w = j["api"];
-          if (w.contains("host") && w["host"].is_string()) {
-            prefs.host = w["host"];
-          }
-          if (w.contains("port") && w["port"].is_number_integer()) {
-            prefs.port = w["port"].get<int>();
-          }
-        }
-        if (j.contains("uiPrefs") && j["uiPrefs"].is_array()) {
-          for (const auto &item : j["uiPrefs"]) {
-            if (item.contains("key") && item.contains("value") &&
-                item["key"].is_string() && item["value"].is_string()) {
-              prefs.uiPrefs.insert({
-                item["key"].get<std::string>(),
-                item["value"].get<std::string>()
-                });
-            }
-          }
-        }
-      } catch (const std::exception &e) {
-        LOG_MSG << "Error parsing appconfig.json:" << e.what();
-      }
-    } else {
-      nlohmann::json j = prefs.toJson();
-      try {
-        std::ofstream out(prefsPath);
-        if (out.is_open()) {
-          out << j.dump(2) << std::endl;
-          out.close();
-          LOG_MSG << "Created default appconfig.json at:" << prefsPath;
-        } else {
-          LOG_MSG << "Failed to create appconfig.json at:" << prefsPath;
-        }
-      } catch (const std::exception &e) {
-        LOG_MSG << "Error writing appconfig.json:" << e.what();
-      }
-    }
-    if (prefs.host == "localhost") prefs.host = "127.0.0.1";
-    prefs.width = (std::min)((std::max)(prefs.width, 200), 1400);
-    prefs.height = (std::min)((std::max)(prefs.height, 300), 1000);
-  }
-
-  std::string hashString(const std::string &str) {
-    std::hash<std::string> hasher;
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0') << std::setw(16) << hasher(str);
-    return ss.str();
-  }
-
-  std::string getProjectId(const std::string &path)
-  {
-    nlohmann::json j;
-    std::ifstream file(path);
-    if (!file.is_open()) {
-      throw std::runtime_error("Cannot open settings file: " + path);
-    }
-    file >> j;
-    std::string s;
-    s = j["source"].value("project_id", "");
-    if (s.empty()) {
-      // Auto-generate
-      auto absPath = std::filesystem::absolute(path).lexically_normal();
-      std::string dirName = absPath.parent_path().filename().string();
-      std::string pathHash = hashString(absPath.generic_string()).substr(0, 8);
-      s = dirName + "-" + pathHash;
-    }
-    return s;
-  }
-
-  std::string generateAppKey() {
-    // Random 32-character hex string
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 255);
-    std::stringstream ss;
-    for (int i = 0; i < 16; i++) {
-      ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(dis(gen));
-    }
-    return ss.str();
-  }
-
-  struct ProcessesHolder {
-    mutable std::mutex mutex;
-
-    ProcessManager *getOrCreateProcess(const std::string &appKey, const std::string &projectId) {
-      std::lock_guard<std::mutex> lock(mutex);
-      auto it = embedderProcesses_.find(appKey);
-      if (it != embedderProcesses_.end()) {
-        return it->second.get();
-      }
-      auto procMgr = std::make_unique<ProcessManager>();
-      ProcessManager *procPtr = procMgr.get();
-      embedderProcesses_[appKey] = std::move(procMgr);
-      projectIdToAppKey_[projectId] = appKey;
-      appKeyToProjectId_[appKey] = projectId;
-      return procPtr;
-    }
-
-    void discardProcess(const std::string &appKey) {
-      std::lock_guard<std::mutex> lock(mutex);
-      auto it = embedderProcesses_.find(appKey);
-      if (it != embedderProcesses_.end()) {
-        embedderProcesses_.erase(it);
-        auto projIt = appKeyToProjectId_.find(appKey);
-        if (projIt != appKeyToProjectId_.end()) {
-          projectIdToAppKey_.erase(projIt->second);
-          appKeyToProjectId_.erase(projIt);
-        }
-      }
-    }
-
-    ProcessManager *getProcessWithApiKey(const std::string &appKey) const {
-      std::lock_guard<std::mutex> lock(mutex);
-      auto it = embedderProcesses_.find(appKey);
-      if (it != embedderProcesses_.end()) {
-        return it->second.get();
-      }
-      return nullptr;
-    }
-
-    std::string getApiKeyFromProjectId(const std::string &projectId) const {
-      std::lock_guard<std::mutex> lock(mutex);
-      auto it = projectIdToAppKey_.find(projectId);
-      if (it != projectIdToAppKey_.end()) {
-        return it->second;
-      }
-      return "";
-    }
-
-    void waitToStopThenTerminate() {
-      for (auto &proc : embedderProcesses_) {
-        if (proc.second->waitForCompletion(10000)) {
-          LOG_MSG << "Embedder process" << proc.second->getProcessId() << "exited cleanly";
-        } else {
-          LOG_MSG << "Embedder process" << proc.second->getProcessId() << "did not exit in time, terminating...";
-          proc.second->stopProcess();
-        }
-      }
-    }
-
-  private:
-    std::unordered_map<std::string, std::unique_ptr<ProcessManager>> embedderProcesses_;
-    std::unordered_map<std::string, std::string> projectIdToAppKey_; // we assume 1 to 1 relationship
-    std::unordered_map<std::string, std::string> appKeyToProjectId_;
   };
 
 } // anonymous namespace
@@ -269,10 +53,22 @@ int main() {
     return 1;
   }
 
-  ProcessesHolder procUtil;
+  shared::ProcessesHolder procUtil;
 
-  AppConfig prefs;
-  fetchOrCreatePrefsJson(prefs);
+  AppConfigEx prefs;
+  shared::fetchOrCreatePrefsJson(prefs, CONFIG_FNAME, 
+    [&prefs](nlohmann::json j) {
+      if (j.contains("api") && j["api"].is_object()) {
+        const auto &w = j["api"];
+        if (w.contains("host") && w["host"].is_string()) {
+          prefs.host = w["host"];
+        }
+        if (w.contains("port") && w["port"].is_number_integer()) {
+          prefs.port = w["port"].get<int>();
+        }
+      }
+    });
+  if (prefs.host == "localhost") prefs.host = "127.0.0.1";
 
   LOG_MSG << "Loading Svelte app from: " << fs::absolute(assetsPath).string();
 
@@ -432,7 +228,7 @@ int main() {
           std::lock_guard<std::mutex> lock(prefs.mutex_);
           prefs.width = width;
           prefs.height = height;
-          savePrefsToFile(prefs);
+          savePrefsToFile(prefs, CONFIG_FNAME);
         }
       };
 #ifdef _WIN32
@@ -459,7 +255,7 @@ int main() {
             if (!key.empty()) {
               std::lock_guard<std::mutex> lock(prefs.mutex_);
               prefs.uiPrefs[key] = val;
-              savePrefsToFile(prefs);
+              savePrefsToFile(prefs, CONFIG_FNAME);
               LOG_MSG << "Saved persistent key:" << key;
 #ifdef _WIN32
               if (key == "darkOrLight") {
@@ -515,7 +311,7 @@ int main() {
           if (newHost == "localhost") newHost = "127.0.0.1";
           prefs.host = newHost;
           prefs.port = newPort;
-          savePrefsToFile(prefs);
+          savePrefsToFile(prefs, CONFIG_FNAME);
           return "{\"status\": \"success\", \"message\": \"Server connection updated\"}";
         } catch (const std::exception &e) {
           LOG_MSG << "Error updating server connection:" << e.what();
@@ -545,7 +341,7 @@ int main() {
         try {
           auto j = nlohmann::json::parse(data);
           if (j.is_array() && 0 < j.size()) {
-            auto id = getProjectId(j[0]);
+            auto id = shared::getProjectId(j[0]);
             LOG_MSG << "  \"" << LOG_NOSPACE << id << "\"";
             return nlohmann::json(id).dump();
           }
@@ -569,8 +365,8 @@ int main() {
               throw std::runtime_error("Embedder executable not found: " + exePath);
             if (!std::filesystem::exists(configPath))
               throw std::runtime_error("Embedder config file not found: " + configPath);
-            auto appKey = generateAppKey();
-            auto projectId = getProjectId(configPath);
+            auto appKey = shared::generateAppKey();
+            auto projectId = shared::getProjectId(configPath);
             auto proc = procUtil.getOrCreateProcess(appKey, projectId);
             assert(proc);
             if (proc->startProcess(exePath, { "--config", configPath, "serve", "--appkey", appKey })) {
