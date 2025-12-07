@@ -3,6 +3,7 @@
   import CentralCodebases from "./CentralProjects.svelte";
   import * as icons from "@lucide/svelte";
   import { Consts, setPersistentKey } from "../utils";
+    import CentralInstances from "./CentralInstances.svelte";
 
   function setDarkOrLight(dl: string | null) {
     console.log("setDarkOrLight", dl);
@@ -28,9 +29,9 @@
 
 <Tabs defaultValue="projects" class="h-full">
   <Tabs.List>
-    <Tabs.Trigger value="projects">Projects</Tabs.Trigger>
-    <Tabs.Trigger value="instances">Instances</Tabs.Trigger>
-    <Tabs.Trigger value="activity">Activity</Tabs.Trigger>
+    <Tabs.Trigger value="projects"><icons.Settings size={20}/> Projects</Tabs.Trigger>
+    <Tabs.Trigger value="instances"><icons.Activity size={20}/> Instances</Tabs.Trigger>
+    <!-- <Tabs.Trigger value="activity"><icons.Settings2 size={20}/> Preferences</Tabs.Trigger> -->
     <Tabs.Indicator />
     <div class="ml-auto flex items-center">
       <button
@@ -46,9 +47,8 @@
   <Tabs.Content value="projects" class="h-full">
     <CentralCodebases />
   </Tabs.Content>
-  <Tabs.Content value="instances">
-    List the most important features here with short, pragmatic descriptions so readers can scan for what matters
-    (accessibility, theming, integrations).
+  <Tabs.Content value="instances" class="h-0 flex-grow">
+    <CentralInstances />
   </Tabs.Content>
   <Tabs.Content value="activity">
     Show recent activity or sample data: new releases, PRs merged, or notable user events. This helps examples feel

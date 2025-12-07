@@ -75,7 +75,7 @@
   }
 </script>
 
-{#if jsonData}
+{#if $selectedProject}
   <div class="h-full p-4 overflow-auto">
     <form class="w-full">
       <fieldset class="space-y-4">
@@ -92,14 +92,19 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label class="label">
               <span class="label-text">Timeout (ms)</span>
-              <input type="number" class="input" bind:value={jsonData.generation.timeout_ms} min="1000" />
+              <input
+                type="number"
+                class="input"
+                bind:value={$selectedProject.jsonData.generation.timeout_ms}
+                min="1000"
+              />
             </label>
             <label class="label">
               <span class="label-text">Max Context Tokens</span>
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.max_context_tokens}
+                bind:value={$selectedProject.jsonData.generation.max_context_tokens}
                 min="1"
               />
             </label>
@@ -109,14 +114,14 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label class="label">
               <span class="label-text">Max Chunks</span>
-              <input type="number" class="input" bind:value={jsonData.generation.max_chunks} min="1" />
+              <input type="number" class="input" bind:value={$selectedProject.jsonData.generation.max_chunks} min="1" />
             </label>
             <label class="label">
               <span class="label-text">Max Full Sources</span>
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.max_full_sources}
+                bind:value={$selectedProject.jsonData.generation.max_full_sources}
                 min="0"
               />
             </label>
@@ -125,7 +130,7 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.max_related_per_source}
+                bind:value={$selectedProject.jsonData.generation.max_related_per_source}
                 min="0"
               />
             </label>
@@ -138,7 +143,7 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.default_temperature}
+                bind:value={$selectedProject.jsonData.generation.default_temperature}
                 step="0.1"
                 min="0"
                 max="2"
@@ -149,13 +154,17 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.default_max_tokens}
+                bind:value={$selectedProject.jsonData.generation.default_max_tokens}
                 min="1"
               />
             </label>
             <label class="label">
               <span class="label-text">Max Tokens Param Name</span>
-              <input type="text" class="input" bind:value={jsonData.generation.default_max_tokens_name} />
+              <input
+                type="text"
+                class="input"
+                bind:value={$selectedProject.jsonData.generation.default_max_tokens_name}
+              />
             </label>
           </div>
 
@@ -165,7 +174,7 @@
               <input
                 type="text"
                 class="input"
-                bind:value={jsonData.generation.prepend_label_format}
+                bind:value={$selectedProject.jsonData.generation.prepend_label_format}
                 placeholder="[Source: &#123;&#125;]\n"
               />
               <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for source name</p>
@@ -174,7 +183,11 @@
 
           <h3 class="font-semibold text-lg border-b border-surface-500 pb-2 pt-2 flex items-center gap-2">
             Excerpt Logic
-            <input type="checkbox" class="checkbox" bind:checked={jsonData.generation.excerpt.enabled} />
+            <input
+              type="checkbox"
+              class="checkbox"
+              bind:checked={$selectedProject.jsonData.generation.excerpt.enabled}
+            />
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label class="label">
@@ -182,8 +195,8 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.excerpt.min_chunks}
-                disabled={!jsonData.generation.excerpt.enabled}
+                bind:value={$selectedProject.jsonData.generation.excerpt.min_chunks}
+                disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
               />
             </label>
             <label class="label">
@@ -191,8 +204,8 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.generation.excerpt.max_chunks}
-                disabled={!jsonData.generation.excerpt.enabled}
+                bind:value={$selectedProject.jsonData.generation.excerpt.max_chunks}
+                disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
               />
             </label>
             <label class="label">
@@ -201,8 +214,8 @@
                 type="number"
                 class="input"
                 step="0.05"
-                bind:value={jsonData.generation.excerpt.threshold_ratio}
-                disabled={!jsonData.generation.excerpt.enabled}
+                bind:value={$selectedProject.jsonData.generation.excerpt.threshold_ratio}
+                disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
               />
             </label>
           </div>
@@ -213,10 +226,10 @@
               <select
                 id="current-api"
                 class="select"
-                value={jsonData.generation.current_api}
+                value={$selectedProject.jsonData.generation.current_api}
                 onchange={onCurApiChange}
               >
-                {#each jsonData.generation.apis as api}
+                {#each $selectedProject.jsonData.generation.apis as api}
                   <option value={api.id}>{api.name} ({api.id})</option>
                 {/each}
               </select>
@@ -226,13 +239,13 @@
 
         <div class="rounded-md shadow p-4 flex flex-col gap-4">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">Generation APIs ({jsonData.generation.apis.length})</h2>
+            <h2 class="text-xl font-bold">Generation APIs ({$selectedProject.jsonData.generation.apis.length})</h2>
             <button type="button" class="btn px-3 py-1 preset-filled-primary-500 rounded-md" onclick={addApi}>
               Add API
             </button>
           </div>
 
-          {#each jsonData.generation.apis as api, i}
+          {#each $selectedProject.jsonData.generation.apis as api, i}
             <div class="flex flex-col items-start2">
               <button
                 type="button"
@@ -334,7 +347,7 @@
                         type="button"
                         class="preset-tonal-primary btn btn-sm"
                         onclick={() => moveApiDown(i)}
-                        disabled={i === jsonData.generation.apis.length - 1}
+                        disabled={i === $selectedProject.jsonData.generation.apis.length - 1}
                       >
                         ↓ Down
                       </button>
@@ -343,7 +356,7 @@
                       type="button"
                       class="btn btn-sm preset-filled-error-500"
                       onclick={() => removeApi(i)}
-                      disabled={jsonData.generation.apis.length === 1}
+                      disabled={$selectedProject.jsonData.generation.apis.length === 1}
                     >
                       Remove API
                     </button>

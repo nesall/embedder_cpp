@@ -9,19 +9,21 @@
   import Tokenizer from "./project-panels/Tokenizer.svelte";
   import JSON from "./project-panels/JSON.svelte";
   import { selectedProject } from "../store";
+    import Instance from "./project-panels/Instance.svelte";
 </script>
 
 {#if $selectedProject}
   <Tabs defaultValue="codebase" class="h-full text-sm">
     <Tabs.List class="">
-      <Tabs.Trigger value="codebase" class="text-sm">Codebase</Tabs.Trigger>
+      <Tabs.Trigger value="codebase" class="text-sm">Sources</Tabs.Trigger>
       <Tabs.Trigger value="generation" class="text-sm">Generation</Tabs.Trigger>
       <Tabs.Trigger value="embedding" class="text-sm">Embedding</Tabs.Trigger>
       <Tabs.Trigger value="chunking" class="text-sm">Chunking</Tabs.Trigger>
       <Tabs.Trigger value="database" class="text-sm">Database</Tabs.Trigger>
       <Tabs.Trigger value="logging" class="text-sm">Logging</Tabs.Trigger>
       <Tabs.Trigger value="tokenizer" class="text-sm">Tokenizer</Tabs.Trigger>
-      <Tabs.Trigger value="json" class="text-sm">JSON</Tabs.Trigger>
+      <Tabs.Trigger value="json" class="text-sm code">JSON</Tabs.Trigger>
+      <Tabs.Trigger value="instance" class="text-sm bg-tertiary-100-900">Instance</Tabs.Trigger>
       <Tabs.Indicator />
       <div class="ml-auto flex items-center"></div>
     </Tabs.List>
@@ -48,6 +50,9 @@
     </Tabs.Content>
     <Tabs.Content value="json" class="h-0 flex-grow">
       <JSON />
+    </Tabs.Content>
+    <Tabs.Content value="instance" class="h-0 flex-grow">
+      <Instance />
     </Tabs.Content>
   </Tabs>
 {:else}

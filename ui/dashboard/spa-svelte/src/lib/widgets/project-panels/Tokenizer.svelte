@@ -3,19 +3,22 @@
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
 
-  const jsonData = $derived($selectedProject.jsonData);
-  const projectTitle = $derived($selectedProject.jsonData.source.project_title);
+  const jsonData = $derived($selectedProject?.jsonData);
+  const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
   onMount(() => {
     // In a real application, you would load the initial settings here
   });
 
   function onChange() {
-    // selectedJsonSettings.set(jsonData);
+    if ($selectedProject?.jsonData) {
+      $selectedProject.jsonData.tokenizer.config_path = "abc";
+      $selectedProject = $selectedProject;
+    }
   }
 </script>
 
-{#if jsonData}
+{#if $selectedProject}
   <div class="h-full p-4 overflow-auto">
     <form class="w-full">
       <fieldset class="space-y-4">
@@ -35,7 +38,7 @@
             <input
               type="text"
               class="input"
-              bind:value={jsonData.tokenizer.config_path}
+              bind:value={$selectedProject.jsonData.tokenizer.config_path}
               placeholder="./bge_tokenizer.json"
               onchange={onChange}
             />

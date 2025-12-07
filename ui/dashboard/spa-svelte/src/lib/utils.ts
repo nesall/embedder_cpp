@@ -1,4 +1,4 @@
-import type { ProjectItem, SettingsJsonType } from "../app";
+import type { InstanceItem, ProjectItem, SettingsJsonType } from "../app";
 import { createToaster } from '@skeletonlabs/skeleton-svelte';
 
 export const toaster = createToaster();
@@ -212,7 +212,7 @@ let mockProjects: ProjectItem[] = [
       ...defaultJsonSettings,
       source: {
         ...defaultJsonSettings.source,
-        project_id: "project1",
+        project_id: "alpha-316e366b",
         project_title: "phenixcode",
       }
     }
@@ -230,29 +230,142 @@ let mockProjects: ProjectItem[] = [
   }
 ];
 
-// Return mock data for testing
-export async function test_getProjectList() {
+let mockInstances: InstanceItem[] = [
+  {
+    "config": "C:/Users/Arman/workspace/projects/alpha/settings-embcpp.json",
+    "cwd": "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
+    "host": "localhost",
+    "id": "MERTUN-18860-1765014564",
+    "last_heartbeat": 1765021210,
+    "last_heartbeat_str": "2025-12-06 15:40:10",
+    "name": "phenixcode",
+    "pid": 18860,
+    "port": 8590,
+    "project_id": "alpha-316e366b",
+    "started_at": 1765014564,
+    "started_at_str": "2025-12-06 13:49:24",
+    "status": "healthy"
+  },
+  { // instance launched outside of admin dashboard (possibility to import into dashboard).
+    "config": "C:/Users/Arman/workspace/projects/alpha/settings-embcpp_2.json",
+    "cwd": "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
+    "host": "localhost",
+    "id": "MERTUN-18860-1765014564_2",
+    "last_heartbeat": 1765021210,
+    "last_heartbeat_str": "2025-12-06 15:40:10",
+    "name": "phenixcode_2",
+    "pid": 18860,
+    "port": 8590,
+    "project_id": "alpha-316e366b_2",
+    "started_at": 1765014564,
+    "started_at_str": "2025-12-06 13:49:24",
+    "status": "healthy"
+  }
+];
+
+async function test_getInstances() {
+  console.log("[mock] fetching instances", mockInstances);
+  return mockInstances;
+}
+
+async function test_getProjectList() {
   console.log("[mock] fetching projects", mockProjects);
   return mockProjects;
 }
 
-// export async function test_getPojectSettings(projectId: string): Promise<SettingsJsonType | null> {
-//   if (projectId === "project1") {
-//     return mockProjects[0].jsonData;
-//   } else if (projectId === "project2") {
-//     return mockProjects[1].jsonData;
-//   }
-//   return null;
-// }
-
-export async function test_savePojectSettings(project: ProjectItem): Promise<{ status: string; message: string }> {
-  // if (projectId === "project1") {
-  //   mockProjects[0].jsonData = settings;
-  //   return { status: "success", message: "Project 1 settings updated." };
-  // } else if (projectId === "project2") {
-  //   mockProjects[0].jsonData = settings;
-  // }
+async function test_saveProjectSettings(project: ProjectItem): Promise<{ status: string; message: string }> {
   console.log("[mock] saving project settings", project);
   return { status: "success", message: "Project 2 settings updated." };
   // return { status: "error", message: "Project not found." };
+}
+
+async function test_createProject(): Promise<ProjectItem> {
+  const newProject = jsonDeepCopy({ settingsFilePath: "", jsonData: defaultJsonSettings }) as ProjectItem;
+  newProject.settingsFilePath = `C:/Users/Arman/workspace/projects/alpha/settings-new-${Date.now()}.json`;
+  newProject.jsonData.source.project_id = `project${mockProjects.length + 1}`;
+  newProject.jsonData.source.project_title = `New Project ${mockProjects.length + 1}`;
+  mockProjects = [newProject, ...mockProjects];
+  console.log("[mock] creating new project", newProject);
+  return newProject;
+}
+
+async function test_deleteProject(project: ProjectItem): Promise<{ status: string; message: string }> {
+  const index = mockProjects.findIndex(p => p.settingsFilePath === project.settingsFilePath);
+  if (index !== -1) {
+    mockProjects.splice(index, 1);
+    console.log("[mock] deleted project", project);
+    return { status: "success", message: "Project deleted successfully." };
+  } else {
+    console.log("[mock] failed to delete project - not found", project);
+    return { status: "error", message: "Project not found." };
+  }
+}
+
+async function test_importProject(projectId: string, configPath: string): Promise<{ status: string; message: string }> {
+  const importedProject: ProjectItem = {
+    settingsFilePath: configPath,
+    jsonData: {
+      ...defaultJsonSettings,
+      source: {
+        ...defaultJsonSettings.source,
+        project_id: projectId,
+        project_title: `Imported Project ${projectId}`,
+      }
+    }
+  };
+  mockProjects = [importedProject, ...mockProjects];
+  console.log("[mock] imported project", importedProject);
+  return { status: "success", message: "Project imported successfully." };
+}
+
+export async function helper_getInstances(): Promise<InstanceItem[]> {
+  if (window.cppApi) {
+    return await window.cppApi.getInstances();
+  } else {
+    return await test_getInstances();
+  }
+}
+
+export async function helper_getProjectList(): Promise<ProjectItem[]> {
+  if (window.cppApi) {
+    return await window.cppApi.getProjectList();
+  } else {
+    return await test_getProjectList();
+  }
+}
+
+export async function helper_saveProjectSettings(project: ProjectItem): Promise<{ status: string; message: string }> {
+  if (window.cppApi) {
+    return await window.cppApi.saveProject(project);
+  } else {
+    return await test_saveProjectSettings(project);
+  }
+}
+
+export async function helper_createProject(): Promise<ProjectItem> {
+  if (window.cppApi) {
+    return await window.cppApi.createProject();
+  } else {
+    return await test_createProject();
+  }
+}
+
+export async function helper_deleteProject(project: ProjectItem): Promise<{ status: string; message: string }> {
+  if (window.cppApi) {
+    return await window.cppApi.deleteProject(project);
+  } else {
+    return await test_deleteProject(project);
+  }
+}
+
+export async function helper_importProject(projectId: string, configPath: string): Promise<{ status: string; message: string }> {
+  if (window.cppApi) {
+    return await window.cppApi.importProject(projectId, configPath);
+  } else {
+    return await test_importProject(projectId, configPath);
+  }
+}
+
+export function hasRunningInstance(projectId: string, insts: InstanceItem[]): boolean {
+  return insts.some((instance) => instance.project_id === projectId);
 }

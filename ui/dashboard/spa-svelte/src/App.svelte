@@ -1,7 +1,26 @@
 <script lang="ts">
-    import CentralWidget from "./lib/widgets/CentralWidget.svelte";
+  import { Toast } from "@skeletonlabs/skeleton-svelte";
+  import CentralWidget from "./lib/widgets/CentralWidget.svelte";
   import Statusbar from "./lib/widgets/Statusbar.svelte";
-    import Toolbar from "./lib/widgets/Toolbar.svelte";
+  import { helper_getInstances, toaster } from "./lib/utils";
+  import { instances } from "./lib/store";
+  import { onMount } from "svelte";
+
+  async function fetchInstances() {
+    try {
+      $instances = await helper_getInstances();
+    } catch (err: any) {
+      console.log("Error fetching /api/instances", err);
+      $instances = [];
+    }
+  }
+
+  let intervalId: number;
+  onMount(() => {
+    intervalId = setInterval(fetchInstances, 20000);
+    fetchInstances();
+    return () => clearInterval(intervalId);
+  });
 </script>
 
 <main
@@ -12,10 +31,22 @@
     <!-- <Toolbar /> -->
     <div class="flex-grow w-full h-0 mb-[-0.5rem]">
       <!-- Main content goes here -->
-       <CentralWidget />
+      <CentralWidget />
     </div>
   </div>
   <div class="w-full">
     <Statusbar />
   </div>
 </main>
+
+<Toast.Group {toaster}>
+  {#snippet children(toast)}
+    <Toast {toast} class="w-auto max-w-md">
+      <Toast.Message>
+        <Toast.Title>{toast.title}</Toast.Title>
+        <Toast.Description>{toast.description}</Toast.Description>
+      </Toast.Message>
+      <Toast.CloseTrigger />
+    </Toast>
+  {/snippet}
+</Toast.Group>

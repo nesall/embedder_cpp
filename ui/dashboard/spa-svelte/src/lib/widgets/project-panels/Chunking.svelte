@@ -3,7 +3,7 @@
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
 
-  const jsonData = $derived($selectedProject?.jsonData);
+  // const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
   onMount(() => {
@@ -15,7 +15,7 @@
   }
 </script>
 
-{#if jsonData}
+{#if $selectedProject}
   <div class="h-full p-4 overflow-auto">
     <form class="w-full">
       <fieldset class="space-y-4">
@@ -34,7 +34,7 @@
             <input
               type="checkbox"
               class="checkbox checkbox-lg preset-filled-primary-500"
-              bind:checked={jsonData.chunking.semantic}
+              bind:checked={$selectedProject.jsonData.chunking.semantic}
               id="semantic-toggle"
               onchange={onChange}
             />
@@ -54,9 +54,9 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.chunking.nof_min_tokens}
+                bind:value={$selectedProject.jsonData.chunking.nof_min_tokens}
                 min="1"
-                max={jsonData.chunking.nof_max_tokens}
+                max={$selectedProject.jsonData.chunking.nof_max_tokens}
                 onchange={onChange}
               />
               <p class="text-sm text-surface-500 mt-1">Minimum required token count for a valid chunk.</p>
@@ -67,8 +67,8 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.chunking.nof_max_tokens}
-                min={jsonData.chunking.nof_min_tokens}
+                bind:value={$selectedProject.jsonData.chunking.nof_max_tokens}
+                min={$selectedProject.jsonData.chunking.nof_min_tokens}
                 onchange={onChange}
               />
               <p class="text-sm text-surface-500 mt-1">Maximum token count before a chunk is forced to split.</p>
@@ -82,7 +82,7 @@
             <input
               type="number"
               class="input"
-              bind:value={jsonData.chunking.overlap_percentage}
+              bind:value={$selectedProject.jsonData.chunking.overlap_percentage}
               min="0"
               max="1"
               step="0.05"

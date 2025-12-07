@@ -4,7 +4,7 @@
   import { selectedProject } from "../../store";
   import type { DatabaseSettings } from "../../../app";
 
-  const jsonData = $derived($selectedProject?.jsonData);
+  // const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
   onMount(() => {
@@ -23,7 +23,7 @@
   const formatNumber = (num: number) => new Intl.NumberFormat().format(num);
 </script>
 
-{#if jsonData}
+{#if $selectedProject}
   <div class="h-full p-4 overflow-auto">
     <form class="w-full">
       <fieldset class="space-y-4">
@@ -44,7 +44,7 @@
               <input
                 type="text"
                 class="input"
-                bind:value={jsonData.database.sqlite_path}
+                bind:value={$selectedProject.jsonData.database.sqlite_path}
                 placeholder="./db_metadata.db"
                 onchange={onChange}
               />
@@ -55,7 +55,7 @@
               <input
                 type="text"
                 class="input"
-                bind:value={jsonData.database.index_path}
+                bind:value={$selectedProject.jsonData.database.index_path}
                 placeholder="./db_embeddings.index"
                 onchange={onChange}
               />
@@ -71,7 +71,7 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.database.vector_dim}
+                bind:value={$selectedProject.jsonData.database.vector_dim}
                 min="1"
                 onchange={onChange}
               />
@@ -83,18 +83,20 @@
               <input
                 type="number"
                 class="input"
-                bind:value={jsonData.database.max_elements}
+                bind:value={$selectedProject.jsonData.database.max_elements}
                 min="1000"
                 onchange={onChange}
               />
               <p class="text-sm text-surface-500 mt-1">
-                Maximum number of vectors the index can hold ({formatNumber(jsonData.database.max_elements)}).
+                Maximum number of vectors the index can hold ({formatNumber(
+                  $selectedProject.jsonData.database.max_elements,
+                )}).
               </p>
             </label>
 
             <label class="label">
               <span class="label-text">Distance Metric</span>
-              <select class="select" bind:value={jsonData.database.distance_metric}>
+              <select class="select" bind:value={$selectedProject.jsonData.database.distance_metric}>
                 {#each distanceMetrics as metric}
                   <option value={metric}>{metric.toUpperCase()}</option>
                 {/each}

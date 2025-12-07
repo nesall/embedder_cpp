@@ -162,3 +162,25 @@ export interface ProjectItem {
   settingsFilePath: string; // for informational purposes
   jsonData: SettingsJsonType;
 }
+
+export interface InstanceItem {
+  config: string;
+  cwd: string;
+  host: string;
+  id: string;
+  last_heartbeat: number;
+  last_heartbeat_str: string;
+  name: string;
+  pid: number;
+  port: number;
+  project_id: string;
+  started_at: number;
+  started_at_str: string;
+  status: string;
+  _hidden?: boolean;
+}
+
+// export interface InstanceResponse {
+//   current_instance: string;
+//   instances: InstanceInfo[];
+// }

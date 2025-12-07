@@ -80,9 +80,15 @@
     jsonData.embedding.current_api = selectElem.value;
     // selectedJsonSettings.set(jsonData);
   }
+
+  function onHiddenToggle(index: number) {
+    if ($selectedProject && jsonData) {
+      jsonData.embedding.apis[index]._hidden = !jsonData.embedding.apis[index]._hidden;
+    }
+  }
 </script>
 
-{#if jsonData}
+{#if $selectedProject}
   <div class="h-full p-4 overflow-auto">
     <form class="w-full">
       <fieldset class="space-y-4">
@@ -98,7 +104,13 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label class="label">
               <span class="label-text">Batch Size</span>
-              <input type="number" id="batch-size" class="input" bind:value={jsonData.embedding.batch_size} min="1" />
+              <input
+                type="number"
+                id="batch-size"
+                class="input"
+                bind:value={$selectedProject.jsonData.embedding.batch_size}
+                min="1"
+              />
             </label>
 
             <label class="label">
@@ -107,7 +119,7 @@
                 type="number"
                 id="timeout-ms"
                 class="input"
-                bind:value={jsonData.embedding.timeout_ms}
+                bind:value={$selectedProject.jsonData.embedding.timeout_ms}
                 min="1000"
               />
             </label>
@@ -120,14 +132,20 @@
                 type="number"
                 id="retry-attempts"
                 class="input"
-                bind:value={jsonData.embedding.retry_attempts}
+                bind:value={$selectedProject.jsonData.embedding.retry_attempts}
                 min="0"
               />
             </label>
 
             <label class="label">
               <span class="label-text">Top K</span>
-              <input type="number" id="top-k" class="input" bind:value={jsonData.embedding.top_k} min="1" />
+              <input
+                type="number"
+                id="top-k"
+                class="input"
+                bind:value={$selectedProject.jsonData.embedding.top_k}
+                min="1"
+              />
             </label>
           </div>
 
@@ -138,7 +156,7 @@
                 type="text"
                 id="prepend-label-format"
                 class="input"
-                bind:value={jsonData.embedding.prepend_label_format}
+                bind:value={$selectedProject.jsonData.embedding.prepend_label_format}
                 placeholder="[Source: &#123;&#125;]\n"
               />
               <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for the source name</p>
@@ -147,8 +165,13 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label class="label">
               <span class="label-text">Current API</span>
-              <select id="current-api" class="select" value={jsonData.embedding.current_api} onchange={onCurApiChange}>
-                {#each jsonData.embedding.apis as api}
+              <select
+                id="current-api"
+                class="select"
+                value={$selectedProject.jsonData.embedding.current_api}
+                onchange={onCurApiChange}
+              >
+                {#each $selectedProject.jsonData.embedding.apis as api}
                   <option value={api.id}>{api.name} ({api.id})</option>
                 {/each}
               </select>
@@ -158,20 +181,20 @@
 
         <div class="rounded-md shadow p-4 flex flex-col gap-4">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">Embedding APIs ({jsonData.embedding.apis.length})</h2>
+            <h2 class="text-xl font-bold">Embedding APIs ({$selectedProject.jsonData.embedding.apis.length})</h2>
             <button type="button" class="btn px-3 py-1 preset-filled-primary-500 rounded-md" onclick={addApi}>
               Add API
             </button>
           </div>
 
-          {#each jsonData.embedding.apis as api, i}
+          {#each $selectedProject.jsonData.embedding.apis as api, i}
             <div class="flex flex-col items-start2">
               <button
                 type="button"
                 class="btn btn-sm flex items-center justify-start preset-tonal-secondary {api._hidden
                   ? ''
                   : 'rounded-b-none'}"
-                onclick={() => (api._hidden = !api._hidden)}
+                onclick={() => onHiddenToggle(i)}
               >
                 {#if api._hidden}
                   <icons.ChevronDown />
@@ -273,7 +296,7 @@
                         type="button"
                         class="preset-tonal-primary btn btn-sm"
                         onclick={() => moveApiDown(i)}
-                        disabled={i === jsonData.embedding.apis.length - 1}
+                        disabled={i === $selectedProject.jsonData.embedding.apis.length - 1}
                       >
                         ↓ Down
                       </button>
@@ -282,7 +305,7 @@
                       type="button"
                       class="btn btn-sm preset-filled-error-500"
                       onclick={() => removeApi(i)}
-                      disabled={jsonData.embedding.apis.length === 1}
+                      disabled={$selectedProject.jsonData.embedding.apis.length === 1}
                     >
                       Remove API
                     </button>

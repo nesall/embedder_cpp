@@ -3,10 +3,10 @@
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
   import { onMount } from "svelte";
-  import { defaultJsonSettings, jsonDeepCopy, test_savePojectSettings } from "../../utils";
+  import { helper_saveProjectSettings } from "../../utils";
 
-  const jsonData = $derived($selectedProject.jsonData);
-  const projectTitle = $derived($selectedProject.jsonData.source.project_title);
+  const jsonData = $derived($selectedProject?.jsonData);
+  const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
   let newExtension = $state("");
   let newGlobalExclude = $state("");
@@ -20,7 +20,7 @@
   function onChange() {
     // selectedJsonSettings.set(jsonData);
     if ($selectedProject) {
-      test_savePojectSettings($selectedProject);
+      helper_saveProjectSettings($selectedProject);
     }
   }
 
@@ -135,11 +135,11 @@
   }
 </script>
 
-{#if jsonData === undefined}
+{#if $selectedProject === undefined}
   <div class="h-full flex items-center justify-center">
     <span class="text-surface-400 italic">Loading...</span>
   </div>
-<!-- {:else if jsonData === null}
+  <!-- {:else if jsonData === null}
   <div class="h-full2 flex flex-col items-start">
     <span class="text-surface-400 italic">No settings data available.</span>
     <button
@@ -150,7 +150,7 @@
       Initialize from default
     </button>
   </div> -->
-{:else}
+{:else if $selectedProject}
   <div class="flex flex-col h-full p-4 overflow-auto space-y-6">
     <div class="rounded-lg shadow p-4">
       <div class="mb-4 flex items-center justify-between">
@@ -162,67 +162,131 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label class="block text-sm font-medium text-surface-700-300 mb-1" for="project-id">Project ID</label>
+        <label class="label">
+          <span class="label-text">Project ID</span>
           <input
             type="text"
             id="project-id"
             class="input"
-            bind:value={jsonData.source.project_id}
+            bind:value={$selectedProject.jsonData.source.project_id}
             placeholder="Leave empty to auto-generate"
             onchange={onChange}
           />
-        </div>
+        </label>
 
-        <div>
-          <label class="block text-sm font-medium text-surface-700-300 mb-1" for="project-title">Project Title</label>
+        <label class="label">
+          <span class="label-text">Project Title</span>
           <input
             type="text"
             id="project-title"
             class="input"
-            bind:value={jsonData.source.project_title}
+            bind:value={$selectedProject.jsonData.source.project_title}
             onchange={onChange}
           />
-        </div>
+        </label>
       </div>
 
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-surface-700-300 mb-1" for="project-description"
-          >Project Description</label
-        >
+      <label class="label">
+        <span class="lable-text">Project Description</span>
         <textarea
           id="project-description"
           class="input"
-          bind:value={jsonData.source.project_description}
+          bind:value={$selectedProject.jsonData.source.project_description}
           rows="3"
           onchange={onChange}
         ></textarea>
-      </div>
+      </label>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-surface-700-300 mb-1" for="encoding">Encoding</label>
+        <label class="label">
+          <span class="label-text">Encoding</span>
           <input
             type="text"
             id="encoding"
             class="input"
-            bind:value={jsonData.source.encoding}
+            bind:value={$selectedProject.jsonData.source.encoding}
             onchange={onChange}
           />
-        </div>
+        </label>
 
-        <div>
-          <label class="block text-sm font-medium text-surface-700-300 mb-1" for="max-file-size"
-            >Max File Size (MB)</label
-          >
+        <label class="label">
+          <span class="label-text">Max File Size (MB)</span>
           <input
             type="number"
             id="max-file-size"
             class="input"
-            bind:value={jsonData.source.max_file_size_mb}
+            bind:value={$selectedProject.jsonData.source.max_file_size_mb}
             min="1"
             onchange={onChange}
           />
+        </label>
+      </div>
+    </div>
+
+    <div class="rounded-lg shadow p-4">
+      <h2 class="font-semibold text-lg mb-4">Default Extensions</h2>
+
+      <div class="flex flex-wrap gap-2">
+        {#each $selectedProject.jsonData.source.default_extensions as ext, i}
+          <div class="flex items-center bg-primary-100-900 rounded pl-3 pr-2 py-1">
+            <span class="text-sm">{ext}</span>
+            <button type="button" class="ml-2 text-blue-500 hover:text-red-500" onclick={() => removeExtension(i)}>
+              ×
+            </button>
+          </div>
+        {/each}
+        <div class="flex">
+          <input
+            type="text"
+            class="flex-grow px-2 py-0 border border-dashed border-surface-300-700 rounded-l w-24 bg-surface-50-950"
+            bind:value={newExtension}
+            placeholder="+ .tsx"
+            onkeydown={(e) => e.key === "Enter" && addExtension()}
+            onchange={onChange}
+          />
+          <button
+            type="button"
+            class="px-2 py-0 bg-surface-200-800 border border-l-0 border-surface-300-700 rounded-r hover:bg-surface-300-700"
+            onclick={addExtension}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg shadow p-4">
+      <h2 class="text-lg font-semibold mb-4">Global Exclude Patterns</h2>
+
+      <div class="flex flex-wrap gap-2">
+        {#each $selectedProject.jsonData.source.global_exclude as pattern, i}
+          <div class="flex items-center bg-error-100-900 rounded pl-3 pr-2 py-1">
+            <span class="text-sm">{pattern}</span>
+            <button
+              type="button"
+              class="ml-2 text-error-500 hover:text-error-700-300"
+              onclick={() => removeGlobalExclude(i)}
+            >
+              ×
+            </button>
+          </div>
+        {/each}
+        <div class="flex">
+          <input
+            type="text"
+            class="flex-grow px-2 py-0 border border-dashed border-surface-300-700 rounded-l w-24 bg-surface-50-950"
+            bind:value={newGlobalExclude}
+            placeholder="+ */temp/*"
+            onkeydown={(e) => e.key === "Enter" && addGlobalExclude()}
+            onchange={onChange}
+          />
+          <button
+            type="button"
+            class="px-2 py-0 bg-surface-200-800 border border-l-0 border-surface-300-700 rounded-r hover:bg-surface-300-700"
+            onclick={addGlobalExclude}
+          >
+            Add
+          </button>
         </div>
       </div>
     </div>
@@ -235,21 +299,21 @@
         </button>
       </div>
 
-      {#each jsonData.source.paths as path, i}
+      {#each $selectedProject.jsonData.source.paths as path, i}
         <div class="border border-surface-200-800 rounded-md p-4 mb-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label class="block text-sm font-medium text-surface-700-300 mb-1" for="path-{i}">Path</label>
+            <label class="label">
+              <span class="label-text">Path</span>
               <input type="text" id="path-{i}" class="input" bind:value={path.path} onchange={onChange} />
-            </div>
+            </label>
 
-            <div>
-              <label class="block text-sm font-medium text-surface-700-300 mb-1" for="type-{i}">Type</label>
+            <label class="label">
+              <span class="label-text">Type</span>
               <select id="type-{i}" class="input" bind:value={path.type} onchange={onChange}>
                 <option value="directory">Directory</option>
                 <option value="file">File</option>
               </select>
-            </div>
+            </label>
           </div>
 
           <div class="mb-4">
@@ -268,8 +332,7 @@
           </div>
 
           <div class="mb-8">
-            <label class="block text-sm font-medium text-surface-700-300 mb-2" for="exclude={i}">Exclude Patterns</label
-            >
+            <span class="label-text text-left">Exclude Patterns</span>
             <div class="mt-2 flex flex-wrap gap-2">
               {#each path.exclude as exclude, j}
                 <div class="flex items-center bg-surface-100-900 rounded pl-3 pr-2 py-1">
@@ -305,9 +368,7 @@
           </div>
 
           <div class="mb-8">
-            <label class="block text-sm font-medium text-surface-700-300 mb-2" for="exclude={i}">
-              Extensions (empty = default extensions)
-            </label>
+            <span class="label-text text-left"> Extensions (empty = default extensions) </span>
             <div class="mt-2 flex flex-wrap gap-2">
               {#each path.extensions as ext, j}
                 <div class="flex items-center bg-surface-100-900 rounded pl-3 pr-2 py-1">
@@ -351,7 +412,7 @@
                 type="button"
                 class="preset-tonal-primary btn"
                 onclick={() => movePathDown(i)}
-                disabled={i === jsonData.source.paths.length - 1}
+                disabled={i === $selectedProject.jsonData.source.paths.length - 1}
               >
                 ↓ Down
               </button>
@@ -360,7 +421,7 @@
               type="button"
               class="btn preset-filled-error-500"
               onclick={() => removePath(i)}
-              disabled={jsonData.source.paths.length === 1}
+              disabled={$selectedProject.jsonData.source.paths.length === 1}
             >
               Remove Path
             </button>
@@ -368,73 +429,11 @@
         </div>
       {/each}
     </div>
-
-    <div class="rounded-lg shadow p-4">
-      <h2 class="text-xl font-bold mb-4">Default Extensions</h2>
-
-      <div class="flex flex-wrap gap-2">
-        {#each jsonData.source.default_extensions as ext, i}
-          <div class="flex items-center bg-primary-100-900 rounded pl-3 pr-2 py-1">
-            <span class="text-sm">{ext}</span>
-            <button type="button" class="ml-2 text-blue-500 hover:text-red-500" onclick={() => removeExtension(i)}>
-              ×
-            </button>
-          </div>
-        {/each}
-        <div class="flex">
-          <input
-            type="text"
-            class="flex-grow px-2 py-1 border border-dashed border-surface-300-700 rounded-l w-24 bg-surface-50-950"
-            bind:value={newExtension}
-            placeholder="+ .tsx"
-            onkeydown={(e) => e.key === "Enter" && addExtension()}
-            onchange={onChange}
-          />
-          <button
-            type="button"
-            class="px-2 py-1 bg-surface-200-800 border border-l-0 border-surface-300-700 rounded-r hover:bg-surface-300-700"
-            onclick={addExtension}
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="rounded-lg shadow p-4">
-      <h2 class="text-xl font-bold mb-4">Global Exclude Patterns</h2>
-
-      <div class="flex flex-wrap gap-2">
-        {#each jsonData.source.global_exclude as pattern, i}
-          <div class="flex items-center bg-error-100-900 rounded pl-3 pr-2 py-1">
-            <span class="text-sm">{pattern}</span>
-            <button
-              type="button"
-              class="ml-2 text-error-500 hover:text-error-700-300"
-              onclick={() => removeGlobalExclude(i)}
-            >
-              ×
-            </button>
-          </div>
-        {/each}
-        <div class="flex">
-          <input
-            type="text"
-            class="flex-grow px-2 py-1 border border-dashed border-surface-300-700 rounded-l w-24 bg-surface-50-950"
-            bind:value={newGlobalExclude}
-            placeholder="+ */temp/*"
-            onkeydown={(e) => e.key === "Enter" && addGlobalExclude()}
-            onchange={onChange}
-          />
-          <button
-            type="button"
-            class="px-2 py-1 bg-surface-200-800 border border-l-0 border-surface-300-700 rounded-r hover:bg-surface-300-700"
-            onclick={addGlobalExclude}
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 {/if}
+
+<style>
+  .label {
+    text-align: left;
+  }
+</style>
