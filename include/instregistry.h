@@ -8,6 +8,8 @@
 
 using json = nlohmann::json;
 
+class Settings;
+
 class InstanceRegistry {
 public:
   explicit InstanceRegistry(const std::string &registryPath = {});
@@ -19,7 +21,7 @@ public:
   InstanceRegistry(InstanceRegistry &&) = default;
   InstanceRegistry &operator=(InstanceRegistry &&) = default;
 
-  void registerInstance(int port, const std::string &projectId, const std::string &projectTitle);
+  void registerInstance(int port, const Settings &settings);
   void unregister();
   void startHeartbeat();
   void stopHeartbeat();

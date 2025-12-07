@@ -1,5 +1,4 @@
 #include "settings.h"
-#include "auth.h"
 #include <fstream>
 #include <stdexcept>
 #include <filesystem>
@@ -78,7 +77,6 @@ namespace {
     std::stringstream ss;
     ss << std::hex << std::setfill('0') << std::setw(16) << hasher(str);
     return ss.str();
-    //return AdminAuth::fnv1a64(str);
   }
 } // anonymous namespace
 
