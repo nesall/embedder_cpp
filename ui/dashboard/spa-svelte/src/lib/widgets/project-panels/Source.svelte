@@ -4,6 +4,7 @@
   import { selectedProject } from "../../store";
   import { onMount } from "svelte";
   import { helper_saveProjectSettings } from "../../utils";
+  import UpDownButton from "../misc/UpDownButton.svelte";
 
   const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
@@ -13,12 +14,9 @@
   let newPathExclude = $state("");
   let newPathExtension = $state("");
 
-  onMount(() => {
-    // In a real application, you would load the initial settings here
-  });
+  onMount(() => {});
 
   function onChange() {
-    // selectedJsonSettings.set(jsonData);
     if ($selectedProject) {
       helper_saveProjectSettings($selectedProject);
     }
@@ -139,17 +137,6 @@
   <div class="h-full flex items-center justify-center">
     <span class="text-surface-400 italic">Loading...</span>
   </div>
-  <!-- {:else if jsonData === null}
-  <div class="h-full2 flex flex-col items-start">
-    <span class="text-surface-400 italic">No settings data available.</span>
-    <button
-      type="button"
-      class="btn preset-filled"
-      onclick={() => (jsonData = jsonDeepCopy(defaultJsonSettings))}
-    >
-      Initialize from default
-    </button>
-  </div> -->
 {:else if $selectedProject}
   <div class="flex flex-col h-full p-4 overflow-auto space-y-6">
     <div class="rounded-lg shadow p-4">
@@ -293,7 +280,7 @@
 
     <div class="rounded-lg shadow p-4">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">Paths</h2>
+        <h2 class="text-xl font-bold">Paths ({$selectedProject.jsonData.source.paths.length})</h2>
         <button type="button" class="btn px-3 py-1 preset-filled-primary-500 rounded-md" onclick={addPath}>
           Add Path
         </button>

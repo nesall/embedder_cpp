@@ -1,0 +1,177 @@
+{
+  "_comment": "PhenixCode RAG minimal configuration",
+  "_version": "1.0.0",
+  "_docs": "https://github.com/nesall/embedder_cpp/wiki/configuration",
+
+  "tokenizer": {
+    "config_path": "./bge_tokenizer.json"
+  },
+  "embedding": {
+    "apis": [
+      {
+        "_comment0": "You can run an embedding model locally (no GPU required), for example:",
+        "_comment1": "./llama-server -m ./coderankembed-q4_k_m.gguf --embedding --pooling cls -ub 8192 --port 8584 ",
+        "api_key": "",
+        "api_url": "http://127.0.0.1:8584/embedding",
+        "id": "local-coder",
+        "model": "nomic-ai/CodeRankEmbed",
+        "name": "local coder",
+        "document_format": "{}",
+        "query_format": "{}"
+      }
+    ],
+    "current_api": "local",
+    "batch_size": 4,
+    "timeout_ms": 30000,
+    "retry_attempts": 3,
+    "top_k": 5,
+    "prepend_label_format": "[Source: {}]\n"
+  },
+  "generation": {
+    "apis": [
+      {
+        "_comment0": "You can run an llm model locally (no GPU required), for example:",
+        "_comment1": "./llama-server -m ./qwen2.5-coder-1.5b-instruct-q4_k_m.gguf -c 32768 --port 8585 -np 1",
+        "api_key": "",
+        "api_url": "http://127.0.0.1:8585/v1/chat/completions",
+        "id": "local-qwen",
+        "model": "qwen2.5-coder-1.5b",
+        "name": "Local",
+        "enabled": true,
+        "pricing_tpm": {
+          "input": 0,
+          "output": 0
+        }
+      },
+      {
+        "api_key": "${MISTRAL_API_KEY}",
+        "api_url": "https://api.mistral.ai/v1/chat/completions",
+        "id": "mistral-devstral",
+        "model": "devstral-small-latest",
+        "name": "Mistral",
+        "pricing_tpm": {
+          "input": 0.1,
+          "output": 0.3
+        },
+        "context_length": 128000
+      },
+      {
+        "api_key": "${GEMINI_API_KEY}",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "id": "gemini-2.0-flash",
+        "model": "gemini-2.0-flash",
+        "name": "Gemini",
+        "pricing_tpm": {
+          "input": 0.1,
+          "output": 0.4
+        },
+        "context_length": 1000000
+      },      
+      {
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "api_url": "https://api.deepseek.com/chat/completions",
+        "id": "deepseek",
+        "model": "deepseek-chat",
+        "name": "DeepSeek",
+        "pricing_tpm": {
+          "cached_input": 0.028,
+          "input": 0.28,
+          "output": 0.42
+        },
+        "context_length": 128000
+      },      
+      {
+        "api_key": "${XAI_API_KEY}",
+        "api_url": "https://api.x.ai/v1/chat/completions",
+        "id": "xai",
+        "model": "grok-4-fast-non-reasoning",
+        "name": "X AI",
+        "pricing_tpm": {
+          "cached_input": 0.05,
+          "input": 0.2,
+          "output": 0.5
+        },
+        "context_length": 2000000
+      },
+      {
+        "api_key": "${OPENAI_API_KEY}",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "id": "openai-4o-mini",
+        "model": "gpt-4o-mini",
+        "name": "OpenAI",
+        "max_tokens_name": "max_completion_tokens",
+        "pricing_tpm": {
+          "cached_input": 0.075,
+          "input": 0.15,
+          "output": 0.6
+        },
+        "context_length": 128000
+      }
+    ],
+    "current_api": "mistral-devstral",
+    "timeout_ms": 120000,
+    "max_chunks": 7,
+    "max_full_sources": 2,
+    "max_related_per_source": 3,
+    "max_context_tokens": 64000,
+    "default_temperature": 0.1,
+    "default_max_tokens": 2048,
+    "default_max_tokens_name": "max_tokens",
+    "prepend_label_format": "[Source: {}]\n",
+    "excerpt": {
+      "enabled": true,
+      "min_chunks": 3,
+      "max_chunks": 15,
+      "threshold_ratio": 0.75
+    }
+  },
+  "database": {
+    "sqlite_path": "./db_metadata.db",
+    "index_path": "./db_embeddings.index",
+    "vector_dim": 768,
+    "max_elements": 100000,
+    "distance_metric": "cosine",
+    "_comment": "For distance_metric use either cosine (default) or l2"
+  },
+  "chunking": {
+    "semantic": true,
+    "nof_min_tokens": 50,
+    "nof_max_tokens": 450,
+    "overlap_percentage": 0.2
+  },
+  "source": {
+    "_comment_project_id": "Leave empty to auto-generate from config path, or set a custom stable project_id",
+    "project_id": "",
+    "project_title": "Default Project Title",
+    "project_description": "",
+    "paths":[
+      {
+        "exclude": [
+          "*/dist/*",
+          "*/test/*",
+          "*/3rdparty/*"
+        ],
+        "extensions": [],
+        "path": "./",
+        "recursive": true,
+        "type": "directory"
+      }
+    ],  
+    "default_extensions": [ ".c", ".cpp", ".h", ".hpp", ".py", ".js", ".ts", ".java", ".rs", ".cs", ".xaml", ".php", ".jsp", ".html", ".css", ".md" ],
+    "global_exclude": [
+      "*/node_modules/*", "*.min.js", "*.log", "*/build/*",
+      "*/.git/*", ".gitignore", "*/CVS/*",
+      "*/debug/*", "*/release/*", "*/lib/*", "*/docker/*",
+      "*/fonts/*", "*/images/*", "*/test/*","*/tests/*",
+      "*/example/*", "*/examples/*", "*/obj/*", "*/build_dbg/*", "*/build_rel/*"
+    ],
+    "encoding": "utf-8",
+    "max_file_size_mb": 10
+  },
+  "logging": {
+    "log_to_console": true,
+    "log_to_file": true,
+    "logging_file": "embedder.log",
+    "diagnostics_file": "embedder_d.log"
+  }
+}

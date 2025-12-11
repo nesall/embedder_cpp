@@ -7,7 +7,7 @@ export function jsonDeepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-export const defaultJsonSettings: SettingsJsonType =
+const defaultJsonSettings: SettingsJsonType =
 {
   "tokenizer": {
     "config_path": "./bge_tokenizer.json"
@@ -130,7 +130,6 @@ export const defaultJsonSettings: SettingsJsonType =
     "overlap_percentage": 0.2
   },
   "source": {
-    "_comment_project_id": "Leave empty to auto-generate from config path, or set a custom stable project_id",
     "project_id": "",
     "project_title": "Default Project Title",
     "project_description": "",
@@ -171,7 +170,8 @@ export const defaultJsonSettings: SettingsJsonType =
 export const Consts = {
   DarkOrLightKey: "darkOrLight",
   EmbedderExecutablePath: "EmbedderExecutablePath",
-  EmbedderSettingsFilePaths: "EmbedderSettingsFilePaths"
+  WatchForChanges: "WatchForChanges",
+  WatchInterval: "WatchInterval",
 };
 
 export async function setPersistentKey(key: string, value: string, sendToCpp = true) {
@@ -232,8 +232,8 @@ let mockProjects: ProjectItem[] = [
 
 let mockInstances: InstanceItem[] = [
   {
-    "config": "C:/Users/Arman/workspace/projects/alpha/settings-embcpp.json",
-    "cwd": "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
+    "config": "/workspace/projects/alpha/settings-embcpp.json",
+    "cwd": "\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
     "host": "localhost",
     "id": "MERTUN-18860-1765014564",
     "last_heartbeat": 1765021210,
@@ -247,8 +247,8 @@ let mockInstances: InstanceItem[] = [
     "status": "healthy"
   },
   { // instance launched outside of admin dashboard (possibility to import into dashboard).
-    "config": "C:/Users/Arman/workspace/projects/alpha/settings-embcpp_2.json",
-    "cwd": "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
+    "config": "/workspace/projects/alpha/settings-embcpp_2.json",
+    "cwd": "\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
     "host": "localhost",
     "id": "MERTUN-18860-1765014564_2",
     "last_heartbeat": 1765021210,
@@ -265,12 +265,12 @@ let mockInstances: InstanceItem[] = [
 
 async function test_getInstances() {
   console.log("[mock] fetching instances", mockInstances);
-  return mockInstances;
+  return { status: "success", instances: mockInstances };
 }
 
 async function test_getProjectList() {
   console.log("[mock] fetching projects", mockProjects);
-  return mockProjects;
+  return { status: "success", projects: mockProjects };
 }
 
 async function test_saveProjectSettings(project: ProjectItem): Promise<{ status: string; message: string }> {
@@ -318,7 +318,38 @@ async function test_importProject(projectId: string, configPath: string): Promis
   return { status: "success", message: "Project imported successfully." };
 }
 
-export async function helper_getInstances(): Promise<InstanceItem[]> {
+async function test_startServe(project: ProjectItem, coreExecutablePath: string) {
+  let inst: InstanceItem = {
+    config: project.settingsFilePath,
+    cwd: "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
+    host: "localhost",
+    id: "instance-for-" + project.jsonData.source.project_id,
+    last_heartbeat: Date.now(),
+    last_heartbeat_str: new Date().toISOString(),
+    name: project.jsonData.source.project_title,
+    pid: 20000 + Math.floor(Math.random() * 10000),
+    port: 8600 + Math.floor(Math.random() * 1000),
+    project_id: project.jsonData.source.project_id,
+    started_at: Date.now(),
+    started_at_str: new Date().toISOString(),
+    status: "healthy"
+  }
+  mockInstances.push(inst);
+  return { status: "success", message: "Project started successfully." };
+}
+
+async function test_stopServe(instanceId: string) {
+  const insts = mockInstances;
+  const inst = insts.find((instance) => instance.id === instanceId);
+  if (inst) {
+    mockInstances = mockInstances.filter(i => i.project_id != inst.project_id);
+    console.log("test_stopServe", mockInstances);
+    return { status: "success", message: "Project started successfully." };
+  }
+  return { status: "error", message: "Instance not found." };
+}
+
+export async function helper_getInstances(): Promise<{ status: string, instances: InstanceItem[], message?: string }> {
   if (window.cppApi) {
     return await window.cppApi.getInstances();
   } else {
@@ -326,7 +357,7 @@ export async function helper_getInstances(): Promise<InstanceItem[]> {
   }
 }
 
-export async function helper_getProjectList(): Promise<ProjectItem[]> {
+export async function helper_getProjectList(): Promise<{ status: string, projects: ProjectItem[], message?: string }> {
   if (window.cppApi) {
     return await window.cppApi.getProjectList();
   } else {
@@ -366,6 +397,27 @@ export async function helper_importProject(projectId: string, configPath: string
   }
 }
 
-export function hasRunningInstance(projectId: string, insts: InstanceItem[]): boolean {
-  return insts.some((instance) => instance.project_id === projectId);
+export async function helper_startServe(project: ProjectItem, coreExecutablePath: string, watch: boolean, interval: number) {
+  if (window.cppApi) {
+    return await window.cppApi.startServe(project, coreExecutablePath, watch, interval);
+  } else {
+    return await test_startServe(project, coreExecutablePath);
+  }
+}
+
+export async function helper_stopServe(instanceId: string) {
+  if (window.cppApi) {
+    return await window.cppApi.stopServe(instanceId);
+  } else {
+    return await test_stopServe(instanceId);
+  }
+}
+
+export function standardizePath(path: string): string {
+  return path.replace(/\\/g, '/').toLowerCase();
+}
+
+export function mapProjectToInstance(project: ProjectItem, insts: InstanceItem[]): InstanceItem | null {
+  const v = insts.find(i => standardizePath(i.config) === standardizePath(project.settingsFilePath));
+  return v ? v : null;
 }

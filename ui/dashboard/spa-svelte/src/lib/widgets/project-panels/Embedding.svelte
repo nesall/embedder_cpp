@@ -3,6 +3,7 @@
   import * as icons from "@lucide/svelte";
   import { slide } from "svelte/transition";
   import { selectedProject } from "../../store";
+  import UpDownButton from "../misc/UpDownButton.svelte";
 
   const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
@@ -81,10 +82,30 @@
     // selectedJsonSettings.set(jsonData);
   }
 
-  function onHiddenToggle(index: number) {
-    if ($selectedProject && jsonData) {
-      jsonData.embedding.apis[index]._hidden = !jsonData.embedding.apis[index]._hidden;
+  // function onHiddenToggle(index: number) {
+  //   if ($selectedProject && jsonData) {
+  //     jsonData.embedding.apis[index]._hidden = !jsonData.embedding.apis[index]._hidden;
+  //   }
+  // }
+
+  function onExpandAll() {
+    if (!$selectedProject) {
+      return;
     }
+    for (const api of $selectedProject?.jsonData.embedding.apis) {
+      api._hidden = false;
+    }
+    $selectedProject = $selectedProject;
+  }
+
+  function onCollapseAll() {
+    if (!$selectedProject) {
+      return;
+    }
+    for (const api of $selectedProject?.jsonData.embedding.apis) {
+      api._hidden = true;
+    }
+    $selectedProject = $selectedProject;
   }
 </script>
 
@@ -166,7 +187,7 @@
             <label class="label">
               <span class="label-text">Current API</span>
               <select
-                id="current-api"
+                id="current-api-emb"
                 class="select"
                 value={$selectedProject.jsonData.embedding.current_api}
                 onchange={onCurApiChange}
@@ -186,24 +207,14 @@
               Add API
             </button>
           </div>
+          <div>
+            <button type="button" class="btn btn-sm" onclick={onCollapseAll}>collapse all</button> |
+            <button type="button" class="btn btn-sm" onclick={onExpandAll}>expand all</button>
+          </div>
 
           {#each $selectedProject.jsonData.embedding.apis as api, i}
-            <div class="flex flex-col items-start2">
-              <button
-                type="button"
-                class="btn btn-sm flex items-center justify-start preset-tonal-secondary {api._hidden
-                  ? ''
-                  : 'rounded-b-none'}"
-                onclick={() => onHiddenToggle(i)}
-              >
-                {#if api._hidden}
-                  <icons.ChevronDown />
-                  <span class="ml-2 italic">{api.name}</span>
-                {:else}
-                  <icons.ChevronUp />
-                  <span class="ml-2">{api.name}</span>
-                {/if}
-              </button>
+            <div class="flex flex-col">
+              <UpDownButton bind:hidden={api._hidden} text={`${api.name} - ${api.model}`} />
               {#if !api._hidden}
                 <div
                   class="border border-surface-200-800 rounded-md rounded-t-none p-4 mb-4 flex flex-col gap-4"

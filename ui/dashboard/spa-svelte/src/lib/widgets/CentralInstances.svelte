@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { getContext, onMount } from "svelte";
   import * as icons from "@lucide/svelte";
   import { instances, projectList } from "../store";
-  import { helper_getProjectList, helper_importProject, toaster } from "../utils";
+  import { helper_importProject, standardizePath, toaster } from "../utils";
   import InstanceInfo from "./misc/InstanceInfo.svelte";
   import type { InstanceItem, ProjectItem } from "../../app";
   import { slide } from "svelte/transition";
 
+  // interface Props {
+  //   fetchInstances: () => void;
+  // }
+  // let { fetchInstances }: Props = $props();
+
+  const fetchInstances: () => void = getContext("FetchInstances");
+  const fetchProjects: () => void = getContext("FetchProjects");
+
   onMount(() => {
-    helper_getProjectList().then((v) => projectList.set(v));
+    fetchProjects();
   });
 
   function onInstClick(j: number) {
@@ -18,7 +26,7 @@
 
   function onImport(j: number) {
     helper_importProject($instances[j].project_id, $instances[j].config).then((res) => {
-      helper_getProjectList().then((v) => projectList.set(v));
+      fetchProjects();
       if (res.status === "success") {
         console.log("Imported instance into projects:", $instances[j]);
         toaster.success({
@@ -32,7 +40,11 @@
   }
 
   function isInstInProjectList(inst: InstanceItem, pv: ProjectItem[]) {
-    return pv?.some((p) => p.jsonData.source.project_id === inst.project_id);
+    return pv?.some((p) => standardizePath(p.settingsFilePath) === standardizePath(inst.config));
+  }
+
+  function onRefresh() {
+    fetchInstances();
   }
 </script>
 
@@ -40,27 +52,36 @@
   <form class="w-full">
     <fieldset class="space-y-4">
       <div class="rounded-md shadow p-4 flex flex-col gap-4">
+        <div class="flex">
+          <button type="button" class="btn preset-tonal" onclick={onRefresh}>
+            <icons.RefreshCcw size={20} />
+            Refresh
+          </button>
+        </div>
         <div class="text-left font-bold text-lg">List of currently running active instances ({$instances.length})</div>
         <div class="flex flex-col space-y-2">
           {#each $instances as inst, j}
             <div class="border rounded">
-              <button type="button" class="btn w-full text-left p-2 flex items-center" onclick={() => onInstClick(j)}>
-                <div class="flex items-center space-x-2">
-                  <div><span>Instance:&nbsp;</span><span class="font-bold">{inst.project_id}</span></div>
-                  {#if !isInstInProjectList(inst, $projectList)}
-                    <span class="italic text-error-500 text-sm">(not in projects)</span>
-                  {/if}
-                </div>
-                <span class="ml-auto">
+              <button type="button" class="btn flex items-center p-2 flex items-center" onclick={() => onInstClick(j)}>
+                <span class="">
                   {#if inst._hidden}
                     <icons.ChevronDown />
                   {:else}
                     <icons.ChevronUp />
                   {/if}
                 </span>
+                <div class="flex items-center space-x-2">
+                  <div><span>Instance:&nbsp;</span><span class="font-bold">{inst.project_id}</span></div>
+                  {#if !isInstInProjectList(inst, $projectList)}
+                    <span class="italic text-error-500 text-sm">(not in projects)</span>
+                  {/if}
+                </div>
               </button>
               {#if !inst._hidden}
-                <div transition:slide>
+                <hr class="hr" />
+              {/if}
+              {#if !inst._hidden}
+                <div class="pt-2" transition:slide>
                   {#if !isInstInProjectList(inst, $projectList)}
                     <div class="w-full flex items-center space-x-4 px-4">
                       <button

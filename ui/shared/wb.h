@@ -18,7 +18,6 @@ public:
 
   void setAppIcon(const std::string &iconBaseName);
   std::pair<int, int> getWindowSize();
-  static std::string getExecutableDir();
   static std::string findWebAssets();
 
 private:

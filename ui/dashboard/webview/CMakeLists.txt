@@ -55,7 +55,17 @@ FetchContent_Declare(
   GIT_TAG v3.11.3
 )
 
+FetchContent_Declare(
+  sqlite3
+  URL https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip
+)
+FetchContent_MakeAvailable(sqlite3)
+
 FetchContent_MakeAvailable(httplib utils_log nlohmann_json)
+
+# Create SQLite3 library
+add_library(sqlite3_lib ${sqlite3_SOURCE_DIR}/sqlite3.c)
+target_include_directories(sqlite3_lib PUBLIC ${sqlite3_SOURCE_DIR})
 
 # logging
 add_library(utils_log INTERFACE)
@@ -98,6 +108,8 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 #target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
 target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/ui/shared" "${ROOT_DIR}/include")
 
+set(PROJECTS_FOLDER "phenixcode_projects")
+
 include("${ROOT_DIR}/version.cmake")
 
 # using fmt lib instead of std::format (for older compiler compatibility)
@@ -105,6 +117,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   FMT_HEADER_ONLY
   FMT_USE_LOCALE=0
   EMBEDDER_VERSION="${EMBEDDER_VERSION}"
+  PROJECTS_FOLDER_NAME="${PROJECTS_FOLDER}"
 )
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -117,6 +130,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
   webview::core 
   httplib::httplib 
+  sqlite3_lib
   utils_log 
   nlohmann_json::nlohmann_json
 )
@@ -155,5 +169,30 @@ if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
           "${OPENSSL_BIN_DIR}/libssl-3-x64.dll"
           $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${PROJECT_NAME}>>
   )
+endif()
+
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  if(EXISTS "${ROOT_DIR}/assets/settings.json")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy
+        "${ROOT_DIR}/assets/settings.json"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/${PROJECTS_FOLDER}"
+      COMMENT "Copying assets/settings.json"
+    )
+  else()
+    message(WARNING "assets/settings.json not found at ${ROOT_DIR}/assets/settings.json")
+  endif()
+else()
+  if(EXISTS "${ROOT_DIR}/assets/settings.json")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy
+        "${ROOT_DIR}/assets/settings.json"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+      COMMENT "Copying assets/settings.json"
+    )
+  else()
+    message(WARNING "assets/settings.json not found at ${ROOT_DIR}/assets/settings.json")
+  endif()
 endif()
 

@@ -1,11 +1,13 @@
 #include "utils.h"
-#include "wb.h"
 #include "procmngr.h"
 #include <utils_log/logger.hpp>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <random>
+#if defined(__linux__)
+#include <gtk/gtk.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -26,9 +28,23 @@ nlohmann::json shared::AppConfig::toJson() const
   return j;
 }
 
+std::string shared::getExecutableDir()
+{
+  LOG_START;
+#ifdef _WIN32
+  char path[MAX_PATH] = { 0 };
+  GetModuleFileNameA(NULL, path, MAX_PATH);
+  return fs::path(path).parent_path().string();
+#else
+  char result[PATH_MAX] = { 0 };
+  ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+  return fs::path(std::string(result, (count > 0) ? count : 0)).parent_path().string();
+#endif
+}
+
 std::string shared::findConfigPath(const std::string &filename)
 {
-  const std::string exeDir = Webview::getExecutableDir();
+  const std::string exeDir = getExecutableDir();
   static std::vector<std::string> paths = {
     exeDir + "/" + filename,
     exeDir + "/../" + filename,
@@ -148,8 +164,7 @@ std::string shared::getProjectId(const std::string &path)
 std::string shared::generateAppKey()
 {
   // Random 32-character hex string
-  std::random_device rd;
-  std::mt19937 gen(rd());
+  std::mt19937 gen(std::random_device{}());
   std::uniform_int_distribution<> dis(0, 255);
   std::stringstream ss;
   for (int i = 0; i < 16; i++) {
@@ -157,6 +172,22 @@ std::string shared::generateAppKey()
   }
   return ss.str();
 }
+
+std::string shared::generateRandomId(size_t nof)
+{
+  static constexpr char chars[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789_";
+  thread_local std::mt19937 rng{ std::random_device{}() };
+  std::uniform_int_distribution<size_t> dist(0, sizeof(chars) - 2); // excludes terminating '\0'
+  std::string out;
+  out.reserve(nof);
+  for (size_t i = 0; i < nof; ++i)
+    out.push_back(chars[dist(rng)]);
+  return out;
+}
+
 
 ProcessManager *shared::ProcessesHolder::getOrCreateProcess(const std::string &appKey, const std::string &projectId)
 {

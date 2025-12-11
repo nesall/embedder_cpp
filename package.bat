@@ -14,7 +14,8 @@ echo VER=%VER%
 echo NAME=%NAME%
 
 set "EMBEDDER=."
-set "WEBVIEW=ui\clients\webview"
+set "CLIENT=ui\clients\webview"
+set "DASHBOARD=ui\dashboard\webview"
 
 rem ---------- build embedder ----------
 pushd "%EMBEDDER%"
@@ -22,8 +23,13 @@ call build_rel.bat
 popd
 echo FINISHED %EMBEDDER%
 
-rem ---------- build webview ----------
-pushd "%WEBVIEW%"
+rem ---------- build client ----------
+pushd "%CLIENT%"
+call build_rel.bat
+popd
+
+rem ---------- build dashboard ----------
+pushd "%DASHBOARD%"
 call build_rel.bat
 popd
 
@@ -32,7 +38,8 @@ rmdir /s /q "%NAME%" 2>nul
 mkdir "%NAME%"
 
 xcopy "%EMBEDDER%\dist\*"   "%NAME%\" /E /Y
-xcopy "%WEBVIEW%\dist\*"    "%NAME%\" /E /Y
+xcopy "%CLIENT%\dist\*"    "%NAME%\" /E /Y
+xcopy "%DASHBOARD%\dist\*"    "%NAME%\" /E /Y
 
 del /f /q "%NAME%.zip" 2>nul
 echo %NAME%.zip...

@@ -74,14 +74,14 @@ public:
 #ifdef _WIN32
     ZeroMemory(&processInfo_, sizeof(processInfo_));
 
-    jobObject_ = AutoHandle{ CreateJobObject(NULL, NULL) };
-    if (jobObject_) {
-      JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
-      jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-      if (!SetInformationJobObject(jobObject_, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
-        // Log error but proceed, job object might still be usable
-      }
-    }
+    //jobObject_ = AutoHandle{ CreateJobObject(NULL, NULL) };
+    //if (jobObject_) {
+    //  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+    //  jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    //  if (!SetInformationJobObject(jobObject_, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
+    //    // Log error but proceed, job object might still be usable
+    //  }
+    //}
 #endif
   }
 
@@ -134,9 +134,9 @@ public:
     processInfo_.hProcess = AutoHandle{ tempProcessInfo.hProcess };
     processInfo_.hThread = AutoHandle{ tempProcessInfo.hThread };
     processInfo_.dwProcessId = tempProcessInfo.dwProcessId;
-    if (jobObject_) {
-      AssignProcessToJobObject(jobObject_, processInfo_.hProcess);
-    }
+    //if (jobObject_) {
+    //  AssignProcessToJobObject(jobObject_, processInfo_.hProcess);
+    //}
     running_ = true;
     return true;
 
@@ -265,7 +265,7 @@ public:
 
   bool isRunning() const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
-    return !running_;
+    return running_;
   }
 
   bool testUpdatedRunningStatus() {
@@ -396,10 +396,26 @@ public:
 #endif
   }
 
+  uint64_t detach() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    running_ = false;
+#ifdef _WIN32
+    uint64_t detachedPid = static_cast<uint64_t>(processInfo_.dwProcessId);
+    processInfo_.hProcess = NULL;
+    processInfo_.hThread = NULL;
+    processInfo_.dwProcessId = 0;
+    return detachedPid;
+#else
+    uint64_t detachedPid = static_cast<uint64_t>(pid);
+    pid = -1;
+    return detachedPid;
+#endif
+  }
+
 private:
 #ifdef _WIN32
   mutable MutableProcessInfo processInfo_;
-  mutable AutoHandle jobObject_;
+  //mutable AutoHandle jobObject_;
 #else
   mutable pid_t pid = -1;
 #endif

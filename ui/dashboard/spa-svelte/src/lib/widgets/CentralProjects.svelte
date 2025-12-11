@@ -1,41 +1,33 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { getContext, onMount } from "svelte";
   import * as icons from "@lucide/svelte";
   import ProjectPanel from "./ProjectPanel.svelte";
   import {
-    hasRunningInstance,
     helper_createProject,
     helper_deleteProject,
-    helper_getProjectList,
     helper_importProject,
+    mapProjectToInstance,
     toaster,
   } from "../utils";
   import type { ProjectItem } from "../../app";
   import { instances, selectedProject, projectList } from "../store";
   import { slide } from "svelte/transition";
-  // import { Dialog, Portal } from "@skeletonlabs/skeleton-svelte";
 
-  // let openImportState = $state(false);
+  const fetchProjects: (notify?: boolean) => void = getContext("FetchProjects");
 
   onMount(() => {
-    helper_getProjectList().then((v) => projectList.set(v));
+    fetchProjects();
   });
 
   async function onItemClick(item: ProjectItem) {
-    // const settings = await test_getPojectSettings(item.jsonData.source.project_id);
-    // if ($selectedProject) {
-    //   console.log("Saving selectedJsonSettings");
-    //   test_setPojectSettings($selectedProject.jsonData.source.project_id, $selectedJsonSettings);
-    // }
     console.log("Switching to project", $state.snapshot(item.jsonData));
-    // selectedJsonSettings.set(settings);
     selectedProject.set(item);
   }
 
   async function onAddProject() {
     try {
       selectedProject.set(await helper_createProject());
-      projectList.set(await helper_getProjectList());
+      fetchProjects();
       toaster.success({ title: "Project created successfully." });
     } catch (error) {
       toaster.error({ title: "Failed to create project." });
@@ -45,10 +37,14 @@
   async function onDeleteProject() {
     try {
       if (!$selectedProject) return;
-      await helper_deleteProject($selectedProject);
-      projectList.set(await helper_getProjectList());
-      selectedProject.set(null);
-      toaster.success({ title: "Project deleted successfully." });
+      const res = await helper_deleteProject($selectedProject);
+      if (res.status === "success") {
+        fetchProjects();
+        selectedProject.set(null);
+        toaster.success({ title: "Project deleted successfully." });
+      } else {
+        toaster.error({ title: res.message });
+      }
     } catch (error) {
       toaster.error({ title: "Failed to delete project." });
     }
@@ -61,7 +57,7 @@
         .then((config: { project_id: string; path: string } | null) => {
           if (config) {
             helper_importProject(config.project_id, config.path).then((res) => {
-              helper_getProjectList().then((v) => projectList.set(v));
+              fetchProjects();
               if (res.status === "success") {
                 toaster.success({
                   title: "Import Successful",
@@ -85,6 +81,10 @@
       // openImportState = true;
     }
   }
+
+  $effect(() => {
+    if ($projectList) console.log(`CentralProjects.svelte - nof projects available: ${$projectList.length}`);
+  });
 </script>
 
 <div class="h-full">
@@ -118,7 +118,17 @@
         </button>
       </div>
       <ul class="w-full h-full p-1 shadow overflow-y-auto border border-surface-200-800 rounded min-w-64">
-        <div class="bg-surface-100-900 p-2 mb-2">View/Edit Projects</div>
+        <div class="bg-surface-100-900 rounded p-2 mb-2 flex items-center">
+          Available Projects
+          <button
+            type="button"
+            class="btn-icon btn-sm preset-tonal ml-auto"
+            title="Refresh project list"
+            onclick={() => fetchProjects(true)}
+          >
+            <icons.RefreshCw />
+          </button>
+        </div>
         {#each $projectList as item (item.jsonData.source.project_id)}
           <li
             class="hover:bg-surface-200-800 px-2 flex items-center space-x-2 border-b border-surface-200-800"
@@ -131,7 +141,7 @@
               "
               onclick={() => onItemClick(item)}
             >
-              {#if hasRunningInstance(item.jsonData.source.project_id, $instances)}
+              {#if mapProjectToInstance(item, $instances)}
                 <span class="font-monospace text-xs bg-success-300-700 rounded px-2 w-8 font-bold">on</span>
               {:else}
                 <span class="font-monospace text-xs bg-surface-100-900 rounded text-surface-800-200 px-2 w-8">off</span>
@@ -150,22 +160,3 @@
     </div>
   </div>
 </div>
-<!-- 
-<Dialog open={openImportState} onOpenChange={(e) => (openImportState = e.open)}>
-  <Portal>
-    <Dialog.Backdrop class="" />
-    <Dialog.Positioner class="fixed inset-0 z-50 flex justify-center items-center">
-      <Dialog.Content class="card bg-surface-100-900 w-md p-4 space-y-2 shadow-xl">
-        <Dialog.Title class="text-lg font-bold">Project Import</Dialog.Title>
-        <hr class="hr" />
-        <Dialog.Description>
-          <div class="flex flex-col space-y-4">
-            Enter absulote path of a settings JSON file
-            <input type="text" class="input w-full" placeholder="Path to project config JSON file" />
-          </div>
-        </Dialog.Description>
-        <Dialog.CloseTrigger class="btn preset-filled w-full">Close</Dialog.CloseTrigger>
-      </Dialog.Content>
-    </Dialog.Positioner>
-  </Portal>
-</Dialog> -->

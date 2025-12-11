@@ -3,7 +3,6 @@
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
 
-  const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
   onMount(() => {

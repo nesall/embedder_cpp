@@ -5,6 +5,7 @@
 #include "procmngr.h"
 #include "utils.h"
 #include "instregistry.h"
+#include "settings.h"
 #include "3rdparty/portable-file-dialogs.h"
 #include <filesystem>
 #include <string>
@@ -12,6 +13,9 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
+#include <chrono>
+#include <functional>
+#include <mutex>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -29,6 +33,95 @@ namespace fs = std::filesystem;
 namespace {
 
   const std::string CONFIG_FNAME = "admconfig.json";
+  //const std::string PROJECTS_FOLDER_NAME = "phenixcode_projects";
+  const std::string PROJECT_REFS_FNAME = "proj-refs.json";
+  const fs::path projectsFolderPath() {
+    return (fs::path(shared::getExecutableDir()) / fs::path(PROJECTS_FOLDER_NAME));
+  }
+  const fs::path defaultSettingsJsonPath() {
+    return (fs::path(shared::getExecutableDir()) / fs::path("settings.json"));
+  }
+  const fs::path projectRefsPath() {
+    return (projectsFolderPath() / fs::path(PROJECT_REFS_FNAME));
+  }
+  void ensureProjectsFolderExist() {
+    if (!fs::exists(projectsFolderPath())) {
+      if (fs::create_directories(projectsFolderPath())) {
+        LOG_MSG << "Created projects folder at:" << fs::absolute(projectsFolderPath()).string();
+      } else {
+        throw std::runtime_error("Failed to create projects folder at: " + fs::absolute(projectsFolderPath()).string());
+      }
+    }
+  }
+
+  bool validateProjectItemArg(nlohmann::json j) {
+    if (!j.contains("settingsFilePath")) {
+      throw std::runtime_error("Missing settingsFilePath");
+    }
+    if (!j.contains("jsonData")) {
+      throw std::runtime_error("Missing jsonData");
+    }
+    std::string fname = j["settingsFilePath"].get<std::string>();
+    if (fs::exists(fname)) {
+      if (!j.contains("jsonData")) {
+        throw std::runtime_error("Missing jsonData");
+      }
+      if (!j["jsonData"].contains("source")) {
+        throw std::runtime_error("Missing jsonData.source");
+      }
+      auto projectId = j["jsonData"]["source"].value("project_id", std::string{});
+      // Note: projectId can be empty (auto-generation)
+
+      nlohmann::json jFile;
+      {
+        std::ifstream file(fname);
+        file >> jFile;
+      }
+      if (!jFile.contains("source")) {
+        throw std::runtime_error("Invalid project settings file, missing source");
+      }
+      auto fileProjectId = jFile["source"].value("project_id", std::string{});
+      if (fileProjectId != projectId) {
+        throw std::runtime_error("ProjectId mismatch");
+      }
+      return true;
+    }
+    return false;
+  }
+
+  bool testInstanceStatus(bool testAlive, const std::string &configPath, const std::string instanceId, int steps = 16) {
+    InstanceRegistry registry;
+    int k = (std::max)(steps, 1);
+    while (--k) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      auto instances = registry.getActiveInstances();
+      bool found = false;
+      for (const auto &a : instances) {
+        if (
+          a["id"].get<std::string>() == instanceId ||
+          fs::path(a["config"].get<std::string>()).lexically_normal() == fs::path(configPath).lexically_normal()
+          ) {
+          LOG_MSG << "[Found] instance" << a["id"].get<std::string>();
+          found = true;
+          if (testAlive) {
+            break;
+          }
+        }
+      }
+      if (testAlive) {
+        if (found) return true;
+      } else {
+        if (!found) return true;
+      }
+    }
+    return false;
+  }
+  bool testInstanceDead(const std::string &configPath, const std::string instanceId, int steps = 16) {
+    return testInstanceStatus(false, configPath, instanceId, steps);
+  }
+  bool testInstanceAlive(const std::string &configPath, const std::string instanceId, int steps = 16) {
+    return testInstanceStatus(true, configPath, instanceId, steps);
+  }
 
 } // anonymous namespace
 
@@ -42,8 +135,6 @@ int main() {
     return 1;
   }
 
-  shared::ProcessesHolder procUtil;
-
   shared::AppConfig prefs;
   shared::fetchOrCreatePrefsJson(prefs, CONFIG_FNAME);
 
@@ -51,120 +142,6 @@ int main() {
 
   httplib::Server svr;
   svr.set_mount_point("/", fs::absolute(assetsPath).string().c_str());
-
-  svr.set_logger([](const auto &req, const auto &res) {
-    LOG_MSG << req.method << req.path << "->" << res.status;
-    });
-
-  svr.Get("/api/.*", [&prefs](const httplib::Request &req, httplib::Response &res) {
-    LOG_START;
-    LOG_MSG << "svr.Get" << req.method << req.path;
-    //std::string host;
-    //int port;
-    //{
-    //  std::lock_guard<std::mutex> lock(prefs.mutex_);
-    //  host = prefs.host;
-    //  port = prefs.port;
-    //}
-
-    //httplib::Client cli(host, port);
-    //cli.set_connection_timeout(0, 60 * 1000ull);
-    //auto result = cli.Get(req.path.c_str());
-    //if (result) {
-    //  res.status = result->status;
-    //  res.set_content(result->body, result->get_header_value("Content-Type"));
-    //} else {
-    //  res.status = 503;
-    //  res.set_content("{\"error\": \"Backend unavailable\"}", "application/json");
-    //}
-    });
-
-  svr.Post("/api/.*", [&prefs](const httplib::Request &req, httplib::Response &res) {
-    LOG_START;
-    LOG_MSG << "svr.Post" << req.method << req.path;
-
-    std::string contentType = req.get_header_value("Content-Type");
-    if (contentType.empty()) {
-      contentType = "application/json";
-    }
-
-    //// Special case for /api/chat - handle streaming
-    //if (req.path.find("/api/chat") != std::string::npos) {
-
-    //  // Set up streaming response headers
-    //  res.set_header("Content-Type", "text/event-stream");
-    //  res.set_header("Cache-Control", "no-cache");
-    //  res.set_header("Connection", "keep-alive");
-
-    //  res.set_chunked_content_provider(
-    //    "text/event-stream",
-    //    [&prefs, req, &res, contentType](size_t offset, httplib::DataSink &sink) {
-    //      LOG_MSG << "Starting chunked content provider, offset:" << offset;
-    //      std::string host;
-    //      int port;
-    //      {
-    //        std::lock_guard<std::mutex> lock(prefs.mutex_);
-    //        host = prefs.host;
-    //        port = prefs.port;
-    //      }
-
-    //      httplib::Client cli(host, port);
-    //      cli.set_connection_timeout(0, 60 * 1000ull);
-
-    //      httplib::Headers headers = { {"Accept", "text/event-stream"} };
-    //      auto postRes = cli.Post(
-    //        req.path.c_str(),
-    //        headers,
-    //        req.body,
-    //        contentType,
-    //        [&sink](const char *data, size_t len) -> bool {
-    //          //LOG_MSG << "Received chunk: " << len << " bytes";
-    //          return sink.write(data, len);
-    //        }
-    //      );
-
-    //      sink.done();
-    //      
-    //      if (!postRes) {
-    //        LOG_MSG << "Error: Backend streaming unavailable";
-    //        res.status = 503;
-    //        res.set_content("{\"error\": \"Backend streaming unavailable\"}", "application/json");
-    //        return false;
-    //      }
-    //      if (postRes->status != 200) {
-    //        LOG_MSG << "Error: Backend streaming returned status" << postRes->status;
-    //        res.status = postRes->status;
-    //      }
-    //      
-    //      LOG_MSG << "Streaming completed successfully";
-
-    //      return true;
-    //    });
-    //  
-    //} else {
-    //  // Regular POST handling for non-streaming endpoints
-    //  std::string host;
-    //  int port;
-    //  {
-    //    std::lock_guard<std::mutex> lock(prefs.mutex_);
-    //    host = prefs.host;
-    //    port = prefs.port;
-    //  }
-
-    //  httplib::Client cli(host, port);
-    //  cli.set_connection_timeout(0, 60 * 1000ull);
-
-    //  auto result = cli.Post(req.path.c_str(), req.body, contentType);
-
-    //  if (result) {
-    //    res.status = result->status;
-    //    res.set_content(result->body, result->get_header_value("Content-Type"));
-    //  } else {
-    //    res.status = 503;
-    //    res.set_content("{\"error\": \"Backend unavailable\"}", "application/json");
-    //  }
-    //}
-    });
 
   std::atomic<bool> serverReady{ false };
 
@@ -181,7 +158,7 @@ int main() {
   while (!serverReady.load()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   try {
     LOG_MSG << "Using window size w" << prefs.width << ", h" << prefs.height;
@@ -221,7 +198,7 @@ int main() {
     auto changeTheme = [](bool) {};
 #endif
 
-    w.bind("setPersistentKey", [&prefs, &svr, changeTheme](const std::string &id, const std::string &data, void *)
+    w.bind("setPersistentKey", [&prefs, changeTheme](const std::string &id, const std::string &data, void *)
       {
         LOG_MSG << "setPersistentKey:" << id << data;
         try {
@@ -249,7 +226,7 @@ int main() {
       }, nullptr
     );
 
-    w.bind("getPersistentKey", [&prefs, &svr](const std::string &data) -> std::string
+    w.bind("getPersistentKey", [&prefs](const std::string &data) -> std::string
       {
         LOG_MSG << "getPersistentKey:" << data;
         try {
@@ -269,53 +246,36 @@ int main() {
       }
     );
 
-    w.bind("getSettingsFileProjectId", [](const std::string &data) -> std::string
+    w.bind("createProject", [](const std::string &) -> std::string
       {
-        LOG_MSG << "getSettingsFileProjectId";
-        try {
-          auto j = nlohmann::json::parse(data);
-          if (j.is_array() && 0 < j.size()) {
-            auto id = shared::getProjectId(j[0]);
-            LOG_MSG << "  \"" << LOG_NOSPACE << id << "\"";
-            return nlohmann::json(id).dump();
-          }
-        } catch (const std::exception &ex) {
-          LOG_MSG << ex.what();
-        }
-        return "null";
-      }
-    );
-
-    w.bind("startEmbedder", [&procUtil](const std::string &data) -> std::string
-      {
-        LOG_MSG << "startEmbedder:" << data;
+        LOG_MSG << "createProject";
         nlohmann::json res;
         try {
-          auto j = nlohmann::json::parse(data);
-          if (j.is_array() && 1 < j.size()) {
-            std::string exePath = j[0].get<std::string>();
-            std::string configPath = j[1].get<std::string>();
-            if (!std::filesystem::exists(exePath))
-              throw std::runtime_error("Embedder executable not found: " + exePath);
-            if (!std::filesystem::exists(configPath))
-              throw std::runtime_error("Embedder config file not found: " + configPath);
-            auto appKey = shared::generateAppKey();
-            auto projectId = shared::getProjectId(configPath);
-            auto proc = procUtil.getOrCreateProcess(appKey, projectId);
-            assert(proc);
-            if (proc->startProcess(exePath, { "--config", configPath, "serve", "--appkey", appKey })) {
-              res["status"] = "success";
-              res["message"] = "Embedder started successfully";
-              res["projectId"] = projectId;
-              res["appKey"] = appKey; // use to id proc
-              LOG_MSG << "Started embedder process" << proc->getProcessId() << "for projectId" << projectId;
-            } else {
-              procUtil.discardProcess(appKey);
-              throw std::runtime_error("Failed to start embedder process");
-            }
-          } else {
-            throw std::runtime_error("Invalid parameters for startEmbedder");
+          ensureProjectsFolderExist();
+          const auto src = defaultSettingsJsonPath();
+          if (!fs::exists(src)) {
+            throw std::runtime_error("Default settings file not found at: " + src.string());
           }
+          std::string fname = "settings_" + shared::generateRandomId(12) + ".json";
+          auto ffname = [&fname]() {
+            return projectsFolderPath() / fs::path(fname);
+            };
+          size_t n = 0;
+          while (fs::exists(ffname())) {
+            fname = "settings_" + shared::generateRandomId(12) + ".json";
+            if (10 < ++n) {
+              throw std::runtime_error("Failed to generate unique project settings filename");
+            }
+          }
+          if (!fs::copy_file(src, ffname())) {
+            throw std::runtime_error("Failed to copy default settings file to project folder");
+          }
+          Settings ss{ ffname().string() };
+          ss.initProjectIdIfMissing(true);
+
+          res["status"] = "success";
+          res["settingsFilePath"] = (fs::absolute(ffname())).string();
+          res["jsonData"] = ss.configJson();
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
           res["status"] = "error";
@@ -325,75 +285,26 @@ int main() {
       }
     );
 
-    w.bind("stopEmbedder", [&prefs, &procUtil](const std::string &data) -> std::string
-      {
-        LOG_MSG << "stopEmbedder:" << data;
-        nlohmann::json res;
-        try {
-          auto j = nlohmann::json::parse(data);
-          if (j.is_array() && 2 < j.size()) {
-            const std::string appKey = j[0].get<std::string>();
-            auto proc = procUtil.getProcessWithApiKey(appKey);
-            if (!proc)
-              throw std::runtime_error("Embedder appKey not found: " + appKey);
-            std::string host = j[1].get<std::string>();
-            if (host.empty())
-              throw std::runtime_error("Invalid host for embedder shutdown");
-            const int port = j[2].get<int>();
-            if (port <= 0)
-              throw std::runtime_error("Invalid port for embedder shutdown");
-            if (host == "localhost") host = "127.0.0.1";
-            assert(proc);
-            httplib::Client cli(host, port);
-            httplib::Headers headers = { {"X-App-Key", appKey} };
-            auto result = cli.Post("/api/shutdown", headers, "", "application/json");
-            if (result && result->status == 200) {
-              LOG_MSG << "Shutdown request sent to embedder process" << proc->getProcessId();
-            } else {
-              LOG_MSG << "Failed to send shutdown request to embedder process" << proc->getProcessId();
-            }
-            if (proc->waitForCompletion(10000)) {
-              LOG_MSG << "Embedder process" << proc->getProcessId() << "exited cleanly";
-            } else {
-              LOG_MSG << "Embedder process" << proc->getProcessId() << "did not exit in time, terminating...";
-              proc->stopProcess();
-            }
-            procUtil.discardProcess(appKey);
-            res["status"] = "success";
-            res["message"] = "Embedder stopped successfully";
-          } else {
-            throw std::runtime_error("Invalid parameters for startEmbedder");
-          }
-        } catch (const std::exception &ex) {
-          LOG_MSG << ex.what();
-          res["status"] = "error";
-          res["message"] = ex.what();
-        }
-        return res.dump();
-      }
-    );
-
-    w.bind("createProject", [&procUtil](const std::string &data) -> std::string
-      {
-        LOG_MSG << "createProject:" << data;
-        nlohmann::json res;
-        try {
-          auto j = nlohmann::json::parse(data);
-        } catch (const std::exception &ex) {
-          LOG_MSG << ex.what();
-          res["status"] = "error";
-          res["message"] = ex.what();
-        }
-        return res.dump();
-      }
-    );
-
-    w.bind("deleteProject", [&procUtil](const std::string &data) -> std::string
+    w.bind("deleteProject", [](const std::string &data) -> std::string
       {
         LOG_MSG << "deleteProject:" << data;
         nlohmann::json res;
         try {
           auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() == 0) {
+            throw std::runtime_error("Invalid parameters");
+          }
+          j = j[0];
+          if (validateProjectItemArg(j)) {
+            std::string fname = j["settingsFilePath"].get<std::string>();
+            if (fs::remove(fname)) {
+              res["status"] = "success";
+              res["message"] = "Project deleted successfully";
+              LOG_MSG << "Deleted project settings file:" << fname;
+            } else {
+              throw std::runtime_error("Failed to delete project settings file" + fname);
+            }
+          }
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
           res["status"] = "error";
@@ -403,12 +314,43 @@ int main() {
       }
     );
 
-    w.bind("importProject", [&procUtil](const std::string &data) -> std::string
+    w.bind("importProject", [](const std::string &data) -> std::string
       {
         LOG_MSG << "importProject:" << data;
         nlohmann::json res;
         try {
           auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() < 2) {
+            throw std::runtime_error("Invalid parameters for deleteProject");
+          }
+          std::string path = j[1];
+          if (!fs::exists(path)) {
+            throw std::runtime_error("Import settings file not found: " + path);
+          }
+          ensureProjectsFolderExist();
+          nlohmann::json jRefs;
+          jRefs["refs"] = nlohmann::json::array();
+          if (!fs::exists(projectRefsPath())) {            
+            std::ofstream file(projectRefsPath());
+            file << jRefs.dump(2) << std::endl;
+            LOG_MSG << "Created project refs file at:" << fs::absolute(projectRefsPath()).string();
+          } else {
+            std::ifstream file(projectRefsPath());
+            file >> jRefs;
+          }
+          if (jRefs.contains("refs")) {
+            for (const auto &t : jRefs["refs"]) {
+              if (t.contains("path") && fs::path(std::string{t["path"]}) == fs::path(path)) {
+                throw std::runtime_error("Already imported");
+              }
+            }
+          }
+          nlohmann::json ref;
+          ref["path"] = path;
+          jRefs["refs"].push_back(ref);
+          std::ofstream file(projectRefsPath());
+          file << jRefs.dump(2) << std::endl;
+          res["status"] = "success";
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
           res["status"] = "error";
@@ -418,12 +360,84 @@ int main() {
       }
     );
 
-    w.bind("getProjectList", [&procUtil](const std::string &data) -> std::string
+    w.bind("getProjectList", [](const std::string &) -> std::string
       {
-        LOG_MSG << "getProjectList:" << data;
+        LOG_MSG << "getProjectList";
+        nlohmann::json res;
+        try {
+          std::vector<nlohmann::json> projects;
+          auto addPath = [&projects](const std::string &path) {
+            nlohmann::json j;
+            std::ifstream file(path);
+            file >> j;
+            nlohmann::json proj;
+            proj["settingsFilePath"] = path;
+            proj["jsonData"] = j;
+            projects.push_back(proj);
+            };
+          if (fs::exists(projectsFolderPath()) && fs::is_directory(projectsFolderPath())) {
+            for (const auto &entry : fs::directory_iterator(projectsFolderPath())) {
+              if (entry.is_regular_file() && entry.path().extension() == ".json" && entry.path().filename() != PROJECT_REFS_FNAME) {
+                try {
+                  addPath(fs::absolute(entry.path()).string());
+                } catch (const std::exception &ex) {
+                  LOG_MSG << "Error reading project settings from" << entry.path().string() << ":" << ex.what();
+                }
+              }
+            }
+            if (fs::exists(projectRefsPath())) {
+              nlohmann::json jRefs;
+              {
+                std::ifstream file(projectRefsPath());
+                file >> jRefs;
+              }
+              if (jRefs.contains("refs") && jRefs["refs"].is_array()) {
+                for (const auto &a : jRefs["refs"]) {
+                  if (a.contains("path")) {
+                    std::string path = a["path"];
+                    try {
+                      addPath(path);
+                    } catch (const std::exception &ex) {
+                      LOG_MSG << "Error reading project settings from" << path << ":" << ex.what();
+                    }
+                  }
+                }
+              }
+            }
+          }
+          res["status"] = "success";
+          res["projects"] = projects;
+        } catch (const std::exception &ex) {
+          LOG_MSG << ex.what();
+          res["status"] = "error";
+          res["message"] = ex.what();
+        }
+        return res.dump();
+      }
+    );
+
+    w.bind("saveProject", [](const std::string &data) -> std::string
+      {
+        LOG_MSG << "saveProject";
         nlohmann::json res;
         try {
           auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() == 0) {
+            throw std::runtime_error("Invalid parameters for saveProject");
+          }
+          j = j[0];
+          if (validateProjectItemArg(j)) {
+            std::string fname = j["settingsFilePath"].get<std::string>();
+            Settings ss{ fname };
+            ss.updateFromConfig(j["jsonData"]);
+            ss.initProjectIdIfMissing(false);
+            ss.save();
+            res["status"] = "success";
+            res["message"] = "Project saved successfully";
+            LOG_MSG << "Saved project settings to file:" << fname;
+          } else {
+            throw std::runtime_error("Unable to locate the file");
+          }
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
           res["status"] = "error";
@@ -433,29 +447,59 @@ int main() {
       }
     );
 
-    w.bind("saveProject", [&procUtil](const std::string &data) -> std::string
-      {
-        LOG_MSG << "saveProject:" << data;
-        nlohmann::json res;
-        try {
-          auto j = nlohmann::json::parse(data);
-        } catch (const std::exception &ex) {
-          LOG_MSG << ex.what();
-          res["status"] = "error";
-          res["message"] = ex.what();
-        }
-        return res.dump();
-      }
-    );
-
-    w.bind("getInstances", [&procUtil](const std::string &) -> std::string
+    w.bind("getInstances", [](const std::string &) -> std::string
       {
         LOG_MSG << "getInstances";
         nlohmann::json res;
         try {
           InstanceRegistry registry;
           auto instances = registry.getActiveInstances();
-          res = instances;
+          res["status"] = "success";
+          res["instances"] = instances;
+        } catch (const std::exception &ex) {
+          LOG_MSG << ex.what();
+          res["status"] = "error";
+          res["message"] = ex.what();
+        }
+        return res.dump();
+      }
+    );
+    w.bind("startServe", [](const std::string &data) -> std::string
+      {
+        LOG_MSG << "startServe";
+        nlohmann::json res;
+        try {
+          auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() < 2) {
+            throw std::runtime_error("Invalid parameters");
+          }
+          auto jProj = j[0];
+          if (validateProjectItemArg(jProj)) {
+            auto configPath = jProj["settingsFilePath"].get<std::string>();
+            auto exePath = j[1].get<std::string>();
+#ifdef _WIN32
+            if (!exePath.empty() && !exePath.ends_with(".exe")) {
+              exePath += ".exe";
+            }
+#endif
+            if (!std::filesystem::exists(exePath))
+              throw std::runtime_error("Executable not found: " + exePath);
+            if (!std::filesystem::exists(configPath))
+              throw std::runtime_error("Config file not found: " + configPath);
+            ProcessManager proc;
+            if (proc.startProcess(exePath, { "--no-startup-tests", "--config", configPath, "serve", "--yes" })) {
+              res["status"] = "success";
+              res["message"] = "Embedder started successfully";
+              LOG_MSG << "Started embedder process" << proc.getProcessId() << "for projectId";
+              bool alive = testInstanceAlive(configPath, {});
+              if (!alive) {
+                LOG_MSG << "Warning: Started embedder process but instance not found in registry after timeout";
+              }
+            } else {
+              throw std::runtime_error("Failed to start embedder process");
+            }
+            proc.detach();
+          }
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();
           res["status"] = "error";
@@ -465,7 +509,64 @@ int main() {
       }
     );
 
-    w.bind("pickSettingsJsonFile", [&procUtil](const std::string &) -> std::string
+    w.bind("stopServe", [](const std::string &data) -> std::string
+      {
+        LOG_MSG << "stopServe:" << data;
+        nlohmann::json res;
+        try {
+          auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() == 0) {
+            throw std::runtime_error("Invalid parameters for stopServe");
+          }
+          std::string instanceId = j[0];
+          if (instanceId.empty()) {
+            throw std::runtime_error("Invalid instance id for stopServe");
+          }
+          InstanceRegistry registry;
+          auto instances = registry.getActiveInstances();
+          bool found = false;
+          bool down = false;
+          for (const auto &a : instances) {
+            if (a["id"] == instanceId) {
+              found = true;
+              int port = a["port"];
+              std::string host = a["host"];
+              if (host == "localhost") host = "127.0.0.1";
+              httplib::Client cli(host, port);
+              httplib::Headers headers = { 
+                //{"Authorization", "Basic: admin:admin"}
+              };
+              auto result = cli.Post("/api/shutdown", headers, "", "application/json");
+              if (result && result->status == 200) {
+                LOG_MSG << "Shutdown request sent to process for instance:" << instanceId;
+                down = testInstanceDead({}, instanceId, 20);
+              } else {
+                LOG_MSG << "Failed to send shutdown request to process for instance:" << instanceId;
+              }
+              break;
+            }
+          }
+          if (found) {
+            if (down) {
+              res["status"] = "success";
+              res["message"] = "Serve stopped successfully";
+            } else {
+              res["status"] = "error";
+              res["message"] = "Unable to stop the process";
+            }
+          } else {
+            throw std::runtime_error("Instance id not found: " + instanceId);
+          }
+        } catch (const std::exception &ex) {
+          LOG_MSG << ex.what();
+          res["status"] = "error";
+          res["message"] = ex.what();
+        }
+        return res.dump();
+      }
+    );
+
+    w.bind("pickSettingsJsonFile", [](const std::string &) -> std::string
       {
         LOG_MSG << "pickSettingsJsonFile";
         nlohmann::json res;
@@ -474,7 +575,9 @@ int main() {
           if (!result.empty()) {
             auto path = result[0];
             if (fs::exists(path)) {
-              res["project_id"] = shared::getProjectId(path);
+              Settings ss{ path };
+              ss.initProjectIdIfMissing(false);
+              res["project_id"] = ss.getProjectId();
               res["path"] = path;
             } else {
               throw std::runtime_error("Selected file does not exist: " + path);
@@ -493,15 +596,14 @@ int main() {
       window.cppApi = {
         setPersistentKey,
         getPersistentKey,
-        getSettingsFileProjectId,
-        startEmbedder,
-        stopEmbedder,
         createProject,
         deleteProject,
         importProject,
         getProjectList,
         saveProject,
         getInstances,
+        stopServe,
+        startServe,
         pickSettingsJsonFile
       };
       window.addEventListener('error', function(e) {
@@ -522,57 +624,6 @@ int main() {
   } catch (const std::exception &e) {
     LOG_MSG << "Webview error:" << e.what();
   }
-
-  // Graceful shutdown of self-started processes
-  //{
-  //  std::string host;
-  //  int port;
-  //  {
-  //    std::lock_guard<std::mutex> lock(prefs.mutex_);
-  //    host = prefs.host;
-  //    port = prefs.port;
-  //  }
-  //  httplib::Client cli(host, port);
-  //  auto result = cli.Get("/api/instances");
-  //  if (result && result->status == 200) {
-  //    try {
-  //      auto j = nlohmann::json::parse(result->body);
-  //      if (j.is_object()) {
-  //        j = j["instances"];
-  //        for (const auto &item : j) {
-  //          if (item.contains("project_id") && item["project_id"].is_string()) {
-  //            std::string project_id = item["project_id"].get<std::string>();
-  //            std::string host = item.value("host", "");
-  //            int port = item.value("port", 0);
-  //            if (host.empty() || port <= 0) {
-  //              LOG_MSG << "Invalid host/port for instance with project_id:" << project_id;
-  //              continue;
-  //            }
-  //            std::string appKey = procUtil.getApiKeyFromProjectId(project_id);
-  //            if (appKey.empty()) {
-  //              LOG_MSG << "Embedder process" << project_id << "not started by this client. Skipped.";
-  //              continue;
-  //            }
-  //            if (host == "localhost") host = "127.0.0.1";
-  //            httplib::Client cli(host, port);
-  //            httplib::Headers headers = { {"X-App-Key", appKey} };
-  //            auto result = cli.Post("/api/shutdown", headers, "", "application/json");
-  //            if (result && result->status == 200) {
-  //              LOG_MSG << "Shutdown request sent to embedder process for project_id:" << project_id;
-  //            } else {
-  //              LOG_MSG << "Failed to send shutdown request to embedder process for project_id:" << project_id;
-  //            }
-  //          }
-  //        }
-  //      }
-  //    } catch (const std::exception &e) {
-  //      LOG_MSG << "Error parsing /api/instances response:" << e.what();
-  //    }
-  //  } else {
-  //    LOG_MSG << "Failed to query /api/instances";
-  //  }
-  //  procUtil.waitToStopThenTerminate();
-  //}
 
   svr.stop();
   if (serverThread.joinable()) {

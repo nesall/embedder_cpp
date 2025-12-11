@@ -18,6 +18,10 @@
         </h2>
         <code class="px-2 rounded text-lg">{projectTitle}</code>
       </div>
+      <div class="flex items-center space-x-1">
+        <span class="font-semibold">File location:</span>
+        <span class="font-semibold2">{$selectedProject?.settingsFilePath}</span>
+      </div>
       <pre class="pre text-left min-h-40 overflow-x-auto">{jsonSettingsStr}</pre>
     </div>
   </div>

@@ -2,23 +2,49 @@
   import { Toast } from "@skeletonlabs/skeleton-svelte";
   import CentralWidget from "./lib/widgets/CentralWidget.svelte";
   import Statusbar from "./lib/widgets/Statusbar.svelte";
-  import { helper_getInstances, toaster } from "./lib/utils";
-  import { instances } from "./lib/store";
-  import { onMount } from "svelte";
+  import { helper_getInstances, helper_getProjectList, toaster } from "./lib/utils";
+  import { instances, projectList } from "./lib/store";
+  import { onMount, setContext } from "svelte";
 
   async function fetchInstances() {
     try {
-      $instances = await helper_getInstances();
+      const res = await helper_getInstances();
+      console.log("fetchInstances", res);
+      if (res.status === "success") {
+        instances.set(res.instances);
+      } else {
+        toaster.error({ title: "Unable to fetch instances", description: res.message });
+      }
     } catch (err: any) {
-      console.log("Error fetching /api/instances", err);
-      $instances = [];
+      console.log("Error fetching instances", err);
+      instances.set([]);
     }
   }
+
+  async function fetchProjects(notify?: boolean) {
+    try {
+      const res = await helper_getProjectList();
+      console.log("fetchProjects", res);
+      if (res.status === "success") {
+        projectList.set(res.projects);
+        if (notify) toaster.success({ title: `${$projectList.length} project(s) fetched` });
+      } else {
+        toaster.error({ title: "Unable to fetch projects", description: res.message });
+      }
+    } catch (err: any) {
+      console.log("Error fetching projects", err);
+      projectList.set([]);
+    }
+  }
+
+  setContext("FetchInstances", fetchInstances);
+  setContext("FetchProjects", fetchProjects);
 
   let intervalId: number;
   onMount(() => {
     intervalId = setInterval(fetchInstances, 20000);
     fetchInstances();
+
     return () => clearInterval(intervalId);
   });
 </script>

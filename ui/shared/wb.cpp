@@ -1,4 +1,5 @@
 #include "wb.h"
+#include "utils.h"
 #include <filesystem>
 #include <utils_log/logger.hpp>
 
@@ -115,25 +116,10 @@ std::pair<int, int> Webview::getWindowSize()
 #endif // __APPLE__
 
 // static
-std::string Webview::getExecutableDir()
-{
-  LOG_START;
-#ifdef _WIN32
-  char path[MAX_PATH];
-  GetModuleFileNameA(NULL, path, MAX_PATH);
-  return fs::path(path).parent_path().string();
-#else
-  char result[PATH_MAX];
-  ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
-  return fs::path(std::string(result, (count > 0) ? count : 0)).parent_path().string();
-#endif
-}
-
-// static
 std::string Webview::findWebAssets()
 {
   LOG_START;
-  std::string exeDir = getExecutableDir();
+  std::string exeDir = shared::getExecutableDir();
   std::vector<std::string> paths = {
       exeDir + "/web_assets",
       exeDir + "/../web_assets",

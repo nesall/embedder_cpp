@@ -124,7 +124,6 @@ export interface PathEntry {
  * Top-level configuration for document source and indexing.
  */
 export interface SourceSettings {
-  _comment_project_id: string; // Added back the comment field
   project_id: string;
   project_title: string;
   project_description: string;
@@ -179,8 +178,3 @@ export interface InstanceItem {
   status: string;
   _hidden?: boolean;
 }
-
-// export interface InstanceResponse {
-//   current_instance: string;
-//   instances: InstanceInfo[];
-// }

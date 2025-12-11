@@ -8,13 +8,18 @@ echo "VER=$VER"
 echo "NAME=$NAME"
 
 EMBEDDER="./"
-WEBVIEW="ui/clients/webview"
+CLIENT="ui/clients/webview"
+DASHBOARD="ui/clients/webview"
 
 cd "$EMBEDDER"
 ./build_rel.sh
 echo "FINISHED $EMBEDDER"
 
-cd "$WEBVIEW"
+cd "$CLIENT"
+./build_rel.sh
+cd ../../..
+
+cd "$DASHBOARD"
 ./build_rel.sh
 cd ../../..
 
@@ -22,7 +27,8 @@ rm -rf "$NAME"
 mkdir "$NAME"
 
 cp -r "$EMBEDDER/dist/"* "$NAME/"
-cp -r "$WEBVIEW/dist/"* "$NAME/"
+cp -r "$CLIENT/dist/"* "$NAME/"
+cp -r "$DASHBOARD/dist/"* "$NAME/"
 
 echo "$NAME.zip..."
 rm -f "$NAME.zip"

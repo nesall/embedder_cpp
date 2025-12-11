@@ -15,6 +15,8 @@ namespace shared {
     mutable std::mutex mutex_;
     virtual nlohmann::json toJson() const;
   };
+  
+  std::string getExecutableDir();
 
   std::string findConfigPath(const std::string &filename);
 
@@ -28,6 +30,7 @@ namespace shared {
 
   std::string generateAppKey();
 
+  std::string generateRandomId(size_t nof);
 
   struct ProcessesHolder {
     ProcessManager *getOrCreateProcess(const std::string &appKey, const std::string &projectId);

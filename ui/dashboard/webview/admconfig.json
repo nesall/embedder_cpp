@@ -1,36 +1,28 @@
 {
   "uiPrefs": [
     {
-      "key": "",
-      "value": ""
+      "key": "WatchForChanges",
+      "value": "0"
     },
     {
       "key": "darkOrLight",
       "value": "light"
     },
     {
+      "key": "EmbedderExecutablePath",
+      "value": "D:\\workspace\\projects\\phenixcode\\build_dbg\\Debug/phenixcode-core.exe"
+    },
+    {
       "key": "theme",
       "value": "hamlindigo"
     },
     {
-      "key": "EmbedderExecutablePath",
-      "value": "./phenixcode-core"
-    },
-    {
-      "key": "ApiOptionsGroupedKey",
-      "value": "1"
-    },
-    {
       "key": "EmbedderSettingsFilePaths",
       "value": "[\"./settings.json\"]"
-    },
-    {
-      "key": "ApiOptionsSortedKey",
-      "value": "1"
     }
   ],
   "window": {
-    "height": 714,
+    "height": 780,
     "width": 1400
   }
 }
