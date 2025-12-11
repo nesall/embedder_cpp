@@ -31,15 +31,18 @@
 #include <utils_log/logger.hpp>
 #include "3rdparty/CLI11.hpp"
 #include "3rdparty/fmt/core.h"
-#ifndef _WIN32
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <unistd.h>
 #include <termios.h>
+#include <sys/stat.h>
 #endif
+
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
-
-
 
 std::string utils::currentTimestamp()
 {
@@ -56,6 +59,7 @@ std::string utils::currentTimestamp()
   return ss.str();
 }
 
+#if 0
 time_t utils::getFileModificationTime(const std::string &path)
 {
   //auto ftime = fs::last_write_time(path);
@@ -64,10 +68,40 @@ time_t utils::getFileModificationTime(const std::string &path)
   // Implementation compatible with C++17
   auto ftime = fs::last_write_time(path);
   using namespace std::chrono;
-  auto sctp = time_point_cast<system_clock::duration>(ftime - fs::file_time_type::clock::now()
-    + system_clock::now());
+  auto sctp = time_point_cast<system_clock::duration>(
+    ftime - fs::file_time_type::clock::now() + system_clock::now()); // Race timing drift bug because of the two `nows`
   return system_clock::to_time_t(sctp);
 }
+#endif
+
+// Returns deterministic UTC seconds since Unix epoch.
+inline time_t utils::getFileModificationTime(const std::string &path)
+{
+#if defined(_WIN32)
+
+  WIN32_FILE_ATTRIBUTE_DATA data;
+  if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data))
+    return 0;
+
+  ULARGE_INTEGER ull;
+  ull.LowPart = data.ftLastWriteTime.dwLowDateTime;
+  ull.HighPart = data.ftLastWriteTime.dwHighDateTime;
+
+  // Convert Windows FILETIME (100ns ticks since 1601) to Unix epoch seconds
+  constexpr uint64_t WINDOWS_TO_UNIX_EPOCH = 116444736000000000ULL;
+  return static_cast<time_t>((ull.QuadPart - WINDOWS_TO_UNIX_EPOCH) / 10000000ULL);
+
+#else
+
+  struct stat st;
+  if (stat(path.c_str(), &st) != 0)
+    return 0;
+
+  return static_cast<time_t>(st.st_mtime);
+
+#endif
+}
+
 
 int utils::safeStoI(const std::string &s, int def)
 {
@@ -848,9 +882,8 @@ void App::serve(int suggestedPort, bool watch, int interval)
     serverThread = std::thread([this, suggestedPort]() {
       int newPort = imp->httpServer_->bindToPortIncremental(suggestedPort);
       if (0 < newPort) {
-        imp->registry_ = std::make_unique<InstanceRegistry>();
+        imp->registry_ = std::make_unique<InstanceRegistry>(newPort, settings());
         try {
-          imp->registry_->registerInstance(newPort, settings());
           imp->registry_->startHeartbeat();
           LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";
           imp->httpServer_->startServer();
@@ -1409,6 +1442,10 @@ int App::run(int argc, char *argv[])
   app.add_flag("--no-startup-tests", noStartupTests, "Skip startup model test calls");
 
   // Password management commands
+  auto cmdValidatePass = app.add_subcommand("validate-password", "Validate admin password");
+  std::string validPassword;
+  cmdValidatePass->add_option("--pass", validPassword, "Valid password")->required();
+
   auto cmdResetPass = app.add_subcommand("reset-password", "Reset admin password");
   std::string newPassword;
   cmdResetPass->add_option("--pass", newPassword, "New password")
@@ -1477,6 +1514,8 @@ int App::run(int argc, char *argv[])
     std::unique_ptr<Settings> settings;
     try {
       settings = std::make_unique<Settings>(configPath);
+      settings->initProjectIdIfMissing(true);
+      settings->initProjectTitleIfMissing(true);
     } catch (const std::exception &ex) {
       LOG_MSG << ex.what();
       std::cerr << "Unable to read settings file " << configPath << "\n";
@@ -1490,6 +1529,17 @@ int App::run(int argc, char *argv[])
     LOG_MSG << "Read settings from" << std::filesystem::absolute(configPath);
 
     // Handle password commands first (no app initialization needed)
+    if (cmdValidatePass->parsed()) {
+      AdminAuth auth;
+      std::string jwtToken;
+      if (auth.authenticate({ validPassword, "Basic" }, jwtToken)) {
+        LOG_MSG << "Password is valid";
+      } else {
+        LOG_MSG << "Invalid password";
+      }
+      return 0;
+    }
+
     if (cmdResetPass->parsed()) {
       AdminAuth auth;
       if (newPassword.length() < 8) {
