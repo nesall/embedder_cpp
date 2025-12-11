@@ -14,7 +14,6 @@
 
 #if HAS_OPENSSL
 #include <openssl/evp.h>
-//#include <openssl/sha.h>
 #else
 #include <functional>  // fallback hash
 #endif
@@ -86,7 +85,7 @@ struct AdminAuth::Impl {
       if (pass.second == "Basic") {
         std::string testHash = hashPassword(pass.first); // Uses stored salt for comparison
         size_t dollarPos = adminPassHash_.find('$');
-        if (dollarPos != std::string::npos && testHash == adminPassHash_.substr(dollarPos + 1)) {
+        if (dollarPos != std::string::npos && testHash == adminPassHash_) {
           jwtToken = jwt::create()
             .set_type("JWT")
             .set_issuer("auth_server")
