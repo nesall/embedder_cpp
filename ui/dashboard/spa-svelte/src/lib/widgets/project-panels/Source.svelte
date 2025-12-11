@@ -4,7 +4,6 @@
   import { selectedProject } from "../../store";
   import { onMount } from "svelte";
   import { helper_saveProjectSettings } from "../../utils";
-  import UpDownButton from "../misc/UpDownButton.svelte";
 
   const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);

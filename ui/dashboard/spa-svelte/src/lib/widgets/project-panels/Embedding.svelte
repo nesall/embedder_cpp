@@ -214,7 +214,11 @@
 
           {#each $selectedProject.jsonData.embedding.apis as api, i}
             <div class="flex flex-col">
-              <UpDownButton bind:hidden={api._hidden} text={`${api.name} - ${api.model}`} />
+              <UpDownButton
+                hidden={api._hidden}
+                text={`${api.name} - ${api.model}`}
+                onChange={() => (api._hidden = !api._hidden)}
+              />
               {#if !api._hidden}
                 <div
                   class="border border-surface-200-800 rounded-md rounded-t-none p-4 mb-4 flex flex-col gap-4"
