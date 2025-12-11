@@ -24,30 +24,37 @@
 
 #include <utils_log/logger.hpp>
 
-using json = nlohmann::json;
-
 namespace {
-  struct SqliteErrorChecker {
-    sqlite3 *sq_ = nullptr;
-    SqliteErrorChecker &operator=(sqlite3 *sq) { sq_ = sq; return *this; }
-    SqliteErrorChecker &operator=(int rc) {
-      if (rc == SQLITE_OK || rc == SQLITE_DONE || rc == SQLITE_ROW) return *this;
-      const char *msg = sq_ ? sqlite3_errmsg(sq_) : "SQLite error (no handle)";
-      throw std::runtime_error(std::string("SQLite error: ") + msg);
-    }
-  };
-
-  SqliteErrorChecker _checkErr;
 
   struct SqliteStmt {
+    sqlite3 *sq_ = nullptr;
+    explicit SqliteStmt(sqlite3 *sq) : sq_(sq) {}
     sqlite3_stmt *stmt_ = nullptr;
     sqlite3_stmt *&ref() { return stmt_; }
+    sqlite3_stmt *ref() const { return stmt_; }
     ~SqliteStmt() {
-      if (stmt_) _checkErr = sqlite3_finalize(stmt_);
+      if (stmt_) {
+        auto rc = sqlite3_finalize(stmt_);
+        if (rc != SQLITE_OK && rc != SQLITE_DONE && rc != SQLITE_ROW) {
+          const char *msg = sq_ ? sqlite3_errmsg(sq_) : "'no handle'";
+          LOG_MSG << "SQLite finalize error: " << msg;
+        }
+      }
     }
     SqliteStmt() = default;
     SqliteStmt(const SqliteStmt &) = delete;
     SqliteStmt &operator=(const SqliteStmt &) = delete;
+
+    std::string getStr(int i) const {
+      auto p = reinterpret_cast<const char *>(sqlite3_column_text(ref(), i));
+      return p ? std::string{ p } : std::string{};
+    }
+    int getInt(int i) const {
+      return sqlite3_column_int(ref(), i);
+    }
+    sqlite3_int64 getInt64(int i) const {
+      return sqlite3_column_int64(ref(), i);
+    }
   };
 
   std::string getRegistryPath() {
@@ -123,6 +130,7 @@ struct InstanceRegistry::Impl {
   std::atomic_bool running_{ false };
   sqlite3 *db_{ nullptr };
   mutable std::mutex dbMutex_;
+  bool bRegistered_ = false;
 
   explicit Impl(const std::string &path)
     : registryPath_(path) {
@@ -135,7 +143,8 @@ struct InstanceRegistry::Impl {
 
   ~Impl() {
     stopHeartbeat();
-    unregister();
+    if (bRegistered_)
+      unregister();
     if (db_) {
       sqlite3_close(db_);
     }
@@ -148,7 +157,6 @@ struct InstanceRegistry::Impl {
       std::filesystem::create_directories(parentPath);
     }
 
-    // Open database
     int rc = sqlite3_open(registryPath_.c_str(), &db_);
     if (rc != SQLITE_OK) {
       LOG_MSG << "Failed to open registry database: " << sqlite3_errmsg(db_);
@@ -161,7 +169,6 @@ struct InstanceRegistry::Impl {
     // Enable foreign keys
     sqlite3_exec(db_, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr);
 
-    // Create tables if they don't exist
     const char *createTableSQL = R"(
       CREATE TABLE IF NOT EXISTS instances (
         id TEXT PRIMARY KEY,
@@ -231,7 +238,7 @@ struct InstanceRegistry::Impl {
     const char *cleanOldSQL = "DELETE FROM instances WHERE (strftime('%s', 'now') - last_heartbeat) > 60";
 
     {
-      SqliteStmt stmt;
+      SqliteStmt stmt(db_);
       int rc = sqlite3_prepare_v2(db_, cleanOldSQL, -1, &stmt.ref(), nullptr);
       if (rc != SQLITE_OK) {
         LOG_MSG << "Failed to prepare clean statement: " << sqlite3_errmsg(db_);
@@ -248,7 +255,7 @@ struct InstanceRegistry::Impl {
     {
       // Step 2: Remove instances with dead processes
       // We need to check each process individually
-      SqliteStmt stmt;
+      SqliteStmt stmt(db_);
       const char *selectPidsSQL = "SELECT id, pid FROM instances";
       int rc = sqlite3_prepare_v2(db_, selectPidsSQL, -1, &stmt.ref(), nullptr);
       if (rc != SQLITE_OK) {
@@ -267,7 +274,7 @@ struct InstanceRegistry::Impl {
     // Delete dead instances
     for (const auto &id : deadInstances) {
       const char *deleteSQL = "DELETE FROM instances WHERE id = ?";
-      SqliteStmt stmt;
+      SqliteStmt stmt(db_);
       int rc = sqlite3_prepare_v2(db_, deleteSQL, -1, &stmt.ref(), nullptr);
       if (rc != SQLITE_OK) continue;
 
@@ -290,36 +297,36 @@ struct InstanceRegistry::Impl {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     )";
 
-    SqliteStmt stmt;
+    SqliteStmt stmt(db_);
     int rc = sqlite3_prepare_v2(db_, insertSQL, -1, &stmt.ref(), nullptr);
     if (rc != SQLITE_OK) {
       LOG_MSG << "Failed to prepare insert statement: " << sqlite3_errmsg(db_);
       throw std::runtime_error("Failed to register instance");
     }
 
+
     // Bind parameters
     sqlite3_bind_text(stmt.ref(), 1, instanceId_.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int(stmt.ref(), 2, getProcessId());
     sqlite3_bind_int(stmt.ref(), 3, port);
     sqlite3_bind_text(stmt.ref(), 4, "localhost", -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt.ref(), 5, settings.getProjectId().c_str(), -1, SQLITE_STATIC);
+    auto projectId = settings.getProjectId();
+    sqlite3_bind_text(stmt.ref(), 5, projectId.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt.ref(), 6, name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int64(stmt.ref(), 7, now);
     sqlite3_bind_text(stmt.ref(), 8, nowStr.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int64(stmt.ref(), 9, now);
     sqlite3_bind_text(stmt.ref(), 10, nowStr.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt.ref(), 11, std::filesystem::current_path().string().c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt.ref(), 12, std::filesystem::absolute(settings.configPath()).string().c_str(), -1, SQLITE_STATIC);
+    std::string cwd = std::filesystem::current_path().string();
+    std::string absConfig = std::filesystem::absolute(settings.configPath()).string();
+    sqlite3_bind_text(stmt.ref(), 11, cwd.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt.ref(), 12, absConfig.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt.ref(), 13, "healthy", -1, SQLITE_STATIC);
-
     rc = sqlite3_step(stmt.ref());
     if (rc != SQLITE_DONE) {
       LOG_MSG << "Failed to register instance: " << sqlite3_errmsg(db_);
-      //sqlite3_finalize(stmt);
       throw std::runtime_error("Failed to register instance");
     }
-
-    //sqlite3_finalize(stmt);
     LOG_MSG << "Registered instance:" << instanceId_ << "on port" << port;
   }
 
@@ -327,7 +334,7 @@ struct InstanceRegistry::Impl {
     std::lock_guard<std::mutex> lock(dbMutex_);
 
     const char *deleteSQL = "DELETE FROM instances WHERE id = ?";
-    SqliteStmt stmt;
+    SqliteStmt stmt(db_);
 
     int rc = sqlite3_prepare_v2(db_, deleteSQL, -1, &stmt.ref(), nullptr);
     if (rc != SQLITE_OK) {
@@ -340,8 +347,6 @@ struct InstanceRegistry::Impl {
     if (rc == SQLITE_DONE && sqlite3_changes(db_) > 0) {
       LOG_MSG << "Unregistered instance:" << instanceId_;
     }
-
-    //sqlite3_finalize(stmt.ref());
   }
 
   void updateHeartbeat() {
@@ -350,7 +355,7 @@ struct InstanceRegistry::Impl {
 
     const char *updateSQL = "UPDATE instances SET last_heartbeat = ?, last_heartbeat_str = ?, status = 'healthy' WHERE id = ?";
 
-    SqliteStmt stmt;
+    SqliteStmt stmt(db_);
     int rc = sqlite3_prepare_v2(db_, updateSQL, -1, &stmt.ref(), nullptr);
     if (rc != SQLITE_OK) {
       return;
@@ -361,19 +366,16 @@ struct InstanceRegistry::Impl {
     sqlite3_bind_text(stmt.ref(), 3, instanceId_.c_str(), -1, SQLITE_STATIC);
 
     sqlite3_step(stmt.ref());
-    //sqlite3_finalize(stmt);
   }
-
+  
   void startHeartbeat() {
     if (running_) {
       return;
     }
-
     running_ = true;
     heartbeatThread_ = std::thread([this]() {
       while (running_) {
         std::this_thread::sleep_for(std::chrono::seconds(10));
-
         try {
           {
             if (!running_) return;
@@ -394,7 +396,7 @@ struct InstanceRegistry::Impl {
     }
   }
 
-  std::vector<json> getActiveInstances() const {
+  std::vector<nlohmann::json> getActiveInstances() const {
     std::lock_guard<std::mutex> lock(dbMutex_);
 
     const char *selectSQL = R"(
@@ -406,44 +408,46 @@ struct InstanceRegistry::Impl {
       ORDER BY last_heartbeat DESC
     )";
 
-    SqliteStmt stmt;
+    SqliteStmt stmt(db_);
     int rc = sqlite3_prepare_v2(db_, selectSQL, -1, &stmt.ref(), nullptr);
     if (rc != SQLITE_OK) {
       LOG_MSG << "Failed to prepare select statement: " << sqlite3_errmsg(db_);
       return {};
     }
 
-    std::vector<json> active;
+    std::vector<nlohmann::json> active;
     while (sqlite3_step(stmt.ref()) == SQLITE_ROW) {
-      json instance;
-
-      // Read all columns
-      instance["id"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 0));
-      instance["pid"] = sqlite3_column_int(stmt.ref(), 1);
-      instance["port"] = sqlite3_column_int(stmt.ref(), 2);
-      instance["host"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 3));
-      instance["project_id"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 4));
-      instance["name"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 5));
-      instance["started_at"] = sqlite3_column_int64(stmt.ref(), 6);
-      instance["started_at_str"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 7));
-      instance["last_heartbeat"] = sqlite3_column_int64(stmt.ref(), 8);
-      instance["last_heartbeat_str"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 9));
-      instance["cwd"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 10));
-      instance["config"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 11));
-      instance["status"] = reinterpret_cast<const char *>(sqlite3_column_text(stmt.ref(), 12));
-
+      nlohmann::json instance;
+      int j = 0;
+      instance["id"] = stmt.getStr(j++);
+      instance["pid"] = stmt.getInt(j++);
+      instance["port"] = stmt.getInt(j++);
+      instance["host"] = stmt.getStr(j++);
+      instance["project_id"] = stmt.getStr(j++);
+      instance["name"] = stmt.getStr(j++);
+      instance["started_at"] = stmt.getInt64(j++);
+      instance["started_at_str"] = stmt.getStr(j++);
+      instance["last_heartbeat"] = stmt.getInt64(j++);
+      instance["last_heartbeat_str"] = stmt.getStr(j++);;
+      instance["cwd"] = stmt.getStr(j++);
+      instance["config"] = stmt.getStr(j++);
+      instance["status"] = stmt.getStr(j++);
       active.push_back(instance);
     }
-
-    //sqlite3_finalize(stmt);
     return active;
   }
 };
 
-// Public interface remains the same
 InstanceRegistry::InstanceRegistry(const std::string &registryPath)
   : imp(std::make_unique<Impl>(registryPath))
 {
+}
+
+InstanceRegistry::InstanceRegistry(int port, const Settings &settings, const std::string &registryPath)
+  : imp(std::make_unique<Impl>(registryPath))
+{
+  imp->bRegistered_ = true;
+  registerInstance(port, settings);
 }
 
 InstanceRegistry::~InstanceRegistry() = default;
@@ -468,7 +472,7 @@ void InstanceRegistry::stopHeartbeat()
   imp->stopHeartbeat();
 }
 
-std::vector<json> InstanceRegistry::getActiveInstances() const
+std::vector<nlohmann::json> InstanceRegistry::getActiveInstances() const
 {
   return imp->getActiveInstances();
 }
