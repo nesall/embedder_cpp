@@ -132,7 +132,7 @@ std::vector<ApiConfig> Settings::generationApis() const
   return getApiConfigList(config_["generation"]);
 }
 
-std::string Settings::getProjectId() const
+void Settings::initProjectIdIfMissing(bool hydrateFile)
 {
   std::string s;
   s = config_["source"].value("project_id", "");
@@ -142,11 +142,12 @@ std::string Settings::getProjectId() const
     std::string dirName = absPath.parent_path().filename().string();
     std::string pathHash = hashString(absPath.generic_string()).substr(0, 8);
     s = dirName + "-" + pathHash;
+    config_["source"]["project_id"] = s;
+    if (hydrateFile) this->save();
   }
-  return s;
 }
 
-std::string Settings::getProjectTitle() const
+void Settings::initProjectTitleIfMissing(bool hydrateFile)
 {
   auto s = config_["source"].value("project_title", "");
   if (s.empty()) {
@@ -156,8 +157,12 @@ std::string Settings::getProjectTitle() const
       s += std::filesystem::path(si.path).lexically_normal().stem().string();
       if (12 < s.length()) break;
     }
+    if (s.empty()) {
+      s = "Unnamed Project";
+    }
+    config_["source"]["project_title"] = s;
+    if (hydrateFile) this->save();
   }
-  return s;
 }
 
 std::vector<Settings::SourceItem> Settings::sources() const

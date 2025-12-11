@@ -144,10 +144,14 @@ public:
     return config_.contains("logging") ? config_["logging"].value("log_to_console", true) : true;
   }
 
-  std::string getProjectId() const;
-  std::string getProjectTitle() const;
+  void initProjectIdIfMissing(bool hydrateFile);
+  void initProjectTitleIfMissing(bool hydrateFile);
+
+  std::string getProjectId() const { return config_["source"].value("project_id", ""); }
+  std::string getProjectTitle() const { return config_["source"].value("project_title", ""); }
   std::vector<SourceItem> sources() const;
   std::string configDump() const { return config_.dump(2); }
+  nlohmann::json configJson() const { return config_; }
 };
 
 
