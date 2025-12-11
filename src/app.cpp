@@ -75,7 +75,7 @@ time_t utils::getFileModificationTime(const std::string &path)
 #endif
 
 // Returns deterministic UTC seconds since Unix epoch.
-inline time_t utils::getFileModificationTime(const std::string &path)
+time_t utils::getFileModificationTime(const std::string &path)
 {
 #if defined(_WIN32)
 
