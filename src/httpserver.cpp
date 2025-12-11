@@ -684,6 +684,7 @@ bool HttpServer::startServer()
 
   server.Post("/api/setup", [&](const httplib::Request &req, httplib::Response &res) {
     LOG_MSG << "POST /api/setup";
+    Impl::requestCounter_++;
     if (!requireAuth(auth, req, res, nullptr)) return;
     try {
       json config = json::parse(req.body);
@@ -713,11 +714,11 @@ bool HttpServer::startServer()
       res.status = 400;
       res.set_content(error.dump(), "application/json");
     }
-    Impl::requestCounter_++;
     });
 
   server.Get("/api/setup", [&](const httplib::Request &req, httplib::Response &res) {
     LOG_MSG << "GET /api/setup";
+    Impl::requestCounter_++;
     if (!requireAuth(auth, req, res, nullptr)) return;
     try {
       const auto &config = imp->app_.settings().configDump();
@@ -728,7 +729,6 @@ bool HttpServer::startServer()
       res.set_content(error.dump(), "application/json");
       Impl::errorCounter_++;
     }
-    Impl::requestCounter_++;
     });
 
   server.Get("/api/health", [](const httplib::Request &, httplib::Response &res) {
@@ -1135,6 +1135,7 @@ bool HttpServer::startServer()
 
   server.Post("/api/shutdown", [&](const httplib::Request &req, httplib::Response &res) {
     LOG_MSG << "POST /api/shutdown";
+    Impl::requestCounter_++;
     auto appKey = req.get_header_value("X-App-Key");
     if (!imp->app_.isValidPrivateAppKey(appKey) && !requireAuth(auth, req, res, nullptr)) return;
     try {
@@ -1150,7 +1151,6 @@ bool HttpServer::startServer()
       res.set_content(error.dump(), "application/json");
       Impl::errorCounter_++;
     }
-    Impl::requestCounter_++;
     });
 
   server.Get("/api/metrics", [this](const httplib::Request &, httplib::Response &res) {
