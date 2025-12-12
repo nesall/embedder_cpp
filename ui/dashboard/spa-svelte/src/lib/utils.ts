@@ -489,32 +489,24 @@ export async function hardValidateProjectItem(item: ProjectItem): Promise<{ stat
   //   }
   // }
 
-  // Optionally validate other paths (e.g., database, tokenizer, logging) - uncomment if needed
-  // const dbSqliteParent = resolvePath(baseDir, item.jsonData.database.sqlite_path).substring(0, resolvePath(baseDir, item.jsonData.database.sqlite_path).lastIndexOf('/'));
-  // const dbIndexParent = resolvePath(baseDir, item.jsonData.database.index_path).substring(0, resolvePath(baseDir, item.jsonData.database.index_path).lastIndexOf('/'));
-  // const tokenizerParent = resolvePath(baseDir, item.jsonData.tokenizer.config_path).substring(0, resolvePath(baseDir, item.jsonData.tokenizer.config_path).lastIndexOf('/'));
-  // const logParent = resolvePath(baseDir, item.jsonData.logging.logging_file).substring(0, resolvePath(baseDir, item.jsonData.logging.logging_file).lastIndexOf('/'));
-  // const diagParent = resolvePath(baseDir, item.jsonData.logging.diagnostics_file).substring(0, resolvePath(baseDir, item.jsonData.logging.diagnostics_file).lastIndexOf('/'));
-  // Add checks for these if required...
-
   if ((await isParentDirValid(item.jsonData.database.sqlite_path)).status !== "success") {
-    vec.push({ status: "error", message: `Database SQLite parent directory does not exist for path: ${item.jsonData.database.sqlite_path}` });
+    vec.push({ status: "error", message: `Database SQLite directory does not exist for path: ${item.jsonData.database.sqlite_path}` });
   }
 
   if ((await isParentDirValid(item.jsonData.database.index_path)).status !== "success") {
-    vec.push({ status: "error", message: `Database index parent directory does not exist for path: ${item.jsonData.database.index_path}` });
+    vec.push({ status: "error", message: `Database index directory does not exist for path: ${item.jsonData.database.index_path}` });
   }
 
   if ((await isParentDirValid(item.jsonData.tokenizer.config_path)).status !== "success") {
-    vec.push({ status: "error", message: `Tokenizer config parent directory does not exist for path: ${item.jsonData.tokenizer.config_path}` });
+    vec.push({ status: "error", message: `Tokenizer config directory does not exist for path: ${item.jsonData.tokenizer.config_path}` });
   }
 
   if ((await isParentDirValid(item.jsonData.logging.logging_file)).status !== "success") {
-    vec.push({ status: "error", message: `Logging file parent directory does not exist for path: ${item.jsonData.logging.logging_file}` });
+    vec.push({ status: "error", message: `Logging file directory does not exist for path: ${item.jsonData.logging.logging_file}` });
   }
 
   if ((await isParentDirValid(item.jsonData.logging.diagnostics_file)).status !== "success") {
-    vec.push({ status: "error", message: `Diagnostics file parent directory does not exist for path: ${item.jsonData.logging.diagnostics_file}` });
+    vec.push({ status: "error", message: `Diagnostics file directory does not exist for path: ${item.jsonData.logging.diagnostics_file}` });
   }
 
   return vec;

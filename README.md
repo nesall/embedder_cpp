@@ -13,6 +13,10 @@ Works offline with local models or integrates with OpenAI-compatible APIs. Your 
 
 ![PhenixCode UI](media/demo.gif)
 
+*Complete control and full customization*
+
+![PhenixCode Admin Dashboard](media/dashboard0.png)
+
 **Key features:** Local embeddings • Fast vector search (HNSWLib) • SQLite metadata • JWT auth • HTTP API • Single JSON config
 
 **[Download release](https://github.com/nesall/phenixcode/releases/latest)** | **[Quick start](#quick-start)**  
@@ -160,10 +164,12 @@ Check password status
 ### Editing settings.json
 
 Method 1:  
-Edit file `settings.json` to configure settings manually (recommended on first time use).
+Edit file `settings.json` to configure settings manually
 
 Method 2:  
-Open `http://localhost:8590/setup` to configure settings interactively.
+Use dashboard GUI `phenixcode_admin` to start/stop add/remove projects for various codebases (recommended).
+
+![PhenixCode Admin Dashboard](media/dashboard1.png)
 
 
 ### REST API endpoints
