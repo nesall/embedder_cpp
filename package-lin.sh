@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-if [[ -z "$1" ]]; then
-    echo "Usage: $0 <version>"
-    echo "Example: $0 1.0.1"
-    exit 1
-fi
+# --- Parse version.cmake ---
+MAJOR=$(grep '^set(EMBEDDER_VERSION_MAJOR' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
+MINOR=$(grep '^set(EMBEDDER_VERSION_MINOR' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
+PATCH=$(grep '^set(EMBEDDER_VERSION_PATCH' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
 
-VER="$1"
+VER="${MAJOR}.${MINOR}.${PATCH}"
 NAME="phenixcode-v${VER}-linux-x64"
-
-echo "VER=$VER"
-echo "NAME=$NAME"
 
 EMBEDDER="./"
 CLIENT="ui/clients/webview"

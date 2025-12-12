@@ -1,17 +1,23 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
-if "%~1"=="" (
-    echo Usage: package.bat version
-    echo Example: package.bat 1.0.1
-    exit /b 1
+rem --- Parse version.cmake ---
+for /f "tokens=1,2 delims=()" %%A in ('findstr /r "^set(EMBEDDER_VERSION_" version.cmake') do (
+    rem %%A = set
+    rem %%B = EMBEDDER_VERSION_MAJOR 1
+    for /f "tokens=1,2" %%X in ("%%B") do (
+        if "%%X"=="EMBEDDER_VERSION_MAJOR" set MAJOR=%%Y
+        if "%%X"=="EMBEDDER_VERSION_MINOR" set MINOR=%%Y
+        if "%%X"=="EMBEDDER_VERSION_PATCH" set PATCH=%%Y
+    )
 )
 
-set "VER=%~1"
-set "NAME=phenixcode-v%VER%-win64"
+set VER=%MAJOR%.%MINOR%.%PATCH%
+set NAME=phenixcode-v%VER%-win64
 
 echo VER=%VER%
 echo NAME=%NAME%
+
 
 set "EMBEDDER=."
 set "CLIENT=ui\clients\webview"

@@ -173,7 +173,7 @@ int main() {
 #endif
       , nullptr);
     w.setAppIcon("logo");
-    w.set_title("PhenixCode Assistant - v" EMBEDDER_VERSION " [build date: " __DATE__ "]");
+    w.set_title("PhenixCode Dashboard - v" EMBEDDER_VERSION " [build date: " __DATE__ "]");
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
       {

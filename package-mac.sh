@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-VER="${1:-1.0.2}"
+#VER="${1:-1.0.2}"
+#NAME="phenixcode-v${VER}-macos-arm64"
+
+# --- Parse version.cmake ---
+MAJOR=$(grep '^set(EMBEDDER_VERSION_MAJOR' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
+MINOR=$(grep '^set(EMBEDDER_VERSION_MINOR' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
+PATCH=$(grep '^set(EMBEDDER_VERSION_PATCH' version.cmake | sed -E 's/.* ([0-9]+).*/\1/')
+
+VER="${MAJOR}.${MINOR}.${PATCH}"
 NAME="phenixcode-v${VER}-macos-arm64"
 
 echo "VER=$VER"
