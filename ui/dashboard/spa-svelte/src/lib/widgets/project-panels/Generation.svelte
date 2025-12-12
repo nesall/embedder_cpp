@@ -305,10 +305,10 @@
                     <label class="label">
                       <span class="label-text">API Key</span>
                       <input
-                        type="password"
+                        type="text"
                         class="input"
                         bind:value={api.api_key}
-                        placeholder="Leave empty if using ENV vars"
+                        placeholder="API key or {'${ENV_VAR_NAME}'}"
                       />
                     </label>
                   </div>

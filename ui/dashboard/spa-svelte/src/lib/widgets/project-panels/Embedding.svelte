@@ -251,11 +251,11 @@
                     <label class="label">
                       <span class="label-text">API Key</span>
                       <input
-                        type="password"
+                        type="text"
                         id="api-key-{i}"
                         class="input"
                         bind:value={api.api_key}
-                        placeholder="Leave empty if no API key required"
+                        placeholder="API key or {'${ENV_VAR_NAME}'}"
                       />
                     </label>
                   </div>
