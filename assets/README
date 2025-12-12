@@ -23,25 +23,15 @@ unzip phenixcode-v1.0.0-linux-x64.zip
 ./phenixcode-ui
 ```
 
-### **Access Web Setup:**
+### **Setup via GUI Dashboard:**
 ```
-1. Open: http://localhost:8590/setup
-2. Browser prompts: Username: admin, Password: <your_password>
-3. Configure settings (no password field shown)
-4. Submit → settings.json created
-
-
-Manual Start:
-- Run "start.bat" to start in console mode
-
-Service Management:
-- Install: install-service.bat or install-service.sh
-- Uninstall: uninstall-service.bat or uninstall-service.sh
-- Status: nssm status PhenixCodeRAG (Windows)
-- Status: systemctl status embedder-rag-core
+1. Open phenixcode_admin application
+2. Click plus (+) button to add new project
+3. Configure project settings (most parameters can be left default)
+4. Go to Instance tab and start the server (enable Watch checkbox to update periodiaclly as source changes).
 
 Logs Location:
-- configurable in settings.json
+- configurable in settings.json (or via GUI Dashboard)
 
 Troubleshooting:
 - Check logs for errors
