@@ -60,7 +60,7 @@ jobs:
         choco install openssl --yes
 
     - name: Run package script
-      run: package.bat
+      run: cmd /c package.bat
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
