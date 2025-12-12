@@ -349,6 +349,18 @@ async function test_stopServe(instanceId: string) {
   return { status: "error", message: "Instance not found." };
 }
 
+async function test_checkPathExists(path: string) {
+  let ok = false;
+  if (path === "./") ok = true;
+  else if (path === "./phenixcode-core") ok = true;
+  console.log("test_checkPathExists", path, ok);
+  if (ok) {
+    return { status: "success", message: "Path exists." };
+  } else {
+    return { status: "error", message: "Path does not exist." };
+  }
+}
+
 export async function helper_getInstances(): Promise<{ status: string, instances: InstanceItem[], message?: string }> {
   if (window.cppApi) {
     return await window.cppApi.getInstances();
@@ -413,6 +425,14 @@ export async function helper_stopServe(instanceId: string) {
   }
 }
 
+export async function helper_checkPathExists(path: string) {
+  if (window.cppApi) {
+    return await window.cppApi.checkPathExists(path);
+  } else {
+    return await test_checkPathExists(path);
+  }
+}
+
 export function standardizePath(path: string): string {
   return path.replace(/\\/g, '/').toLowerCase();
 }
@@ -420,4 +440,82 @@ export function standardizePath(path: string): string {
 export function mapProjectToInstance(project: ProjectItem, insts: InstanceItem[]): InstanceItem | null {
   const v = insts.find(i => standardizePath(i.config) === standardizePath(project.settingsFilePath));
   return v ? v : null;
+}
+
+export async function isParentDirValid(path: string) {
+  path = standardizePath(path);
+  const parentDir = path.substring(0, path.lastIndexOf('/'));
+  return await helper_checkPathExists(parentDir);
+}
+
+export async function hardValidateProjectItem(item: ProjectItem): Promise<{ status: string; message: string }[]> {
+
+  const vec: { status: string; message: string }[] = [];
+
+  // Helper to resolve relative paths to absolute based on the settings file's directory
+  // function resolvePath(base: string, p: string): string {
+  //   if (p.startsWith('/') || p.includes(':')) return p; // Assume absolute if starts with / or has drive letter
+  //   return base ? base + '/' + p : p;
+  // }
+
+  // Get the base directory of the settings file
+  // const baseDir = item.settingsFilePath.substring(0, item.settingsFilePath.lastIndexOf('/'));
+  // if (!baseDir) {
+  //   return { status: "error", message: "Invalid settings file path: no parent directory." };
+  // }
+
+  // Check if the settings file's parent directory exists
+  const settingsParentRes = await helper_checkPathExists(item.settingsFilePath);
+  if (settingsParentRes.status !== "success") {
+    vec.push({ status: "error", message: `Settings file does not exist` });
+  }
+
+  // Validate source paths
+  // for (const pathEntry of item.jsonData.source.paths) {
+  //   const fullPath = resolvePath(baseDir, pathEntry.path);
+  //   if (pathEntry.type === 'directory') {
+  //     const res = await helper_checkPathExists(fullPath);
+  //     if (res.status !== "success") {
+  //       return { status: "error", message: `Source directory does not exist: ${fullPath}` };
+  //     }
+  //   } else { // 'file'
+  //     const parent = fullPath.substring(0, fullPath.lastIndexOf('/'));
+  //     if (parent) {
+  //       const res = await helper_checkPathExists(parent);
+  //       if (res.status !== "success") {
+  //         return { status: "error", message: `Source file parent directory does not exist: ${parent}` };
+  //       }
+  //     }
+  //   }
+  // }
+
+  // Optionally validate other paths (e.g., database, tokenizer, logging) - uncomment if needed
+  // const dbSqliteParent = resolvePath(baseDir, item.jsonData.database.sqlite_path).substring(0, resolvePath(baseDir, item.jsonData.database.sqlite_path).lastIndexOf('/'));
+  // const dbIndexParent = resolvePath(baseDir, item.jsonData.database.index_path).substring(0, resolvePath(baseDir, item.jsonData.database.index_path).lastIndexOf('/'));
+  // const tokenizerParent = resolvePath(baseDir, item.jsonData.tokenizer.config_path).substring(0, resolvePath(baseDir, item.jsonData.tokenizer.config_path).lastIndexOf('/'));
+  // const logParent = resolvePath(baseDir, item.jsonData.logging.logging_file).substring(0, resolvePath(baseDir, item.jsonData.logging.logging_file).lastIndexOf('/'));
+  // const diagParent = resolvePath(baseDir, item.jsonData.logging.diagnostics_file).substring(0, resolvePath(baseDir, item.jsonData.logging.diagnostics_file).lastIndexOf('/'));
+  // Add checks for these if required...
+
+  if ((await isParentDirValid(item.jsonData.database.sqlite_path)).status !== "success") {
+    vec.push({ status: "error", message: `Database SQLite parent directory does not exist for path: ${item.jsonData.database.sqlite_path}` });
+  }
+
+  if ((await isParentDirValid(item.jsonData.database.index_path)).status !== "success") {
+    vec.push({ status: "error", message: `Database index parent directory does not exist for path: ${item.jsonData.database.index_path}` });
+  }
+
+  if ((await isParentDirValid(item.jsonData.tokenizer.config_path)).status !== "success") {
+    vec.push({ status: "error", message: `Tokenizer config parent directory does not exist for path: ${item.jsonData.tokenizer.config_path}` });
+  }
+
+  if ((await isParentDirValid(item.jsonData.logging.logging_file)).status !== "success") {
+    vec.push({ status: "error", message: `Logging file parent directory does not exist for path: ${item.jsonData.logging.logging_file}` });
+  }
+
+  if ((await isParentDirValid(item.jsonData.logging.diagnostics_file)).status !== "success") {
+    vec.push({ status: "error", message: `Diagnostics file parent directory does not exist for path: ${item.jsonData.logging.diagnostics_file}` });
+  }
+
+  return vec;
 }

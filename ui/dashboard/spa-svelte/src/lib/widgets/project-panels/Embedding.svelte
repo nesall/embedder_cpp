@@ -4,13 +4,12 @@
   import { slide } from "svelte/transition";
   import { selectedProject } from "../../store";
   import UpDownButton from "../misc/UpDownButton.svelte";
+  import { helper_saveProjectSettings } from "../../utils";
 
   const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
-  onMount(() => {
-    // Fetch and display embedding settings here
-  });
+  onMount(() => {});
 
   function addApi() {
     if (!jsonData) {
@@ -29,6 +28,7 @@
     });
     jsonData.embedding.current_api = newId;
     // selectedJsonSettings.set(jsonData);
+    onChange();
   }
 
   function removeApi(index: number) {
@@ -43,6 +43,7 @@
         jsonData.embedding.current_api = jsonData.embedding.apis[0]?.id || "";
       }
       // selectedJsonSettings.set(jsonData);
+      onChange();
     }
   }
 
@@ -56,6 +57,7 @@
       jsonData.embedding.apis[index] = jsonData.embedding.apis[index - 1];
       jsonData.embedding.apis[index - 1] = temp;
       // selectedJsonSettings.set(jsonData);
+      onChange();
     }
   }
 
@@ -69,6 +71,7 @@
       jsonData.embedding.apis[index] = jsonData.embedding.apis[index + 1];
       jsonData.embedding.apis[index + 1] = temp;
       // selectedJsonSettings.set(jsonData);
+      onChange();
     }
   }
 
@@ -76,17 +79,17 @@
     if (!jsonData) {
       return;
     }
-
     const selectElem = event.target as HTMLSelectElement;
     jsonData.embedding.current_api = selectElem.value;
     // selectedJsonSettings.set(jsonData);
+    onChange();
   }
 
-  // function onHiddenToggle(index: number) {
-  //   if ($selectedProject && jsonData) {
-  //     jsonData.embedding.apis[index]._hidden = !jsonData.embedding.apis[index]._hidden;
-  //   }
-  // }
+  function onChange() {
+    if ($selectedProject) {
+      helper_saveProjectSettings($selectedProject);
+    }
+  }
 
   function onExpandAll() {
     if (!$selectedProject) {
@@ -131,6 +134,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.embedding.batch_size}
                 min="1"
+                onchange={onChange}
               />
             </label>
 
@@ -142,6 +146,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.embedding.timeout_ms}
                 min="1000"
+                onchange={onChange}
               />
             </label>
           </div>
@@ -155,6 +160,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.embedding.retry_attempts}
                 min="0"
+                onchange={onChange}
               />
             </label>
 
@@ -166,6 +172,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.embedding.top_k}
                 min="1"
+                onchange={onChange}
               />
             </label>
           </div>
@@ -179,6 +186,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.embedding.prepend_label_format}
                 placeholder="[Source: &#123;&#125;]\n"
+                onchange={onChange}
               />
               <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for the source name</p>
             </label>
@@ -227,12 +235,12 @@
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label class="label">
                       <span class="label-text">API Name</span>
-                      <input type="text" id="api-name-{i}" class="input" bind:value={api.name} />
+                      <input type="text" id="api-name-{i}" class="input" bind:value={api.name} onchange={onChange} />
                     </label>
 
                     <label class="label">
                       <span class="label-text">API ID</span>
-                      <input type="text" id="api-id-{i}" class="input" bind:value={api.id} />
+                      <input type="text" id="api-id-{i}" class="input" bind:value={api.id} onchange={onChange} />
                     </label>
                   </div>
 
@@ -245,6 +253,7 @@
                         class="input"
                         bind:value={api.api_url}
                         placeholder="http://127.0.0.1:8583/embedding"
+                        onchange={onChange}
                       />
                     </label>
 
@@ -256,6 +265,7 @@
                         class="input"
                         bind:value={api.api_key}
                         placeholder="API key or {'${ENV_VAR_NAME}'}"
+                        onchange={onChange}
                       />
                     </label>
                   </div>
@@ -268,6 +278,7 @@
                       class="input"
                       bind:value={api.model}
                       placeholder="bge-base-v1.5"
+                      onchange={onChange}
                     />
                   </label>
 
@@ -280,6 +291,7 @@
                         class="input"
                         bind:value={api.document_format}
                         placeholder="&#123;&#125;"
+                        onchange={onChange}
                       />
                       <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for the document text</p>
                     </label>
@@ -292,6 +304,7 @@
                         class="input"
                         bind:value={api.query_format}
                         placeholder="Represent this sentence for searching relevant passages: &#123;&#125;"
+                        onchange={onChange}
                       />
                       <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for the query text</p>
                     </label>

@@ -2,16 +2,16 @@
   import { onMount } from "svelte";
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
+  import { helper_saveProjectSettings } from "../../utils";
 
-  // const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
-  onMount(() => {
-    // In a real application, you would load the initial settings here
-  });
+  onMount(() => {});
 
   function onChange() {
-    // selectedJsonSettings.set(jsonData);
+    if ($selectedProject) {
+      helper_saveProjectSettings($selectedProject);
+    }
   }
 </script>
 

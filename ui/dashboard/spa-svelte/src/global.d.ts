@@ -16,5 +16,6 @@ declare interface Window {
     stopServe: (instanceId: string) => Promise<{ status: string; message: string }>;
     getInstances: () => Promise<{ status: string, instances: InstanceItem[], message?: string }>;
     pickSettingsJsonFile: () => Promise<{ project_id: string, path: string } | null>;
+    checkPathExists: (path: string) => Promise<{ status: string; message: string }>;
   };
 }

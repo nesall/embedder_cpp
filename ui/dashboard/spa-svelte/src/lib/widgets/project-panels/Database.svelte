@@ -3,17 +3,45 @@
   import * as icons from "@lucide/svelte";
   import { selectedProject } from "../../store";
   import type { DatabaseSettings } from "../../../app";
+  import { helper_checkPathExists, helper_saveProjectSettings, isParentDirValid } from "../../utils";
 
-  // const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
-  onMount(() => {
-    // In a real application, you would load the initial settings here
-    // console.log("Database settings component mounted.");
-  });
+  let indexParentDirError = $state("");
+  let dbParentDirError = $state("");
+
+  onMount(() => {});
 
   function onChange() {
-    // selectedJsonSettings.set(jsonData);
+    if ($selectedProject) {
+      helper_saveProjectSettings($selectedProject);
+    }
+  }
+
+  async function onDbChange() {
+    if ($selectedProject) {
+      let path = $selectedProject.jsonData.database.sqlite_path;
+      const res = await isParentDirValid(path);
+      if (res.status !== "success") {
+        dbParentDirError = res.message;
+      } else {
+        dbParentDirError = "";
+      }
+      onChange();
+    }
+  }
+
+  async function onIndexChange() {
+    if ($selectedProject) {
+      let path = $selectedProject.jsonData.database.index_path;
+      const res = await isParentDirValid(path);
+      if (res.status !== "success") {
+        dbParentDirError = res.message;
+      } else {
+        dbParentDirError = "";
+      }
+      onChange();
+    }
   }
 
   // Available distance metrics for the dropdown
@@ -46,8 +74,9 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.database.sqlite_path}
                 placeholder="./db_metadata.db"
-                onchange={onChange}
+                onchange={onDbChange}
               />
+              <span>{dbParentDirError}</span>
               <p class="text-sm text-surface-500 mt-1">Path to the SQLite file for document metadata.</p>
             </label>
             <label class="label">
@@ -57,8 +86,9 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.database.index_path}
                 placeholder="./db_embeddings.index"
-                onchange={onChange}
+                onchange={onIndexChange}
               />
+              <span>{indexParentDirError}</span>
               <p class="text-sm text-surface-500 mt-1">Path to the FASS/HNSW index file for embeddings.</p>
             </label>
           </div>

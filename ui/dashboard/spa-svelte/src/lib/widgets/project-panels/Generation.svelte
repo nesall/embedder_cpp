@@ -4,13 +4,12 @@
   import { slide } from "svelte/transition";
   import { selectedProject } from "../../store";
   import UpDownButton from "../misc/UpDownButton.svelte";
+  import { helper_saveProjectSettings } from "../../utils";
 
   const jsonData = $derived($selectedProject?.jsonData);
   const projectTitle = $derived($selectedProject?.jsonData.source.project_title);
 
-  onMount(() => {
-    // Fetch and display generation settings here
-  });
+  onMount(() => {});
 
   function addApi() {
     if (!jsonData) {
@@ -29,6 +28,7 @@
     });
     jsonData.generation.current_api = newId;
     // selectedJsonSettings.set(jsonData);
+    onChange();
   }
 
   function removeApi(index: number) {
@@ -41,6 +41,7 @@
       if (jsonData.generation.current_api === jsonData.generation.apis[index]?.id) {
         jsonData.generation.current_api = jsonData.generation.apis[0]?.id || "";
       }
+      onChange();
     }
   }
 
@@ -52,6 +53,7 @@
       const temp = jsonData.generation.apis[index];
       jsonData.generation.apis[index] = jsonData.generation.apis[index - 1];
       jsonData.generation.apis[index - 1] = temp;
+      onChange();
     }
   }
 
@@ -63,6 +65,7 @@
       const temp = jsonData.generation.apis[index];
       jsonData.generation.apis[index] = jsonData.generation.apis[index + 1];
       jsonData.generation.apis[index + 1] = temp;
+      onChange();
     }
   }
 
@@ -73,6 +76,13 @@
     const selectElem = event.target as HTMLSelectElement;
     jsonData.generation.current_api = selectElem.value;
     // selectedJsonSettings.set(jsonData);
+    onChange();
+  }
+
+  function onChange() {
+    if ($selectedProject) {
+      helper_saveProjectSettings($selectedProject);
+    }
   }
 
   function onExpandAll() {
@@ -118,6 +128,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.timeout_ms}
                 min="1000"
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -127,6 +138,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.max_context_tokens}
                 min="1"
+                onchange={onChange}
               />
             </label>
           </div>
@@ -135,7 +147,13 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label class="label">
               <span class="label-text">Max Chunks</span>
-              <input type="number" class="input" bind:value={$selectedProject.jsonData.generation.max_chunks} min="1" />
+              <input
+                type="number"
+                class="input"
+                bind:value={$selectedProject.jsonData.generation.max_chunks}
+                min="1"
+                onchange={onChange}
+              />
             </label>
             <label class="label">
               <span class="label-text">Max Full Sources</span>
@@ -144,6 +162,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.max_full_sources}
                 min="0"
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -153,6 +172,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.max_related_per_source}
                 min="0"
+                onchange={onChange}
               />
             </label>
           </div>
@@ -168,6 +188,7 @@
                 step="0.1"
                 min="0"
                 max="2"
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -177,6 +198,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.default_max_tokens}
                 min="1"
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -185,6 +207,7 @@
                 type="text"
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.default_max_tokens_name}
+                onchange={onChange}
               />
             </label>
           </div>
@@ -197,6 +220,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.prepend_label_format}
                 placeholder="[Source: &#123;&#125;]\n"
+                onchange={onChange}
               />
               <p class="text-sm text-surface-500 mt-1">Use &#123;&#125; as placeholder for source name</p>
             </label>
@@ -208,6 +232,7 @@
               type="checkbox"
               class="checkbox"
               bind:checked={$selectedProject.jsonData.generation.excerpt.enabled}
+              onchange={onChange}
             />
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -218,6 +243,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.excerpt.min_chunks}
                 disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -227,6 +253,7 @@
                 class="input"
                 bind:value={$selectedProject.jsonData.generation.excerpt.max_chunks}
                 disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
+                onchange={onChange}
               />
             </label>
             <label class="label">
@@ -237,6 +264,7 @@
                 step="0.05"
                 bind:value={$selectedProject.jsonData.generation.excerpt.threshold_ratio}
                 disabled={!$selectedProject.jsonData.generation.excerpt.enabled}
+                onchange={onChange}
               />
             </label>
           </div>
@@ -284,11 +312,11 @@
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label class="label">
                       <span class="label-text">API Name</span>
-                      <input type="text" class="input" bind:value={api.name} />
+                      <input type="text" class="input" bind:value={api.name} onchange={onChange} />
                     </label>
                     <label class="label">
                       <span class="label-text">API ID</span>
-                      <input type="text" class="input" bind:value={api.id} />
+                      <input type="text" class="input" bind:value={api.id} onchange={onChange} />
                     </label>
                   </div>
 
@@ -300,6 +328,7 @@
                         class="input"
                         bind:value={api.api_url}
                         placeholder="https://api.openai.com/v1/chat/completions"
+                        onchange={onChange}
                       />
                     </label>
                     <label class="label">
@@ -309,6 +338,7 @@
                         class="input"
                         bind:value={api.api_key}
                         placeholder="API key or {'${ENV_VAR_NAME}'}"
+                        onchange={onChange}
                       />
                     </label>
                   </div>
@@ -316,17 +346,29 @@
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label class="label">
                       <span class="label-text">Model</span>
-                      <input type="text" class="input" bind:value={api.model} placeholder="gpt-4o" />
+                      <input
+                        type="text"
+                        class="input"
+                        bind:value={api.model}
+                        placeholder="gpt-4o"
+                        onchange={onChange}
+                      />
                     </label>
                     <label class="label">
                       <span class="label-text">Context Length</span>
-                      <input type="number" class="input" bind:value={api.context_length} />
+                      <input type="number" class="input" bind:value={api.context_length} onchange={onChange} />
                     </label>
                   </div>
 
                   <label class="label">
                     <span class="label-text">Max Tokens Param Name</span>
-                    <input type="text" class="input" bind:value={api.max_tokens_name} placeholder="max_tokens" />
+                    <input
+                      type="text"
+                      class="input"
+                      bind:value={api.max_tokens_name}
+                      placeholder="max_tokens"
+                      onchange={onChange}
+                    />
                   </label>
 
                   <div class="border border-surface-500 p-3 rounded-md">
@@ -334,15 +376,33 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <label class="label">
                         <span class="label-text text-xs">Input</span>
-                        <input type="number" step="0.001" class="input" bind:value={api.pricing_tpm.input} />
+                        <input
+                          type="number"
+                          step="0.001"
+                          class="input"
+                          bind:value={api.pricing_tpm.input}
+                          onchange={onChange}
+                        />
                       </label>
                       <label class="label">
                         <span class="label-text text-xs">Output</span>
-                        <input type="number" step="0.001" class="input" bind:value={api.pricing_tpm.output} />
+                        <input
+                          type="number"
+                          step="0.001"
+                          class="input"
+                          bind:value={api.pricing_tpm.output}
+                          onchange={onChange}
+                        />
                       </label>
                       <label class="label">
                         <span class="label-text text-xs">Cached Input</span>
-                        <input type="number" step="0.001" class="input" bind:value={api.pricing_tpm.cached_input} />
+                        <input
+                          type="number"
+                          step="0.001"
+                          class="input"
+                          bind:value={api.pricing_tpm.cached_input}
+                          onchange={onChange}
+                        />
                       </label>
                     </div>
                   </div>

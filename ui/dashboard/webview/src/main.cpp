@@ -592,6 +592,30 @@ int main() {
       }
     );
 
+    w.bind("checkPathExists", [](const std::string &data) -> std::string
+      {
+        LOG_MSG << "checkPathExists" << data;
+        nlohmann::json res;
+        try {
+          auto j = nlohmann::json::parse(data);
+          if (!j.is_array() || j.size() == 0) {
+            throw std::runtime_error("Invalid parameters for stopServe");
+          }
+          std::string path = j[0];
+          if (fs::exists(path)) {
+            res["status"] = "success";
+          } else {
+            throw std::runtime_error("Path does not exist.");
+          }
+        } catch (const std::exception &ex) {
+          LOG_MSG << ex.what();
+          res["status"] = "error";
+          res["message"] = ex.what();
+        }
+        return res.dump();
+      }
+    );
+
     w.init(R"(
       window.cppApi = {
         setPersistentKey,
@@ -604,7 +628,8 @@ int main() {
         getInstances,
         stopServe,
         startServe,
-        pickSettingsJsonFile
+        pickSettingsJsonFile,
+        checkPathExists,
       };
       window.addEventListener('error', function(e) {
         console.error('JS Error:', e.message, e.filename, e.lineno);

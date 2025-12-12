@@ -28,6 +28,7 @@
     if (newExtension.trim()) {
       jsonData.source.default_extensions.push(newExtension.trim());
       newExtension = "";
+      onChange();
     }
   }
 
@@ -36,6 +37,7 @@
       return;
     }
     jsonData.source.default_extensions.splice(index, 1);
+    onChange();
   }
 
   function removePathExtension(pathIndex: number, extensionIndex: number) {
@@ -43,6 +45,7 @@
       return;
     }
     jsonData.source.paths[pathIndex].extensions.splice(extensionIndex, 1);
+    onChange();
   }
 
   function addPathExtension(pathIndex: number) {
@@ -53,6 +56,7 @@
       jsonData.source.paths[pathIndex].extensions.push(newPathExtension.trim());
       newPathExtension = "";
     }
+    onChange();
   }
 
   function addGlobalExclude() {
@@ -63,6 +67,7 @@
       jsonData.source.global_exclude.push(newGlobalExclude.trim());
       newGlobalExclude = "";
     }
+    onChange();
   }
 
   function removeGlobalExclude(index: number) {
@@ -70,6 +75,7 @@
       return;
     }
     jsonData.source.global_exclude.splice(index, 1);
+    onChange();
   }
 
   function addPath() {
@@ -83,6 +89,7 @@
       recursive: true,
       type: "directory",
     });
+    onChange();
   }
 
   function removePath(index: number) {
@@ -90,6 +97,7 @@
       return;
     }
     jsonData.source.paths.splice(index, 1);
+    onChange();
   }
 
   function addPathExclude(pathIndex: number) {
@@ -100,6 +108,7 @@
       jsonData.source.paths[pathIndex].exclude.push(newPathExclude.trim());
       newPathExclude = "";
     }
+    onChange();
   }
 
   function removePathExclude(pathIndex: number, excludeIndex: number) {
@@ -107,6 +116,7 @@
       return;
     }
     jsonData.source.paths[pathIndex].exclude.splice(excludeIndex, 1);
+    onChange();
   }
 
   function movePathUp(index: number) {
@@ -118,6 +128,7 @@
       jsonData.source.paths[index] = jsonData.source.paths[index - 1];
       jsonData.source.paths[index - 1] = temp;
     }
+    onChange();
   }
 
   function movePathDown(index: number) {
@@ -129,6 +140,7 @@
       jsonData.source.paths[index] = jsonData.source.paths[index + 1];
       jsonData.source.paths[index + 1] = temp;
     }
+    onChange();
   }
 </script>
 
