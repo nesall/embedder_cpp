@@ -28,12 +28,12 @@ echo "Copying scripts and setup files to dist/ ..."
 cp -r build_rel/public dist/ 2>/dev/null || echo "public folder not found, skipping"
 cp assets/README dist/
 cp assets/settings.template.json dist/
-cp assets/settings.json dist/
+cp assets/settings.json dist/settings.default.json
 cp assets/bge_tokenizer.json dist/
-cp scripts/install-service.sh dist/
-cp scripts/uninstall-service.sh dist/
-cp scripts/start.sh dist/
-cp scripts/stop.sh dist/
+#cp scripts/install-service.sh dist/
+#cp scripts/uninstall-service.sh dist/
+#cp scripts/start.sh dist/
+#cp scripts/stop.sh dist/
 
 echo "Setting executable permissions..."
 chmod +x dist/phenixcode-core

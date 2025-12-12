@@ -100,12 +100,14 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../../version.cmake")
 #target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/include/3rdparty")
 target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/ui/shared")
 
+set(WEB_ASSETS "ui_assets_c")
 
 # using fmt lib instead of std::format (for older compiler compatibility)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   FMT_HEADER_ONLY
   FMT_USE_LOCALE=0
   EMBEDDER_VERSION="${EMBEDDER_VERSION}"
+  WEB_ASSETS_BASE="${WEB_ASSETS}"
 )
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -140,7 +142,7 @@ if(EXISTS ${SPA_DIST_DIR})
   add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       ${SPA_DIST_DIR}
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>/web_assets
+      $<TARGET_FILE_DIR:${PROJECT_NAME}>/${WEB_ASSETS}
     COMMENT "Copying web assets to executable directory"
   )
 else()

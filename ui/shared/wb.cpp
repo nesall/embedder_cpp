@@ -56,9 +56,9 @@ Webview::Webview(bool debug, void *pWindow) : webview::webview(debug, pWindow)
 #endif
 }
 
-void Webview::setAppIcon(const std::string &iconBaseName)
+void Webview::setAppIcon(const std::string assetsBase, const std::string &iconBaseName)
 {
-  auto assets = findWebAssets();
+  auto assets = findWebAssets(assetsBase);
   if (assets.empty()) return;
   std::filesystem::path base = std::filesystem::path(assets) / iconBaseName;
   std::string iconPath = (base.parent_path() / (base.stem().string() + ".png")).string();
@@ -116,15 +116,15 @@ std::pair<int, int> Webview::getWindowSize()
 #endif // __APPLE__
 
 // static
-std::string Webview::findWebAssets()
+std::string Webview::findWebAssets(const std::string &base)
 {
   LOG_START;
   std::string exeDir = shared::getExecutableDir();
   std::vector<std::string> paths = {
-      exeDir + "/web_assets",
-      exeDir + "/../web_assets",
-      "web_assets",
-      "../web_assets",
+      exeDir + "/" + base,
+      exeDir + "/../" + base,
+      base,
+      "../" + base,
       "../../spa-svelte/dist"
   };
   for (const auto &path : paths) {

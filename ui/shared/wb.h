@@ -16,9 +16,9 @@ public:
     webview::webview::on_window_destroyed(skip_termination);
   }
 
-  void setAppIcon(const std::string &iconBaseName);
+  void setAppIcon(const std::string assetsBase, const std::string &iconBaseName);
   std::pair<int, int> getWindowSize();
-  static std::string findWebAssets();
+  static std::string findWebAssets(const std::string &base);
 
 private:
   void setAppIconImpl(void *wnd, const std::string &iconPath);

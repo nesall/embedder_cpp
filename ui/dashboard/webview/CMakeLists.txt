@@ -110,6 +110,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE "${ROOT_DIR}/ui/shared" "${ROOT_DIR}/include")
 
 set(PROJECTS_FOLDER "phenixcode_projects")
+set(WEB_ASSETS "ui_assets_a")
 
 include("${ROOT_DIR}/version.cmake")
 
@@ -119,6 +120,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   FMT_USE_LOCALE=0
   EMBEDDER_VERSION="${EMBEDDER_VERSION}"
   PROJECTS_FOLDER_NAME="${PROJECTS_FOLDER}"
+  WEB_ASSETS_BASE="${WEB_ASSETS}"
 )
 
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -154,7 +156,7 @@ if(EXISTS ${SPA_DIST_DIR})
   add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       ${SPA_DIST_DIR}
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>/web_assets
+      $<TARGET_FILE_DIR:${PROJECT_NAME}>/${WEB_ASSETS}
     COMMENT "Copying web assets to executable directory"
   )
 else()

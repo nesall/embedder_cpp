@@ -19,12 +19,12 @@ del /f /q %DIRNAME%\diagnostics.log 2>nul
 del /f /q %DIRNAME%\sqlite3_lib.lib 2>nul
 xcopy assets\README %DIRNAME%\
 xcopy assets\settings.template.json %DIRNAME%\
-xcopy assets\settings.json %DIRNAME%\
+copy assets\settings.json %DIRNAME%\settings.default.json
 xcopy assets\bge_tokenizer.json %DIRNAME%\
-xcopy scripts\install-service.bat %DIRNAME%\
-xcopy scripts\uninstall-service.bat %DIRNAME%\
-xcopy scripts\start.bat %DIRNAME%\
-xcopy scripts\stop.bat %DIRNAME%\
+rem xcopy scripts\install-service.bat %DIRNAME%\
+rem xcopy scripts\uninstall-service.bat %DIRNAME%\
+rem xcopy scripts\start.bat %DIRNAME%\
+rem xcopy scripts\stop.bat %DIRNAME%\
 
 
 echo Creating %DIRNAME%.zip...

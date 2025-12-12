@@ -39,7 +39,7 @@ namespace {
     return (fs::path(shared::getExecutableDir()) / fs::path(PROJECTS_FOLDER_NAME));
   }
   const fs::path defaultSettingsJsonPath() {
-    return (fs::path(shared::getExecutableDir()) / fs::path("settings.json"));
+    return (fs::path(shared::getExecutableDir()) / fs::path("settings.default.json"));
   }
   const fs::path projectRefsPath() {
     return (projectsFolderPath() / fs::path(PROJECT_REFS_FNAME));
@@ -127,7 +127,7 @@ namespace {
 
 int main() {
   LOG_START;
-  const std::string assetsPath = Webview::findWebAssets();
+  const std::string assetsPath = Webview::findWebAssets(WEB_ASSETS_BASE);
   if (assetsPath.empty()) {
     LOG_MSG << "Error: Could not find web assets (index.html)";
     LOG_MSG << "Please build the SPA client first:";
@@ -172,7 +172,7 @@ int main() {
       false
 #endif
       , nullptr);
-    w.setAppIcon("logo");
+    w.setAppIcon(WEB_ASSETS_BASE, "logo");
     w.set_title("PhenixCode Dashboard - v" EMBEDDER_VERSION " [build date: " __DATE__ "]");
     w.set_size(prefs.width, prefs.height, WEBVIEW_HINT_NONE);
     w.onDestroyCallback_ = [&w, &prefs]
