@@ -17,7 +17,7 @@ echo "NAME=$NAME"
 
 EMBEDDER="./"
 CLIENT="ui/clients/webview"
-DASHBOARD="ui/clients/webview"
+DASHBOARD="ui/dashboard/webview"
 
 cd "$EMBEDDER"
 ./build_rel.sh
