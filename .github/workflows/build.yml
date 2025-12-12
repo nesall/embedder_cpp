@@ -55,9 +55,9 @@ jobs:
         arch: x64
 
     - name: Install Windows dependencies (CMake + OpenSSL 3)
-      run: |
-         choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' --yes
-         choco install openssl --yes
+      run: |
+        choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' --yes
+        choco install openssl --yes
 
     - name: Run package script
       run: package.bat
