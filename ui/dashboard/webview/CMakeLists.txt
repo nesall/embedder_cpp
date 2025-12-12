@@ -102,7 +102,7 @@ if (WIN32)
   list(APPEND SOURCES app.rc)
 endif()
 if(APPLE)
-  list(APPEND SOURCES src/wb.mm)
+  list(APPEND SOURCES "${ROOT_DIR}/ui/shared/wb.mm")
 endif()
 add_executable(${PROJECT_NAME} ${SOURCES})
 
