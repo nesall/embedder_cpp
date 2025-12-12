@@ -19,6 +19,7 @@ del /f /q %DIRNAME%\diagnostics.log 2>nul
 del /f /q %DIRNAME%\sqlite3_lib.lib 2>nul
 xcopy assets\README %DIRNAME%\
 xcopy assets\settings.template.json %DIRNAME%\
+copy assets\settings.json %DIRNAME%\settings.json
 copy assets\settings.json %DIRNAME%\settings.default.json
 xcopy assets\bge_tokenizer.json %DIRNAME%\
 rem xcopy scripts\install-service.bat %DIRNAME%\

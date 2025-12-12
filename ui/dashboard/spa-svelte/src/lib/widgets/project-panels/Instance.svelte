@@ -21,7 +21,7 @@
 
   let beingStarted = $state(false);
   let beingStopped = $state(false);
-  let bWatch = $state(false);
+  let bWatch = $state(true);
   let watchInterval = $state(60);
 
   const fetchInstances: () => void = getContext("FetchInstances");
