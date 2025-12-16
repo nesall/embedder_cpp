@@ -116,7 +116,7 @@ public:
   void rollback() override { executeSql("ROLLBACK"); }
 
   void persist() override;
-  void compact() override { compactIndex(); }
+  //void compact() override { compactIndex(); }
 
 protected:
   void upsertFileMetadata(const std::string &sourceId, std::time_t mtime, size_t size, size_t lines) override;
@@ -135,7 +135,7 @@ private:
   size_t insertMetadata(const Chunk &chunk);
   std::optional<SearchResult> getChunkData(size_t chunkId) const override;
   std::vector<size_t> getChunkIdsBySource(const std::string &sourceId) const override;
-  void compactIndex();
+  //void compactIndex();
 };
 
 #endif // _DATABASE_H_

@@ -351,8 +351,11 @@ size_t HnswSqliteVectorDatabase::deleteDocumentsBySource(const std::string &sour
   _checkErr = sqlite3_step(stmt.ref());
   size_t n = sqlite3_changes(imp->db_);
   for (size_t id : chunkIds) {
-    if (!imp->index_->isMarkedDeleted(static_cast<unsigned>(id)))
+    try {
       imp->index_->markDelete(id);
+    } catch (const std::runtime_error &e) {
+      LOG_MSG << "Label" << id << "might already be deleted or not exist." << e.what();
+    }
   }
   return n;
 }
@@ -479,6 +482,7 @@ std::string HnswSqliteVectorDatabase::indexPath() const
   return imp->indexPath_;
 }
 
+#if 0
 void HnswSqliteVectorDatabase::compactIndex()
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -527,3 +531,4 @@ void HnswSqliteVectorDatabase::compactIndex()
 
   LOG_MSG << "Compaction complete. Active items: " << imp->index_->getCurrentElementCount();
 }
+#endif
