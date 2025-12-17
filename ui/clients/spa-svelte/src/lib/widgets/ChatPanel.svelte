@@ -170,9 +170,10 @@
 
   const metaTagBegin = "[meta]";
 
-  function parseFromSSE(chunk: string): string {
+  function parseFromSSE(chunk: string): { parsed: string; remainder: string } {
+    // console.log("parseFromSSE chunk:", chunk);
     let len = chunk.length;
-    if (len === 0) return "";
+    if (len === 0) return { parsed: "", remainder: "" };
     let fullResponse: string = "";
     let buffer: string = ""; // holds leftover partial data
     // SSE format: "data: <payload>\n\n"
@@ -182,6 +183,7 @@
       const event = buffer.substring(0, pos); // one SSE event
       buffer = buffer.substring(pos + 2);
       if (event.startsWith("data: ")) {
+        // console.log(event);
         const jsonStr = event.substring(6);
         if (jsonStr === "[DONE]") {
           break;
@@ -201,11 +203,13 @@
         } else {
           const content = chunkJson.content || "";
           fullResponse += content;
-          if (content.startsWith(metaTagBegin)) return content;
+          if (content.startsWith(metaTagBegin)) {
+            return { parsed: content, remainder: buffer };
+          }
         }
       }
     }
-    return fullResponse;
+    return { parsed: fullResponse, remainder: buffer };
   }
 
   async function sendMessage(input: string, attachments: Attachment[], sourceids: string[], appendQ = true) {
@@ -262,30 +266,35 @@
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = parseFromSSE(decoder.decode(value, { stream: true }));
-        if (!chunk && !appended) continue; // skip empty starting text
-        if (chunk.includes(metaTagBegin)) {
-          console.log(chunk);
-          metaInfoArray = [...metaInfoArray, chunk.substring(6)];
-          continue;
-        }
-        if (appended) {
-          let lm = $messages[$messages.length - 1];
-          lm.content += chunk;
-          lm._html = normalizeHeaders(await renderMarkdown(lm.content));
-          $messages = $messages;
-          tick().then(checkMessagesEndVisibility);
-        } else {
-          $messages = [
-            ...$messages,
-            {
-              role: "assistant",
-              content: chunk,
-              _html: normalizeHeaders(await renderMarkdown(chunk)),
-            },
-          ];
-          appended = true;
-          started = true;
+
+        let bufferToParse = decoder.decode(value, { stream: true });
+        while (bufferToParse) {
+          const { parsed: chunk, remainder } = parseFromSSE(bufferToParse);
+          bufferToParse = remainder;
+          if (!chunk && !appended) continue; // skip empty starting text
+          if (chunk.includes(metaTagBegin)) {
+            // console.log(chunk);
+            metaInfoArray = [...metaInfoArray, chunk.substring(6)];
+            continue;
+          }
+          if (appended) {
+            let lm = $messages[$messages.length - 1];
+            lm.content += chunk;
+            lm._html = normalizeHeaders(await renderMarkdown(lm.content));
+            $messages = $messages;
+            tick().then(checkMessagesEndVisibility);
+          } else {
+            $messages = [
+              ...$messages,
+              {
+                role: "assistant",
+                content: chunk,
+                _html: normalizeHeaders(await renderMarkdown(chunk)),
+              },
+            ];
+            appended = true;
+            started = true;
+          }
         }
       }
       let lm = $messages[$messages.length - 1];
