@@ -879,10 +879,10 @@ void App::serve(int suggestedPort, bool watch, int interval)
       LOG_MSG << "  Auto-update: disabled";
     }
     
-    serverThread = std::thread([this, suggestedPort]() {
+    serverThread = std::thread([this, suggestedPort, watch, interval]() {
       int newPort = imp->httpServer_->bindToPortIncremental(suggestedPort);
       if (0 < newPort) {
-        imp->registry_ = std::make_unique<InstanceRegistry>(newPort, settings());
+        imp->registry_ = std::make_unique<InstanceRegistry>(newPort, watch ? interval : 0, settings());
         try {
           imp->registry_->startHeartbeat();
           LOG_MSG << "\nStarting HTTP API server on port " << newPort << "...";

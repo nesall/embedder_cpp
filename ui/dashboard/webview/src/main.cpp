@@ -69,6 +69,7 @@ namespace {
       if (!j["jsonData"].contains("source")) {
         throw std::runtime_error("Missing jsonData.source");
       }
+#if 0
       auto projectId = j["jsonData"]["source"].value("project_id", std::string{});
       // Note: projectId can be empty (auto-generation)
 
@@ -84,6 +85,7 @@ namespace {
       if (fileProjectId != projectId) {
         throw std::runtime_error("ProjectId mismatch");
       }
+#endif
       return true;
     }
     return false;
@@ -486,8 +488,21 @@ int main() {
               throw std::runtime_error("Executable not found: " + exePath);
             if (!std::filesystem::exists(configPath))
               throw std::runtime_error("Config file not found: " + configPath);
+
+            std::vector<std::string> args = { "--no-startup-tests", "--config", configPath, "serve", "--yes" };
+            bool watch = j[2];
+            if (watch) {
+              args.push_back("--watch");
+              int interval = j[3];
+              if (0 < interval) {
+                args.push_back("--interval");
+                args.push_back(std::to_string(interval));
+              } else {
+                LOG_MSG << "Invalid interval value, using to default value";
+              }
+            }
             ProcessManager proc;
-            if (proc.startProcess(exePath, { "--no-startup-tests", "--config", configPath, "serve", "--yes" })) {
+            if (proc.startProcess(exePath, args)) {
               res["status"] = "success";
               res["message"] = "Embedder started successfully";
               LOG_MSG << "Started embedder process" << proc.getProcessId() << "for projectId";
@@ -599,13 +614,22 @@ int main() {
         try {
           auto j = nlohmann::json::parse(data);
           if (!j.is_array() || j.size() == 0) {
-            throw std::runtime_error("Invalid parameters for stopServe");
+            throw std::runtime_error("Invalid parameters for checkPathExists");
           }
-          std::string path = j[0];
-          if (fs::exists(path)) {
-            res["status"] = "success";
+          std::string pathStr = j[0];
+          fs::path p;
+          if (pathStr.empty()) {
+            // Treat empty path as current working directory
+            p = fs::current_path();
+            LOG_MSG << "checkPathExists: empty path => using current directory:" << fs::absolute(p).string();
           } else {
-            throw std::runtime_error("Path does not exist.");
+            p = fs::path(pathStr);
+          }
+          if (fs::exists(p)) {
+            res["status"] = "success";
+            res["path"] = fs::absolute(p).string();
+          } else {
+            throw std::runtime_error("Path does not exist: " + p.string());
           }
         } catch (const std::exception &ex) {
           LOG_MSG << ex.what();

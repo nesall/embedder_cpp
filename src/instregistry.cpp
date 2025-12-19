@@ -184,7 +184,8 @@ struct InstanceRegistry::Impl {
         cwd TEXT NOT NULL,
         config_path TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'healthy',
-        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+        params TEXT
       );
       
       CREATE INDEX IF NOT EXISTS idx_instances_heartbeat ON instances(last_heartbeat);
@@ -283,7 +284,7 @@ struct InstanceRegistry::Impl {
     }
   }
 
-  void registerInstance(int port, const Settings &settings) {
+  void registerInstance(int port, int watchInterval, const Settings &settings) {
     std::lock_guard<std::mutex> lock(dbMutex_);
 
     const auto [now, nowStr] = curTimestamp();
@@ -293,8 +294,8 @@ struct InstanceRegistry::Impl {
     const char *insertSQL = R"(
       INSERT OR REPLACE INTO instances 
       (id, pid, port, host, project_id, name, started_at, started_at_str, 
-       last_heartbeat, last_heartbeat_str, cwd, config_path, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       last_heartbeat, last_heartbeat_str, cwd, config_path, status, params)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     )";
 
     SqliteStmt stmt(db_);
@@ -311,17 +312,21 @@ struct InstanceRegistry::Impl {
     sqlite3_bind_int(stmt.ref(), 3, port);
     sqlite3_bind_text(stmt.ref(), 4, "localhost", -1, SQLITE_STATIC);
     auto projectId = settings.getProjectId();
-    sqlite3_bind_text(stmt.ref(), 5, projectId.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt.ref(), 6, name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt.ref(), 5, projectId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt.ref(), 6, name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt.ref(), 7, now);
-    sqlite3_bind_text(stmt.ref(), 8, nowStr.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt.ref(), 8, nowStr.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt.ref(), 9, now);
-    sqlite3_bind_text(stmt.ref(), 10, nowStr.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt.ref(), 10, nowStr.c_str(), -1, SQLITE_TRANSIENT);
     std::string cwd = std::filesystem::current_path().string();
     std::string absConfig = std::filesystem::absolute(settings.configPath()).string();
     sqlite3_bind_text(stmt.ref(), 11, cwd.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt.ref(), 12, absConfig.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt.ref(), 13, "healthy", -1, SQLITE_STATIC);
+    nlohmann::json jsonParams;
+    jsonParams["watch_interval"] = watchInterval;
+    auto paramsText = jsonParams.dump();
+    sqlite3_bind_text(stmt.ref(), 14, paramsText.c_str(), -1, SQLITE_TRANSIENT);
     rc = sqlite3_step(stmt.ref());
     if (rc != SQLITE_DONE) {
       LOG_MSG << "Failed to register instance: " << sqlite3_errmsg(db_);
@@ -402,7 +407,7 @@ struct InstanceRegistry::Impl {
     const char *selectSQL = R"(
       SELECT id, pid, port, host, project_id, name, started_at, 
              started_at_str, last_heartbeat, last_heartbeat_str, 
-             cwd, config_path, status
+             cwd, config_path, status, params
       FROM instances 
       WHERE (strftime('%s', 'now') - last_heartbeat) < 30
       ORDER BY last_heartbeat DESC
@@ -432,6 +437,7 @@ struct InstanceRegistry::Impl {
       instance["cwd"] = stmt.getStr(j++);
       instance["config"] = stmt.getStr(j++);
       instance["status"] = stmt.getStr(j++);
+      instance["params"] = stmt.getStr(j++);
       active.push_back(instance);
     }
     return active;
@@ -443,18 +449,18 @@ InstanceRegistry::InstanceRegistry(const std::string &registryPath)
 {
 }
 
-InstanceRegistry::InstanceRegistry(int port, const Settings &settings, const std::string &registryPath)
+InstanceRegistry::InstanceRegistry(int port, int watchInterval, const Settings &settings, const std::string &registryPath)
   : imp(std::make_unique<Impl>(registryPath))
 {
   imp->bRegistered_ = true;
-  registerInstance(port, settings);
+  registerInstance(port, watchInterval, settings);
 }
 
 InstanceRegistry::~InstanceRegistry() = default;
 
-void InstanceRegistry::registerInstance(int port, const Settings &settings)
+void InstanceRegistry::registerInstance(int port, int watchInterval, const Settings &settings)
 {
-  imp->registerInstance(port, settings);
+  imp->registerInstance(port, watchInterval, settings);
 }
 
 void InstanceRegistry::unregister()
