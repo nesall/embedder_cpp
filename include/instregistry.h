@@ -13,7 +13,7 @@ class Settings;
 class InstanceRegistry {
 public:
   explicit InstanceRegistry(const std::string &registryPath = {});
-  explicit InstanceRegistry(int port, const Settings &settings, const std::string &registryPath = {});
+  explicit InstanceRegistry(int port, int watchInterval, const Settings &settings, const std::string &registryPath = {});
   ~InstanceRegistry();
 
   // non-copyable, but movable
@@ -28,7 +28,7 @@ public:
   std::string getInstanceId() const;
 
 private:
-  void registerInstance(int port, const Settings &settings);
+  void registerInstance(int port, int watchInterval, const Settings &settings);
   void unregister();
 
 private:
