@@ -244,7 +244,8 @@ let mockInstances: InstanceItem[] = [
     "project_id": "alpha-316e366b",
     "started_at": 1765014564,
     "started_at_str": "2025-12-06 13:49:24",
-    "status": "healthy"
+    "status": "healthy",
+    params: { "watch_interval": 0 }
   },
   { // instance launched outside of admin dashboard (possibility to import into dashboard).
     "config": "/workspace/projects/alpha/settings-embcpp_2.json",
@@ -259,7 +260,8 @@ let mockInstances: InstanceItem[] = [
     "project_id": "alpha-316e366b_2",
     "started_at": 1765014564,
     "started_at_str": "2025-12-06 13:49:24",
-    "status": "healthy"
+    "status": "healthy",
+    params: { "watch_interval": 60 }
   }
 ];
 
@@ -318,7 +320,7 @@ async function test_importProject(projectId: string, configPath: string): Promis
   return { status: "success", message: "Project imported successfully." };
 }
 
-async function test_startServe(project: ProjectItem, coreExecutablePath: string) {
+async function test_startServe(project: ProjectItem, coreExecutablePath: string, watch: boolean, interval: number) {
   let inst: InstanceItem = {
     config: project.settingsFilePath,
     cwd: "C:\\Users\\Arman\\workspace\\projects\\alpha\\phenixcode-v1.0.2-win64",
@@ -332,7 +334,8 @@ async function test_startServe(project: ProjectItem, coreExecutablePath: string)
     project_id: project.jsonData.source.project_id,
     started_at: Date.now(),
     started_at_str: new Date().toISOString(),
-    status: "healthy"
+    status: "healthy",
+    params: { watch_interval: watch && 0 < interval ? interval : 0 }
   }
   mockInstances.push(inst);
   return { status: "success", message: "Project started successfully." };
@@ -350,9 +353,9 @@ async function test_stopServe(instanceId: string) {
 }
 
 async function test_checkPathExists(path: string) {
-  let ok = false;
-  if (path === "./") ok = true;
-  else if (path === "./phenixcode-core") ok = true;
+  let ok = true;
+  if (path.includes("test2")) ok = false;
+  else if (path === "./phenixcode-core2") ok = false;
   console.log("test_checkPathExists", path, ok);
   if (ok) {
     return { status: "success", message: "Path exists." };
@@ -413,7 +416,7 @@ export async function helper_startServe(project: ProjectItem, coreExecutablePath
   if (window.cppApi) {
     return await window.cppApi.startServe(project, coreExecutablePath, watch, interval);
   } else {
-    return await test_startServe(project, coreExecutablePath);
+    return await test_startServe(project, coreExecutablePath, watch, interval);
   }
 }
 

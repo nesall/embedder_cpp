@@ -177,4 +177,5 @@ export interface InstanceItem {
   started_at_str: string;
   status: string;
   _hidden?: boolean;
+  params: { watch_interval?: number };
 }

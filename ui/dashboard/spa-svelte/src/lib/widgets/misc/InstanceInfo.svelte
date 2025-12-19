@@ -82,6 +82,15 @@
           <DetailRow icon={icons.Settings} label="Config File:" value={instance.config} />
           <DetailRow icon={icons.Folder} label="Working Directory:" value={instance.cwd} />
           <DetailRow icon={icons.FingerprintPattern} label="Instance ID:" value={instance.id} />
+          {#if instance.params && instance.params.watch_interval}
+            <DetailRow
+              icon={icons.Eye}
+              label="Auto-update:"
+              value={`Enabled. Update interval ${instance.params.watch_interval} seconds`}
+            />
+          {:else}
+            <DetailRow icon={icons.EyeClosed} label="Auto-update:" value={"Disabled."} />
+          {/if}
         </div>
       </div>
     </div>

@@ -111,7 +111,7 @@
           type="button"
           class="btn-icon btn-sm preset-filled-error-500 ml-auto"
           title="Delete selected project"
-          disabled={!$selectedProject}
+          disabled={!$selectedProject || !!mapProjectToInstance($selectedProject, $instances)}
           onclick={onDeleteProject}
         >
           <icons.Trash2 />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext, onMount, tick } from "svelte";
   import * as icons from "@lucide/svelte";
-  import { instances, projectList, selectedProject } from "../../store";
+  import { instances, selectedProject } from "../../store";
   import {
     Consts,
     getPersistentKey,
@@ -61,7 +61,7 @@
   }
 
   async function onServe() {
-    await onValidate();
+    await validate(true);
     await tick();
     if (0 < fileValidationResults.length) return;
     beingStarted = true;
@@ -100,13 +100,17 @@
   }
 
   async function onValidate() {
+    validate(false);
+  }
+
+  async function validate(doNotToastSuccess?: boolean) {
     fileValidationResults = [];
     if ($selectedProject) {
       beingValidated = true;
       const res = (await hardValidateProjectItem($selectedProject)) as { status: string; message: string }[];
       const errors = res.filter((r) => r.status !== "success");
       if (errors.length === 0) {
-        toaster.success({ title: "Project settings file is valid." });
+        if (!doNotToastSuccess) toaster.success({ title: "Project settings file is valid." });
       } else {
         fileValidationResults = errors;
         toaster.error({ title: "Project settings file has errors." });
@@ -126,7 +130,7 @@
           <div class="text-left text-lg font-bold">
             Project: {projectTitle}
           </div>
-          <div>
+          <div class="relative">
             {#if running}
               <div class="p-4 bg-success-300-700 rounded text-lg flex items-center justify-center space-x-4">
                 <icons.CircleCheck class="mr-2" />
@@ -146,6 +150,9 @@
                 </button>
               </div>
               <InstanceInfo {instance} />
+              {#if beingStopped}
+                <div class="absolute bg-surface-500/50 left-0 top-0 w-full h-full"></div>
+              {/if}
             {:else}
               <div class="flex flex-col space-y-4">
                 <div class="p-4 bg-error-300-700 rounded text-lg flex items-center justify-center space-x-4">
